@@ -1,0 +1,6 @@
+export { Hero } from './Hero'
+export { FeaturedProjects } from './FeaturedProjects'
+export { HowItWorks } from './HowItWorks'
+export { AITools } from './AITools'
+export { Testimonials } from './Testimonials'
+export { CTA } from './CTA'
