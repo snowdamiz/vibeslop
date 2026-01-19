@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react'
 
@@ -158,6 +158,7 @@ export function Testimonials() {
                       
                       <div className="flex items-center gap-3 pt-4 border-t border-border">
                         <Avatar className="w-10 h-10 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
+                          <AvatarImage src={`https://i.pravatar.cc/150?img=${30 + currentIndex}`} alt={testimonial.author} />
                           <AvatarFallback className={`bg-gradient-to-br ${testimonial.color} text-white text-sm font-medium`}>
                             {testimonial.initials}
                           </AvatarFallback>

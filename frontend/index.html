@@ -17,6 +17,15 @@
     <title>Vibeslop - Where AI-native builders show their work</title>
   </head>
   <body>
+    <script>
+      (function() {
+        const theme = localStorage.getItem('vibeslop_theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (theme === 'dark' || (theme !== 'light' && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

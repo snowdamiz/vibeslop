@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,21 +10,27 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { Menu, X, Sparkles, Search } from 'lucide-react'
+import { Menu, X, Sparkles, Search, User, Settings, LogOut, Plus, Moon, Sun } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-
-// NOTE: To re-enable dark mode:
-// 1. Import Moon and Sun icons from lucide-react
-// 2. Add isDark state: const [isDark, setIsDark] = useState(false)
-// 3. Add useEffect to check localStorage/system preference
-// 4. Add toggleTheme function to toggle document.documentElement.classList
-// 5. Add theme toggle button in desktop and mobile views
-// 6. Uncomment .dark CSS block in index.css
+import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const { user, isAuthenticated, logout } = useAuth()
+  const { resolvedTheme, setTheme } = useTheme()
+  const navigate = useNavigate()
+
+  const toggleTheme = () => {
+    setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+  }
+
+  const handleLogout = () => {
+    logout()
+    navigate('/')
+  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,7 +45,7 @@ export function Header() {
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <motion.div 
               className="flex items-center justify-center w-9 h-9 bg-primary/10 rounded-lg"
               whileHover={{ scale: 1.05, rotate: 5 }}
@@ -46,23 +54,20 @@ export function Header() {
               <Sparkles className="w-5 h-5 text-primary" />
             </motion.div>
             <span className="text-xl font-bold tracking-tight">
-              vibe<span className="text-primary">slop</span>
+              hype<span className="text-primary">vibe</span>
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
-            <Button variant="nav" size="sm">
-              Explore
+            <Button variant="nav" size="sm" asChild>
+              <Link to="/explore">Explore</Link>
             </Button>
-            <Button variant="nav" size="sm">
-              Trending
+            <Button variant="nav" size="sm" asChild>
+              <Link to="/explore">Trending</Link>
             </Button>
-            <Button variant="nav" size="sm">
-              AI Tools
-            </Button>
-            <Button variant="nav" size="sm">
-              About
+            <Button variant="nav" size="sm" asChild>
+              <Link to="/about">About</Link>
             </Button>
           </div>
 
@@ -96,14 +101,84 @@ export function Header() {
               <Search className="h-4 w-4" />
             </Button>
 
+            {/* Theme Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9"
+              onClick={toggleTheme}
+              aria-label="Toggle theme"
+            >
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={resolvedTheme}
+                  initial={{ scale: 0, rotate: -90, opacity: 0 }}
+                  animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                  exit={{ scale: 0, rotate: 90, opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  {resolvedTheme === 'dark' ? (
+                    <Sun className="h-4 w-4" />
+                  ) : (
+                    <Moon className="h-4 w-4" />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </Button>
+
             <div className="w-px h-6 bg-border mx-1" />
 
-            <Button variant="ghost" size="sm">
-              Sign in
-            </Button>
-            <Button size="sm" className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25">
-              Get Started
-            </Button>
+            {isAuthenticated ? (
+              <>
+                <Button size="sm" variant="outline" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Project
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src="https://i.pravatar.cc/150?img=1" alt={user?.name} />
+                        <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+                          {user?.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56 mt-2">
+                    <div className="px-3 py-2">
+                      <p className="font-medium">{user?.name}</p>
+                      <p className="text-sm text-muted-foreground">@{user?.username}</p>
+                    </div>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                      <Link to={`/user/${user?.username}`}>
+                        <User className="h-4 w-4 mr-2" />
+                        Your Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/signin">Sign in</Link>
+                </Button>
+                <Button size="sm" className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-lg shadow-primary/25" asChild>
+                  <Link to="/signup">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -129,14 +204,53 @@ export function Header() {
                   <Search className="h-4 w-4 mr-2" />
                   Search
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleTheme}>
+                  {resolvedTheme === 'dark' ? (
+                    <>
+                      <Sun className="h-4 w-4 mr-2" />
+                      Light mode
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="h-4 w-4 mr-2" />
+                      Dark mode
+                    </>
+                  )}
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Explore</DropdownMenuItem>
-                <DropdownMenuItem>Trending</DropdownMenuItem>
-                <DropdownMenuItem>AI Tools</DropdownMenuItem>
-                <DropdownMenuItem>About</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/explore">Explore</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/explore">Trending</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/about">About</Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-primary font-medium">Sign in</DropdownMenuItem>
-                <DropdownMenuItem className="text-primary font-medium">Get Started</DropdownMenuItem>
+                {isAuthenticated ? (
+                  <>
+                    <DropdownMenuItem asChild>
+                      <Link to={`/user/${user?.username}`}>
+                        <User className="h-4 w-4 mr-2" />
+                        Your Profile
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Sign out
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuItem asChild className="text-primary font-medium">
+                      <Link to="/signin">Sign in</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="text-primary font-medium">
+                      <Link to="/signup">Get Started</Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

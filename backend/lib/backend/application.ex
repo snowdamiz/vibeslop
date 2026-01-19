@@ -7,6 +7,11 @@ defmodule Backend.Application do
 
   @impl true
   def start(_type, _args) do
+    # Run migrations automatically in development
+    if Application.get_env(:backend, :auto_migrate, false) do
+      migrate()
+    end
+
     children = [
       BackendWeb.Telemetry,
       Backend.Repo,
@@ -30,5 +35,18 @@ defmodule Backend.Application do
   def config_change(changed, _new, removed) do
     BackendWeb.Endpoint.config_change(changed, removed)
     :ok
+  end
+
+  defp migrate do
+    # Use with_repo to temporarily start the repo for migrations
+    {:ok, _, _} =
+      Ecto.Migrator.with_repo(Backend.Repo, fn repo ->
+        Ecto.Migrator.run(repo, :up, all: true)
+      end)
+  rescue
+    # If migrations fail (e.g., database doesn't exist), log and continue
+    error ->
+      require Logger
+      Logger.warning("Auto-migration failed: #{inspect(error)}. Run 'mix ecto.setup' manually.")
   end
 end

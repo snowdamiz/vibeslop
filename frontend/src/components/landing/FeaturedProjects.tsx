@@ -1,6 +1,6 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { SectionDivider } from '@/components/ui/section-divider'
 import { Heart, MessageCircle, ExternalLink, ArrowRight, Bookmark } from 'lucide-react'
@@ -124,7 +124,7 @@ export function FeaturedProjects() {
           whileInView="visible"
           viewport={{ once: true, margin: "-100px" }}
         >
-          {projects.map((project) => (
+          {projects.map((project, index) => (
             <motion.div key={project.id} variants={cardVariants}>
               <Card 
                 className={`group border-border bg-card hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 h-full py-0 shadow-none hover:shadow-sm ${project.featured ? 'ring-1 ring-primary/20' : ''}`}
@@ -164,6 +164,7 @@ export function FeaturedProjects() {
                   {/* Author */}
                   <div className="flex items-center gap-2 mb-3">
                     <Avatar className="w-6 h-6">
+                      <AvatarImage src={`https://i.pravatar.cc/150?img=${40 + index}`} alt={project.author.name} />
                       <AvatarFallback className="text-xs bg-muted text-muted-foreground">
                         {project.author.initials}
                       </AvatarFallback>

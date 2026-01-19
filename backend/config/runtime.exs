@@ -1,11 +1,46 @@
 import Config
 
+# Load .env file in development using Dotenvy
+# In production, env vars come from the deployment environment
+if config_env() != :prod do
+  env_file = Path.join(File.cwd!(), ".env")
+
+  if File.exists?(env_file) do
+    try do
+      env_vars = Dotenvy.source!(env_file)
+      Enum.each(env_vars, fn {key, value} -> System.put_env(key, value) end)
+    rescue
+      _ -> :ok
+    end
+  end
+end
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
 # and secrets from environment variables or elsewhere. Do not define
 # any compile-time configuration in here, as it won't be applied.
 # The block below contains prod specific runtime configuration.
+
+# Configure GitHub OAuth
+github_client_id = System.get_env("GITHUB_CLIENT_ID")
+github_client_secret = System.get_env("GITHUB_CLIENT_SECRET")
+
+if github_client_id && github_client_secret do
+  config :ueberauth, Ueberauth.Strategy.Github.OAuth,
+    client_id: github_client_id,
+    client_secret: github_client_secret
+end
+
+# Configure JWT secret
+if jwt_secret = System.get_env("JWT_SECRET") do
+  config :backend, :jwt_secret, jwt_secret
+end
+
+# Configure frontend URL
+if frontend_url = System.get_env("FRONTEND_URL") do
+  config :backend, :frontend_url, frontend_url
+end
 
 # ## Using releases
 #

@@ -1,6 +1,6 @@
 import Config
 
-# Configure your database
+# Configure your database (connects to docker-compose postgres on port 5433)
 config :backend, Backend.Repo,
   username: "postgres",
   password: "postgres",
@@ -10,6 +10,9 @@ config :backend, Backend.Repo,
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,
   pool_size: 10
+
+# Auto-run migrations on server start in development
+config :backend, auto_migrate: true
 
 # For development, we disable any cache and enable
 # debugging and code reloading.
@@ -65,3 +68,9 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Development JWT secret (generate a proper one for production)
+config :backend, :jwt_secret, "dev_jwt_secret_key_change_in_production"
+
+# Frontend URL for OAuth redirects
+config :backend, :frontend_url, "http://localhost:5173"

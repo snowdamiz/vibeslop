@@ -1,0 +1,26 @@
+{
+  "name": "vibeslop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The social portfolio platform for vibe coders",
+  "scripts": {
+    "dev": "concurrently -n \"frontend,backend,postgres\" -c \"cyan,magenta,yellow\" \"npm run dev:frontend\" \"npm run dev:backend\" \"npm run dev:db\"",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "cd backend && mix phx.server",
+    "dev:db": "docker compose up postgres",
+    "setup": "npm run setup:frontend && npm run setup:backend",
+    "setup:frontend": "npm install --prefix frontend",
+    "setup:backend": "cd backend && mix deps.get && mix ecto.setup",
+    "build": "npm run build:frontend",
+    "build:frontend": "npm run build --prefix frontend",
+    "db:start": "docker compose up -d postgres",
+    "db:stop": "docker compose down",
+    "db:reset": "cd backend && mix ecto.reset"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

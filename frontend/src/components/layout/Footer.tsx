@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Sparkles, Github, Twitter, Send, Zap, CheckCircle2 } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -7,8 +8,8 @@ import { Badge } from '@/components/ui/badge'
 
 const footerLinks = {
   product: [
-    { name: 'Explore', href: '#' },
-    { name: 'Trending', href: '#' },
+    { name: 'Explore', href: '/explore', isInternal: true },
+    { name: 'Trending', href: '/explore', isInternal: true },
     { name: 'AI Tools', href: '#' },
     { name: 'Collections', href: '#' },
   ],
@@ -19,7 +20,7 @@ const footerLinks = {
     { name: 'Changelog', href: '#' },
   ],
   company: [
-    { name: 'About', href: '#' },
+    { name: 'About', href: '/about', isInternal: true },
     { name: 'Careers', href: '#' },
     { name: 'Contact', href: '#' },
     { name: 'Press', href: '#' },
@@ -84,14 +85,14 @@ export function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
-            <div className="flex items-center gap-2 mb-4">
+            <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
               <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-lg">
                 <Sparkles className="w-4 h-4 text-primary" />
               </div>
               <span className="text-lg font-bold tracking-tight">
-                vibe<span className="text-primary">slop</span>
+                hype<span className="text-primary">vibe</span>
               </span>
-            </div>
+            </Link>
             <p className="text-sm text-muted-foreground max-w-xs mb-4">
               The portfolio platform for AI-native builders. Show your work, share your process.
             </p>
@@ -117,12 +118,21 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.product.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  {'isInternal' in link && link.isInternal ? (
+                    <Link
+                      to={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
@@ -149,12 +159,21 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.company.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.name}
-                  </a>
+                  {'isInternal' in link && link.isInternal ? (
+                    <Link
+                      to={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </Link>
+                  ) : (
+                    <a
+                      href={link.href}
+                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {link.name}
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
