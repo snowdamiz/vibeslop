@@ -87,6 +87,41 @@ defmodule BackendWeb.AIController do
   end
 
   @doc """
+  Improves a post using AI with streaming response.
+
+  Request body:
+    {
+      "content": "Original post content..."
+    }
+  """
+  def improve_post(conn, %{"content" => content}) do
+    user = conn.assigns.current_user
+
+    # Check rate limit
+    case RateLimiter.check_text_generation(user.id) do
+      :ok ->
+        do_improve_post(conn, content)
+
+      {:error, :rate_limited} ->
+        conn
+        |> put_status(:too_many_requests)
+        |> json(%{
+          error: "rate_limited",
+          message: "You've reached your hourly limit for AI generation. Please try again later."
+        })
+    end
+  end
+
+  def improve_post(conn, _params) do
+    conn
+    |> put_status(:bad_request)
+    |> json(%{
+      error: "invalid_params",
+      message: "Missing required parameter: content"
+    })
+  end
+
+  @doc """
   Gets the current rate limit status for the user.
   """
   def quota(conn, _params) do
@@ -255,5 +290,140 @@ defmodule BackendWeb.AIController do
     # Check if the user's GitHub username matches the repo owner
     # or if the repo is public (we fetched it successfully with their token)
     user.github_username == owner_login || !repo_data["private"]
+  end
+
+  defp do_improve_post(conn, content) do
+    require Logger
+
+    # System prompt for post improvement with personality adaptation
+    system_prompt = """
+    You're helping developers share their thoughts on a tech social platform. Your job is to take their post and make it sound more natural, engaging, and human - like something a real person would actually write.
+
+    PERSONALITY ADAPTATION - Choose based on the post's vibe:
+
+    1. EDGY/SARCASTIC: For rants, hot takes, controversial opinions, frustrations with tech
+       - Use sharp wit, slight irreverence, maybe some subtle snark
+       - "honestly", "let's be real", "no cap", casual swearing if appropriate
+       - Don't hold back on the spice
+
+    2. PROFESSIONAL/THOUGHTFUL: For serious technical discussions, career advice, architecture decisions
+       - Clear, articulate, but still conversational
+       - "Here's the thing:", "Worth noting:", "Quick thought:"
+       - Authoritative but not pompous
+
+    3. EXCITED/HYPED: For sharing wins, new discoveries, cool projects, breakthrough moments
+       - Genuine enthusiasm, exclamation points are OK here
+       - "Just", "Finally", "Holy shit this is cool"
+       - Let the excitement show through
+
+    4. CASUAL/RELATABLE: For everyday coding stuff, memes, relatable struggles
+       - Friendly, conversational, like talking to a colleague
+       - "tbh", "ngl", "lol", casual abbreviations
+       - Make it feel like a coffee chat
+
+    RULES:
+    - Keep the original meaning and core message intact
+    - Match the author's energy level (don't make a rant sound polite, don't make excitement sound corporate)
+    - Natural language only - write like humans actually talk
+    - If they used hashtags/emojis, keep them; otherwise don't add them
+    - Keep it concise (under 280 chars if possible, unless the original was longer)
+    - NO explanations, quotes, or meta-commentary
+    - Just output the improved post, nothing else
+
+    Read the vibe, pick the right personality, and make it sound real.
+    """
+
+    messages = [
+      %{role: "system", content: system_prompt},
+      %{role: "user", content: content}
+    ]
+
+    # Start SSE streaming
+    conn = conn
+    |> put_resp_content_type("text/event-stream")
+    |> put_resp_header("cache-control", "no-cache")
+    |> put_resp_header("connection", "keep-alive")
+    |> send_chunked(200)
+
+    # Stream callback that forwards chunks to the client
+    stream_callback = fn data ->
+      process_and_forward_chunk(conn, data)
+    end
+
+    # Use Grok 4.1 Fast for post improvement
+    case Backend.AI.OpenRouter.stream_chat_completion(messages, stream_callback, model: "x-ai/grok-4.1-fast") do
+      {:ok, %{status: 200}} ->
+        # Stream completed successfully
+        send_sse_chunk(conn, "[DONE]")
+        conn
+
+      {:ok, %{status: 429}} ->
+        send_sse_error(conn, "Rate limited by AI provider. Please try again later.")
+        conn
+
+      {:ok, %{status: status}} ->
+        Logger.error("OpenRouter returned status #{status}")
+        send_sse_error(conn, "AI service error. Please try again.")
+        conn
+
+      {:error, error} ->
+        Logger.error("Failed to call OpenRouter: #{inspect(error)}")
+        send_sse_error(conn, "Failed to connect to AI service.")
+        conn
+    end
+  end
+
+  defp process_and_forward_chunk(conn, data) do
+    require Logger
+
+    # Parse SSE format from OpenRouter
+    lines = String.split(data, "\n")
+
+    for line <- lines do
+      if String.starts_with?(line, "data: ") do
+        chunk_data = String.slice(line, 6..-1//1) |> String.trim()
+
+        unless chunk_data == "" or chunk_data == "[DONE]" do
+          case Jason.decode(chunk_data) do
+            {:ok, %{"choices" => [%{"delta" => %{"content" => content}} | _]}} when content != "" ->
+              # Forward the content to client
+              send_sse_chunk(conn, %{content: content})
+
+            {:ok, _} ->
+              # Other chunk types (role, etc.), skip
+              :ok
+
+            {:error, reason} ->
+              Logger.debug("Skipping non-JSON SSE data: #{inspect(reason)}")
+              :ok
+          end
+        end
+      end
+    end
+  end
+
+  defp send_sse_chunk(conn, "[DONE]") do
+    chunk(conn, "data: [DONE]\n\n")
+  end
+
+  defp send_sse_chunk(conn, data) when is_map(data) do
+    require Logger
+
+    case Jason.encode(data) do
+      {:ok, json} ->
+        chunk(conn, "data: #{json}\n\n")
+      {:error, _} ->
+        Logger.error("Failed to encode SSE data")
+        :ok
+    end
+  end
+
+  defp send_sse_error(conn, message) do
+    case Jason.encode(%{error: message}) do
+      {:ok, json} ->
+        chunk(conn, "data: #{json}\n\n")
+      {:error, _} ->
+        :ok
+    end
   end
 end

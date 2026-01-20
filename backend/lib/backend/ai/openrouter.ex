@@ -163,6 +163,45 @@ defmodule Backend.AI.OpenRouter do
   end
 
   @doc """
+  Streams a chat completion request from OpenRouter.
+  Accepts a callback function that will be called for each chunk.
+
+  Options:
+    - `:model` - Model to use (default: "anthropic/claude-3.5-sonnet")
+    - `:temperature` - Sampling temperature (default: 0.7)
+    - `:max_tokens` - Maximum tokens to generate (optional)
+  """
+  def stream_chat_completion(messages, callback, opts \\ []) do
+    model = Keyword.get(opts, :model, default_model())
+    temperature = Keyword.get(opts, :temperature, 0.7)
+
+    body = %{
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      stream: true
+    }
+
+    # Add max_tokens if specified
+    body = if max_tokens = Keyword.get(opts, :max_tokens) do
+      Map.put(body, :max_tokens, max_tokens)
+    else
+      body
+    end
+
+    # Stream the response and call callback for each chunk
+    Req.post("#{@base_url}/chat/completions",
+      json: body,
+      headers: headers(),
+      receive_timeout: 60_000,
+      into: fn {:data, data}, acc ->
+        callback.(data)
+        {:cont, acc}
+      end
+    )
+  end
+
+  @doc """
   Extracts the text content from a chat completion response.
   """
   def extract_text(response) do

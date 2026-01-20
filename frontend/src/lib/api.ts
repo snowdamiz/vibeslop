@@ -532,6 +532,74 @@ class ApiClient {
   async getAIQuota(): Promise<{ text_generation: QuotaInfo; image_generation: QuotaInfo }> {
     return this.get('/ai/quota')
   }
+
+  /**
+   * Improves post content with AI streaming
+   */
+  async improvePost(
+    content: string,
+    onChunk: (text: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const token = this.getToken()
+    const response = await fetch(`${this.baseUrl}/ai/improve-post`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ content }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        error: 'unknown_error',
+        message: 'Failed to improve post',
+      }))
+      throw new Error(error.message || `API error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+      
+      // Parse SSE format: "data: {...}\n\n"
+      const lines = buffer.split('\n')
+      
+      // Keep the last incomplete line in buffer
+      buffer = lines.pop() || ''
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') return
+          
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+            if (parsed.content) {
+              onChunk(parsed.content)
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', data, e)
+          }
+        }
+      }
+    }
+  }
 }
 
 // GitHub Types

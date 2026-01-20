@@ -38,6 +38,7 @@ import {
   Code,
   List,
   Link2,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FeedItem, ProjectPost, StatusUpdate } from './types'
@@ -45,6 +46,7 @@ import { ProjectComposer } from './ProjectComposer'
 import { QuotedPostPreview } from './QuotedPostPreview'
 import { MentionList } from '@/components/ui/mention-list'
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch'
+import { api } from '@/lib/api'
 
 type ComposeMode = 'update' | 'project'
 
@@ -85,6 +87,11 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
   const [attachedImage, setAttachedImage] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // AI improvement state
+  const [isImproving, setIsImproving] = useState(false)
+  const [ghostWords, setGhostWords] = useState<string[]>([])
+  const [improvedText, setImprovedText] = useState('')
 
   const defaultPlaceholder = mode === 'update' 
     ? "What's on your mind?" 
@@ -391,8 +398,53 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
     setSelectedTools(prev => prev.filter(t => t !== tool))
   }
 
+  const handleAIImprove = useCallback(async () => {
+    if (!editor || isImproving) return
+    
+    const content = getMarkdownContent()
+    const words = content.trim().split(/\s+/).filter(w => w.length > 0)
+    
+    if (words.length < 5) return
+    
+    // Store original content for error recovery
+    const originalContent = content
+    
+    // Set up ghost text state
+    setGhostWords(words)
+    setImprovedText('')
+    setIsImproving(true)
+    editor.setEditable(false)
+    
+    // Accumulate raw text (not split into words to preserve formatting)
+    let accumulatedText = ''
+    
+    try {
+      await api.improvePost(content, (chunk) => {
+        // Accumulate raw text chunks directly (preserves formatting)
+        accumulatedText += chunk
+        setImprovedText(accumulatedText)
+      })
+      
+      // Transfer final content to editor
+      editor.commands.setContent(accumulatedText.trim())
+    } catch (error) {
+      console.error('AI improvement failed:', error)
+      // Restore original content on error
+      editor.commands.setContent(originalContent)
+      alert(error instanceof Error ? error.message : 'Failed to improve post')
+    } finally {
+      // Clean up
+      setGhostWords([])
+      setImprovedText('')
+      setIsImproving(false)
+      editor.setEditable(true)
+    }
+  }, [editor, isImproving, getMarkdownContent])
+
   const content = getMarkdownContent()
   const charCount = content.length
+  const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length
+  const canUseAI = wordCount >= 5 && mode === 'update'
   
   const canPost = mode === 'update' 
     ? content.trim().length > 0 || attachedImage !== null || quotedItem !== null
@@ -538,11 +590,39 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
 
           {/* Content Area */}
           <div className="px-4 pt-3 pb-2" onPaste={handlePaste}>
-            {/* Rich Text Editor */}
-            <EditorContent 
-              editor={editor} 
-              className="[&_.tiptap]:min-h-[120px] [&_.tiptap]:focus:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
-            />
+            {/* Rich Text Editor or Ghost Text View */}
+            {isImproving ? (
+              <div className="min-h-[120px] text-[15px] prose prose-sm dark:prose-invert max-w-none py-2">
+                {(() => {
+                  // Calculate how many words have been streamed in
+                  const improvedWordCount = improvedText.trim() 
+                    ? improvedText.trim().split(/\s+/).filter(w => w).length 
+                    : 0
+                  const remainingGhostWords = ghostWords.slice(improvedWordCount)
+                  
+                  return (
+                    <>
+                      {/* AI-generated text - normal styling */}
+                      <span>{improvedText}</span>
+                      {/* Remaining ghost words - faded */}
+                      {remainingGhostWords.length > 0 && (
+                        <>
+                          {improvedText && !improvedText.endsWith(' ') && ' '}
+                          <span className="text-muted-foreground/30 select-none">
+                            {remainingGhostWords.join(' ')}
+                          </span>
+                        </>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            ) : (
+              <EditorContent 
+                editor={editor} 
+                className="[&_.tiptap]:min-h-[120px] [&_.tiptap]:focus:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
+              />
+            )}
 
             {/* Attached Image Preview - Always at the bottom */}
             {attachedImage && (
@@ -686,8 +766,19 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
               >
                 <Image className="w-5 h-5" />
               </Button>
-              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-primary hover:bg-primary/10">
-                <Sparkles className="w-5 h-5" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="w-9 h-9 rounded-full text-primary hover:bg-primary/10"
+                onClick={handleAIImprove}
+                disabled={!canUseAI || isImproving}
+                title={canUseAI ? "Improve with AI" : "Write at least 5 words to use AI"}
+              >
+                {isImproving ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Sparkles className="w-5 h-5" />
+                )}
               </Button>
             </div>
 

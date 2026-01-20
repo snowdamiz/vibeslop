@@ -99,6 +99,7 @@ defmodule BackendWeb.Router do
     # AI generation
     post "/ai/generate-project", AIController, :generate_project
     post "/ai/generate-image", AIController, :generate_image
+    post "/ai/improve-post", AIController, :improve_post
     get "/ai/quota", AIController, :quota
   end
 
