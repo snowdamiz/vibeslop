@@ -7,8 +7,17 @@ defmodule BackendWeb.PostJSON do
   end
 
   @doc """
-  Renders a unified feed (posts + projects).
+  Renders a unified feed (posts + projects) with cursor pagination.
   """
+  def index_unified(%{feed_result: %{items: items, next_cursor: next_cursor, has_more: has_more}}) do
+    %{
+      data: for(item <- items, do: render_feed_item(item)),
+      next_cursor: next_cursor,
+      has_more: has_more
+    }
+  end
+
+  # Legacy support for old format without cursor pagination
   def index_unified(%{feed_items: feed_items}) do
     %{data: for(item <- feed_items, do: render_feed_item(item))}
   end

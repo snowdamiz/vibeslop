@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Post } from './Post'
 import type { FeedItem } from './types'
 import { ComposeBox } from './ComposeBox'
@@ -199,8 +199,11 @@ export function Feed({
   const { isAuthenticated } = useAuth()
   const [activeTab, setActiveTab] = useState<FeedTab>(initialTab)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasNewPosts, setHasNewPosts] = useState(false)
   const [posts, setPosts] = useState<FeedItem[]>(providedPosts || [])
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_error, setError] = useState<string | null>(null)
   const [quotedItem, setQuotedItem] = useState<FeedItem | null>(null)
@@ -220,12 +223,16 @@ export function Feed({
   useEffect(() => {
     if (providedPosts) {
       setPosts(providedPosts)
+      setNextCursor(null)
+      setHasMore(false)
       return
     }
 
     const fetchPosts = async () => {
       setIsLoading(true)
       setError(null)
+      setNextCursor(null)
+      setHasMore(false)
       
       try {
         const response = await api.getPosts({
@@ -234,11 +241,15 @@ export function Feed({
         })
         
         setPosts((response.data as FeedItem[]) || [])
+        setNextCursor(response.next_cursor || null)
+        setHasMore(response.has_more || false)
       } catch (err) {
         console.error('Failed to fetch posts:', err)
         setError('Failed to load posts')
         // Fallback to mock data on error
         setPosts(mockFeedData)
+        setNextCursor(null)
+        setHasMore(false)
       } finally {
         setIsLoading(false)
       }
@@ -246,6 +257,30 @@ export function Feed({
 
     fetchPosts()
   }, [activeTab, providedPosts])
+
+  // Load more posts using cursor pagination
+  const handleLoadMore = useCallback(async () => {
+    if (!nextCursor || isLoadingMore) return
+    
+    setIsLoadingMore(true)
+    
+    try {
+      const response = await api.getPosts({
+        feed: activeTab,
+        limit: 20,
+        cursor: nextCursor
+      })
+      
+      const newPosts = (response.data as FeedItem[]) || []
+      setPosts(prev => [...prev, ...newPosts])
+      setNextCursor(response.next_cursor || null)
+      setHasMore(response.has_more || false)
+    } catch (err) {
+      console.error('Failed to load more posts:', err)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [activeTab, nextCursor, isLoadingMore])
 
   // Simulate new posts arriving
   const handleShowNewPosts = () => {
@@ -425,11 +460,23 @@ export function Feed({
       </div>
 
       {/* Load More */}
-      {filteredPosts.length > 0 && (
+      {filteredPosts.length > 0 && hasMore && (
         <div className="py-8 text-center border-t border-border">
           <div className="max-w-[600px] mx-auto px-4">
-            <Button variant="outline" className="rounded-full">
-              Load more
+            <Button 
+              variant="outline" 
+              className="rounded-full"
+              onClick={handleLoadMore}
+              disabled={isLoadingMore}
+            >
+              {isLoadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Load more'
+              )}
             </Button>
           </div>
         </div>

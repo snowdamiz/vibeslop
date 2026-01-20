@@ -28,19 +28,13 @@ defmodule BackendWeb.ImpressionController do
       |> put_status(:bad_request)
       |> json(%{success: false, error: "Either authentication or fingerprint is required"})
     else
-      case Content.record_impressions(impressions,
+      {:ok, count} = Content.record_impressions(impressions,
         user_id: user_id,
         fingerprint: fingerprint,
         ip_address: ip_address
-      ) do
-        {:ok, count} ->
-          json(conn, %{success: true, count: count})
+      )
 
-        {:error, _reason} ->
-          conn
-          |> put_status(:unprocessable_entity)
-          |> json(%{success: false, error: "Failed to record impressions"})
-      end
+      json(conn, %{success: true, count: count})
     end
   end
 

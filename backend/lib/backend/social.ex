@@ -502,38 +502,56 @@ defmodule Backend.Social do
     fingerprint = Keyword.get(opts, :fingerprint)
     ip_address = Keyword.get(opts, :ip_address)
 
-    attrs = %{
-      impressionable_type: impressionable_type,
-      impressionable_id: impressionable_id,
-      user_id: user_id,
-      fingerprint: fingerprint,
-      ip_address: ip_address
-    }
-
-    changeset = Impression.changeset(%Impression{}, attrs)
-
-    # Choose the appropriate conflict target based on whether user is authenticated
-    # This is required for partial unique indexes to work correctly with on_conflict
-    conflict_target = if user_id do
-      {:constraint, :impressions_user_unique_index}
+    # Check if impression already exists to avoid Postgres error logs
+    if has_impressed?(impressionable_type, impressionable_id, user_id: user_id, fingerprint: fingerprint) do
+      {:ok, :already_impressed}
     else
-      {:constraint, :impressions_fingerprint_unique_index}
-    end
+      attrs = %{
+        impressionable_type: impressionable_type,
+        impressionable_id: impressionable_id,
+        user_id: user_id,
+        fingerprint: fingerprint,
+        ip_address: ip_address
+      }
 
-    case Repo.insert(changeset, on_conflict: :nothing, conflict_target: conflict_target) do
-      {:ok, %Impression{id: nil}} ->
-        # on_conflict: :nothing returns struct with nil id when skipped
-        {:ok, :already_impressed}
-      {:ok, impression} ->
-        {:ok, impression}
-      {:error, %Ecto.Changeset{errors: errors}} ->
-        # Handle validation errors (not constraint violations)
-        if Keyword.has_key?(errors, :base) do
-          {:error, :invalid}
-        else
-          {:error, :invalid}
+      changeset =
+        %Impression{}
+        |> Impression.changeset(attrs)
+        |> Ecto.Changeset.unique_constraint(:user_id,
+            name: :impressions_user_unique_index,
+            message: "already impressed")
+        |> Ecto.Changeset.unique_constraint(:fingerprint,
+            name: :impressions_fingerprint_unique_index,
+            message: "already impressed")
+
+      try do
+        case Repo.insert(changeset) do
+          {:ok, impression} ->
+            {:ok, impression}
+          {:error, %Ecto.Changeset{} = changeset} ->
+            # Check if it's a unique constraint violation (race condition)
+            if has_unique_constraint_error?(changeset) do
+              {:ok, :already_impressed}
+            else
+              {:error, :invalid}
+            end
         end
+      rescue
+        # Catch Postgrex errors for unique constraint violations (race condition)
+        e in Postgrex.Error ->
+          case e.postgres do
+            %{code: :unique_violation} -> {:ok, :already_impressed}
+            _ -> {:error, :database_error}
+          end
+      end
     end
+  end
+
+  defp has_unique_constraint_error?(changeset) do
+    Enum.any?(changeset.errors, fn
+      {_field, {msg, _}} -> msg == "already impressed"
+      _ -> false
+    end)
   end
 
   @doc """

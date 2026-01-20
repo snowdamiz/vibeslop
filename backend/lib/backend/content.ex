@@ -909,67 +909,65 @@ defmodule Backend.Content do
     fingerprint = Keyword.get(opts, :fingerprint)
     ip_address = Keyword.get(opts, :ip_address)
 
-    Repo.transaction(fn ->
-      # Process each impression individually to respect uniqueness constraints
-      # and collect successfully recorded IDs
-      {recorded_posts, recorded_projects} = Enum.reduce(impressions, {[], []}, fn imp, {posts_acc, projects_acc} ->
-        type_str = imp["type"] || imp[:type]
-        id = imp["id"] || imp[:id]
+    # Process each impression individually (no outer transaction)
+    # This allows some to succeed even if others fail due to duplicates
+    {recorded_posts, recorded_projects} = Enum.reduce(impressions, {[], []}, fn imp, {posts_acc, projects_acc} ->
+      type_str = imp["type"] || imp[:type]
+      id = imp["id"] || imp[:id]
 
-        # Normalize type to Post/Project for database
-        impressionable_type = case type_str do
-          "post" -> "Post"
-          "project" -> "Project"
-          _ -> type_str
-        end
-
-        # Try to record the impression
-        case Backend.Social.record_impression(
-          impressionable_type,
-          id,
-          user_id: user_id,
-          fingerprint: fingerprint,
-          ip_address: ip_address
-        ) do
-          {:ok, %Backend.Social.Impression{}} ->
-            # Successfully recorded NEW impression, track for counter increment and hourly tracking
-            case impressionable_type do
-              "Post" ->
-                # Record hourly engagement for impressions
-                Backend.Metrics.record_hourly_engagement("Post", id, :impressions)
-                {[id | posts_acc], projects_acc}
-              "Project" ->
-                Backend.Metrics.record_hourly_engagement("Project", id, :impressions)
-                {posts_acc, [id | projects_acc]}
-              _ -> {posts_acc, projects_acc}
-            end
-          {:ok, :already_impressed} ->
-            # Skip duplicates silently (no counter increment needed)
-            {posts_acc, projects_acc}
-          {:error, _reason} ->
-            # Skip errors silently
-            {posts_acc, projects_acc}
-        end
-      end)
-
-      # Batch increment counters only for successfully recorded impressions
-      post_count = if recorded_posts != [] do
-        {count, _} = from(p in Post, where: p.id in ^recorded_posts)
-        |> Repo.update_all(inc: [impression_count: 1])
-        count
-      else
-        0
+      # Normalize type to Post/Project for database
+      impressionable_type = case type_str do
+        "post" -> "Post"
+        "project" -> "Project"
+        _ -> type_str
       end
 
-      project_count = if recorded_projects != [] do
-        {count, _} = from(proj in Project, where: proj.id in ^recorded_projects)
-        |> Repo.update_all(inc: [view_count: 1])
-        count
-      else
-        0
+      # Try to record the impression
+      case Backend.Social.record_impression(
+        impressionable_type,
+        id,
+        user_id: user_id,
+        fingerprint: fingerprint,
+        ip_address: ip_address
+      ) do
+        {:ok, %Backend.Social.Impression{}} ->
+          # Successfully recorded NEW impression, track for counter increment and hourly tracking
+          case impressionable_type do
+            "Post" ->
+              # Record hourly engagement for impressions
+              Backend.Metrics.record_hourly_engagement("Post", id, :impressions)
+              {[id | posts_acc], projects_acc}
+            "Project" ->
+              Backend.Metrics.record_hourly_engagement("Project", id, :impressions)
+              {posts_acc, [id | projects_acc]}
+            _ -> {posts_acc, projects_acc}
+          end
+        {:ok, :already_impressed} ->
+          # Skip duplicates silently (no counter increment needed)
+          {posts_acc, projects_acc}
+        {:error, _reason} ->
+          # Skip errors silently
+          {posts_acc, projects_acc}
       end
-
-      post_count + project_count
     end)
+
+    # Batch increment counters only for successfully recorded impressions
+    post_count = if recorded_posts != [] do
+      {count, _} = from(p in Post, where: p.id in ^recorded_posts)
+      |> Repo.update_all(inc: [impression_count: 1])
+      count
+    else
+      0
+    end
+
+    project_count = if recorded_projects != [] do
+      {count, _} = from(proj in Project, where: proj.id in ^recorded_projects)
+      |> Repo.update_all(inc: [view_count: 1])
+      count
+    else
+      0
+    end
+
+    {:ok, post_count + project_count}
   end
 end

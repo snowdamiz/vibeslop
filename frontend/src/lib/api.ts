@@ -238,16 +238,18 @@ class ApiClient {
     feed?: string
     type?: string
     limit?: number
-    offset?: number
+    cursor?: string
+    offset?: number // Legacy support for explore
     search?: string
     tools?: string[]
     stacks?: string[]
     sort_by?: string
-  }): Promise<{ data: unknown[] }> {
+  }): Promise<{ data: unknown[]; next_cursor?: string; has_more?: boolean }> {
     const queryParams = new URLSearchParams()
     if (params?.feed) queryParams.append('feed', params.feed)
     if (params?.type) queryParams.append('type', params.type)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.cursor) queryParams.append('cursor', params.cursor)
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     if (params?.search) queryParams.append('search', params.search)
     if (params?.tools) params.tools.forEach(t => queryParams.append('tools[]', t))
