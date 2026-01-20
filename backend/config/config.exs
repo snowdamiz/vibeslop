@@ -46,6 +46,10 @@ config :ueberauth, Ueberauth,
     github: {Ueberauth.Strategy.Github, [default_scope: "user:email"]}
   ]
 
+# Configure Hammer for rate limiting
+config :hammer,
+  backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 2, cleanup_interval_ms: 60_000 * 10]}
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

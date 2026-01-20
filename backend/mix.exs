@@ -56,7 +56,8 @@ defmodule Backend.MixProject do
       {:ueberauth_github, "~> 0.8"},
       {:joken, "~> 2.6"},
       {:corsica, "~> 2.1"},
-      {:dotenvy, "~> 0.8.0", only: [:dev, :test]}
+      {:dotenvy, "~> 0.8.0", only: [:dev, :test]},
+      {:hammer, "~> 6.2"}
     ]
   end
 

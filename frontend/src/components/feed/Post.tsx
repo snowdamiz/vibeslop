@@ -312,7 +312,22 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
 
           {/* Description/Content */}
           <div className="text-[15px] text-foreground/90 leading-normal mb-3">
-            <MarkdownContent content={item.content} />
+            {item.content.length > 300 ? (
+              <>
+                <MarkdownContent content={item.content.slice(0, 300).trimEnd() + '...'} />
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(detailPath)
+                  }}
+                  className="text-primary hover:underline text-sm font-medium mt-1 inline-block"
+                >
+                  Read more
+                </button>
+              </>
+            ) : (
+              <MarkdownContent content={item.content} />
+            )}
           </div>
 
           {/* Images */}

@@ -42,6 +42,14 @@ if frontend_url = System.get_env("FRONTEND_URL") do
   config :backend, :frontend_url, frontend_url
 end
 
+# Configure OpenRouter AI
+if openrouter_api_key = System.get_env("OPENROUTER_API_KEY") do
+  config :backend, Backend.AI,
+    openrouter_api_key: openrouter_api_key,
+    default_model: "anthropic/claude-3.5-sonnet",
+    image_model: "black-forest-labs/flux.2-pro"
+end
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server

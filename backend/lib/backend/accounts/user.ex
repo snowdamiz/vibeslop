@@ -18,6 +18,7 @@ defmodule Backend.Accounts.User do
     field :banner_url, :string
     field :is_verified, :boolean, default: false
     field :has_onboarded, :boolean, default: false
+    field :github_access_token, :string
 
     has_many :oauth_accounts, Backend.Accounts.OAuthAccount
     has_many :posts, Backend.Content.Post
@@ -45,7 +46,8 @@ defmodule Backend.Accounts.User do
       :avatar_url,
       :banner_url,
       :is_verified,
-      :has_onboarded
+      :has_onboarded,
+      :github_access_token
     ])
     |> validate_required([:email, :username, :display_name])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
@@ -67,7 +69,8 @@ defmodule Backend.Accounts.User do
       :website_url,
       :twitter_handle,
       :github_username,
-      :avatar_url
+      :avatar_url,
+      :github_access_token
     ])
     |> validate_required([:email, :username, :display_name])
     |> unique_constraint(:email)

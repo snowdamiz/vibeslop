@@ -32,7 +32,7 @@ defmodule BackendWeb.AuthController do
       params = %{
         client_id: client_id,
         redirect_uri: callback_url,
-        scope: "user:email",
+        scope: "user:email public_repo",
         prompt: "select_account",
         state: state
       }

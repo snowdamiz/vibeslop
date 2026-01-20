@@ -499,6 +499,102 @@ class ApiClient {
     if (limit) queryParams.append('limit', limit.toString())
     return this.get(`/search/suggestions?${queryParams}`)
   }
+
+  // GitHub Integration
+  async getGitHubRepos(params?: { per_page?: number; page?: number; sort?: string }): Promise<{ data: GitHubRepo[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.per_page) queryParams.append('per_page', params.per_page.toString())
+    if (params?.page) queryParams.append('page', params.page.toString())
+    if (params?.sort) queryParams.append('sort', params.sort)
+    return this.get(`/github/repos?${queryParams}`)
+  }
+
+  async getGitHubRepo(owner: string, repo: string): Promise<{ data: GitHubRepoDetails }> {
+    return this.get(`/github/repos/${owner}/${repo}`)
+  }
+
+  // AI Generation
+  async generateProjectFromRepo(owner: string, repo: string): Promise<{ data: GeneratedProject }> {
+    return this.post('/ai/generate-project', { repo: { owner, name: repo } })
+  }
+
+  async generateProjectImage(projectData: ProjectImageData): Promise<{ data: { image: string } }> {
+    const body: any = { project: { title: projectData.title, stack: projectData.stack } }
+    if (projectData.description) {
+      body.project.description = projectData.description
+    }
+    if (projectData.repo) {
+      body.repo = projectData.repo
+    }
+    return this.post('/ai/generate-image', body)
+  }
+
+  async getAIQuota(): Promise<{ text_generation: QuotaInfo; image_generation: QuotaInfo }> {
+    return this.get('/ai/quota')
+  }
+}
+
+// GitHub Types
+export interface GitHubRepo {
+  id: number
+  name: string
+  full_name: string
+  description?: string
+  owner: {
+    login: string
+    avatar_url: string
+  }
+  html_url: string
+  private: boolean
+  stargazers_count: number
+  language?: string
+  pushed_at: string
+  created_at: string
+  updated_at: string
+}
+
+export interface GitHubRepoDetails extends GitHubRepo {
+  homepage?: string
+  watchers_count: number
+  forks_count: number
+  languages: Record<string, number>
+  topics: string[]
+  readme?: string
+  size: number
+  default_branch: string
+}
+
+// AI Generation Types
+export interface GeneratedProject {
+  title: string
+  description: string
+  long_description: string
+  highlights: string[]
+  tools: string[]
+  stack: string[]
+  suggested_image_prompt: string
+  links: {
+    github?: string
+    live?: string
+  }
+  cover_image?: string
+}
+
+export interface ProjectImageData {
+  title: string
+  description?: string
+  stack: string[]
+  repo?: {
+    owner: string
+    name: string
+  }
+  [key: string]: unknown
+}
+
+export interface QuotaInfo {
+  used: number
+  remaining: number
+  limit: number
 }
 
 export const api = new ApiClient(API_BASE_URL)

@@ -91,6 +91,15 @@ defmodule BackendWeb.Router do
 
     # User search (authenticated)
     get "/users/search", UserController, :search
+
+    # GitHub integration
+    get "/github/repos", GitHubController, :index
+    get "/github/repos/:owner/:repo", GitHubController, :show
+
+    # AI generation
+    post "/ai/generate-project", AIController, :generate_project
+    post "/ai/generate-image", AIController, :generate_image
+    get "/ai/quota", AIController, :quota
   end
 
   # Public API routes with optional auth

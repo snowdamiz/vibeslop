@@ -42,9 +42,15 @@ defmodule Backend.Accounts do
         create_user_from_github(auth)
 
       oauth_account ->
-        # Return existing user
+        # Update the access token for existing user
         oauth_account = Repo.preload(oauth_account, :user)
-        {:ok, oauth_account.user}
+        user = oauth_account.user
+
+        # Update user's GitHub access token
+        case update_user(user, %{github_access_token: auth.credentials.token}) do
+          {:ok, updated_user} -> {:ok, updated_user}
+          {:error, _} -> {:ok, user}  # Return original user if update fails
+        end
     end
   end
 
@@ -63,7 +69,8 @@ defmodule Backend.Accounts do
       bio: info.description,
       location: info.location,
       avatar_url: info.image,
-      github_username: info.nickname
+      github_username: info.nickname,
+      github_access_token: auth.credentials.token
     }
 
     oauth_attrs = %{
