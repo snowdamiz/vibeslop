@@ -52,13 +52,14 @@ defmodule BackendWeb.UserJSON do
       media_list -> Enum.map(media_list, & &1.url)
     end
 
-    %{
+    base_data = %{
       id: post.id,
       type: "update",
       content: post.content,
       likes: Map.get(item, :likes_count, 0),
       comments: Map.get(item, :comments_count, 0),
       reposts: Map.get(item, :reposts_count, 0),
+      impressions: post.impression_count || 0,
       created_at: format_datetime(post.inserted_at),
       media: media,
       author: %{
@@ -71,21 +72,28 @@ defmodule BackendWeb.UserJSON do
       },
       project: nil
     }
+
+    # Add engagement status if present
+    base_data
+    |> add_engagement_field(item, :liked)
+    |> add_engagement_field(item, :bookmarked)
+    |> add_engagement_field(item, :reposted)
   end
 
   # Render liked project
   defp render_liked_item(%{project: project} = item) do
     user = project.user
 
-    %{
+    base_data = %{
       id: project.id,
       type: "project",
       title: project.title,
-      description: project.description,
+      content: project.description,
       image: get_first_image(project),
       likes: Map.get(item, :likes_count, 0),
       comments: Map.get(item, :comments_count, 0),
       reposts: Map.get(item, :reposts_count, 0),
+      impressions: project.view_count || 0,
       created_at: format_datetime(project.published_at || project.inserted_at),
       tools: Enum.map(project.ai_tools || [], & &1.name),
       stack: Enum.map(project.tech_stacks || [], & &1.name),
@@ -98,6 +106,12 @@ defmodule BackendWeb.UserJSON do
         is_verified: user.is_verified
       }
     }
+
+    # Add engagement status if present
+    base_data
+    |> add_engagement_field(item, :liked)
+    |> add_engagement_field(item, :bookmarked)
+    |> add_engagement_field(item, :reposted)
   end
 
   defp get_first_image(%{images: [first | _]}), do: first.url
@@ -116,4 +130,11 @@ defmodule BackendWeb.UserJSON do
   defp format_datetime(nil), do: nil
   defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
   defp format_datetime(other), do: other
+
+  defp add_engagement_field(data, source, field) do
+    case Map.get(source, field) do
+      nil -> data
+      value -> Map.put(data, field, value)
+    end
+  end
 end

@@ -60,7 +60,7 @@ const values = [
   {
     icon: Users,
     title: 'Community First',
-    description: 'Built by builders, for builders. Your feedback shapes Vibeslop\'s future.',
+    description: 'Built by builders, for builders. Your feedback shapes hypevibe\'s future.',
   },
   {
     icon: MessageCircle,
@@ -88,12 +88,12 @@ const timeline = [
   {
     year: '2025',
     title: 'Building in Public',
-    description: 'We dogfooded our own philosophy—building Vibeslop with AI tools, sharing our process, and gathering feedback from the community.',
+    description: 'We dogfooded our own philosophy—building hypevibe with AI tools, sharing our process, and gathering feedback from the community.',
   },
   {
     year: '2026',
     title: 'Launch',
-    description: 'Vibeslop goes live. A new home for AI-native builders to showcase their work, share their process, and connect with each other.',
+    description: 'hypevibe goes live. A new home for AI-native builders to showcase their work, share their process, and connect with each other.',
   },
 ]
 
@@ -210,7 +210,7 @@ export function About() {
           >
             <Badge variant="secondary" className="mb-6">
               <Sparkles className="w-3.5 h-3.5 mr-1.5 text-primary" />
-              About Vibeslop
+              About hypevibe
             </Badge>
             <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
               The home for{' '}
@@ -289,7 +289,7 @@ export function About() {
               Our Journey
             </Badge>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-              How Vibeslop <span className="gradient-text">came to be</span>
+              How hypevibe <span className="gradient-text">came to be</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Born from frustration, built with passion, shaped by community.
@@ -446,7 +446,7 @@ export function About() {
               Meet the <span className="gradient-text">Team</span>
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              We're builders too—and we use AI every day to create Vibeslop.
+              We're builders too—and we use AI every day to create hypevibe.
             </p>
           </motion.div>
 
@@ -520,7 +520,7 @@ export function About() {
                 </h2>
 
                 <p className="text-lg text-muted-foreground mb-4 leading-relaxed">
-                  Vibeslop explicitly celebrates AI-augmented creation. No stigma around "AI slop." 
+                  hypevibe explicitly celebrates AI-augmented creation. No stigma around "AI slop." 
                   No judgment about how you built it. Just genuine excitement about what you've created.
                 </p>
 

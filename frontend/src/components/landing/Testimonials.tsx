@@ -15,7 +15,7 @@ const testimonials = [
     color: "from-violet-500 to-purple-600",
   },
   {
-    quote: "I landed my first dev job because a recruiter found my Vibeslop portfolio. They loved that I showed my process and the prompts I used.",
+    quote: "I landed my first dev job because a recruiter found my hypevibe portfolio. They loved that I showed my process and the prompts I used.",
     author: "Jordan Kim",
     role: "Career Pivoter",
     initials: "JK",
@@ -23,7 +23,7 @@ const testimonials = [
     color: "from-pink-500 to-rose-600",
   },
   {
-    quote: "As an indie hacker, I was posting everywhere. Now Vibeslop is my home base. My projects get real feedback from people who understand the vibe.",
+    quote: "As an indie hacker, I was posting everywhere. Now hypevibe is my home base. My projects get real feedback from people who understand the vibe.",
     author: "Alex Chen",
     role: "Indie Hacker",
     initials: "AC",
@@ -39,7 +39,7 @@ const testimonials = [
     color: "from-orange-500 to-red-600",
   },
   {
-    quote: "Vibeslop helped me document my learning journey. Looking back at my first AI projects versus now is incredible motivation.",
+    quote: "hypevibe helped me document my learning journey. Looking back at my first AI projects versus now is incredible motivation.",
     author: "Marcus Johnson",
     role: "AI Enthusiast",
     initials: "MJ",
@@ -101,7 +101,7 @@ export function Testimonials() {
             Loved by Vibe Coders
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Join thousands of builders who've found their home on Vibeslop.
+            Join thousands of builders who've found their home on hypevibe.
           </p>
         </motion.div>
 

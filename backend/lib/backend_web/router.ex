@@ -43,6 +43,7 @@ defmodule BackendWeb.Router do
     pipe_through [:api, :authenticated]
 
     get "/me", AuthController, :me
+    put "/me", AuthController, :update
     get "/me/counts", AuthController, :counts
     put "/me/onboard", AuthController, :onboard
 
@@ -98,6 +99,10 @@ defmodule BackendWeb.Router do
 
     # Users with optional auth (to exclude current user from suggestions)
     get "/users/suggested", UserController, :suggested
+
+    # Search with optional auth (for engagement status)
+    get "/search", SearchController, :index
+    get "/search/suggestions", SearchController, :suggestions
   end
 
   # Public API routes with optional auth
@@ -131,16 +136,20 @@ defmodule BackendWeb.Router do
     # Projects
     get "/projects", ProjectController, :index
 
-    # Users
+    # Catalog
+    get "/tools", CatalogController, :ai_tools
+    get "/stacks", CatalogController, :tech_stacks
+  end
+
+  # User profile routes with optional auth (for engagement status)
+  scope "/api", BackendWeb do
+    pipe_through [:api, :optional_auth]
+
     get "/users/:username", UserController, :show
     get "/users/:username/posts", UserController, :posts
     get "/users/:username/projects", UserController, :projects
     get "/users/:username/likes", UserController, :likes
     get "/users/:username/reposts", UserController, :reposts
-
-    # Catalog
-    get "/tools", CatalogController, :ai_tools
-    get "/stacks", CatalogController, :tech_stacks
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

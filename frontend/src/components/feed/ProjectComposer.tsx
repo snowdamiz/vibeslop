@@ -515,7 +515,7 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Project Name <span className="text-destructive">*</span></label>
                       <Input
-                        placeholder="e.g., Vibeslop, AI Code Assistant..."
+                        placeholder="e.g., hypevibe, AI Code Assistant..."
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         className="text-base font-medium h-11"

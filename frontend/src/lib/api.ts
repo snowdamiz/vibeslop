@@ -477,6 +477,28 @@ class ApiClient {
   async recordImpressions(impressions: Array<{ type: string; id: string }>, fingerprint?: string): Promise<{ success: boolean; count: number }> {
     return this.post('/impressions', { impressions, fingerprint })
   }
+
+  // Search
+  async search(params: {
+    q: string
+    type?: 'top' | 'people' | 'projects' | 'posts'
+    limit?: number
+    offset?: number
+  }): Promise<{ data: unknown; meta: { query: string; total_results?: number; total?: number } }> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('q', params.q)
+    if (params.type) queryParams.append('type', params.type)
+    if (params.limit) queryParams.append('limit', params.limit.toString())
+    if (params.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/search?${queryParams}`)
+  }
+
+  async searchSuggestions(query: string, limit?: number): Promise<{ data: { users: SuggestedUser[]; projects: Array<{ id: string; title: string; user: { username: string; display_name: string } }> } }> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('q', query)
+    if (limit) queryParams.append('limit', limit.toString())
+    return this.get(`/search/suggestions?${queryParams}`)
+  }
 }
 
 export const api = new ApiClient(API_BASE_URL)

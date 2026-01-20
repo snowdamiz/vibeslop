@@ -381,18 +381,19 @@ export function UserProfile() {
         </div>
       </div>
 
-      {/* Profile Info */}
-      <div className="max-w-[600px] mx-auto px-4 pb-4 pt-4">
-        {/* Avatar & Name Row */}
-        <div className="flex items-center gap-4 mb-4">
+      {/* Profile Bar */}
+      <div className="max-w-[600px] mx-auto px-4 py-5">
+        {/* Primary Row: Avatar + Identity + Stats + Actions */}
+        <div className="flex items-start gap-4">
+          {/* Avatar */}
           {isOwnProfile ? (
             <button 
               onClick={() => setShowAvatarDialog(true)}
               className="relative group cursor-pointer flex-shrink-0"
             >
-              <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
+              <Avatar className="w-[72px] h-[72px]">
                 <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
-                <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
+                <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl font-semibold`}>
                   {user.initials}
                 </AvatarFallback>
               </Avatar>
@@ -401,24 +402,103 @@ export function UserProfile() {
               </div>
             </button>
           ) : (
-            <Avatar className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+            <Avatar className="w-[72px] h-[72px] flex-shrink-0">
               <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
-              <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
+              <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl font-semibold`}>
                 {user.initials}
               </AvatarFallback>
             </Avatar>
           )}
           
+          {/* Identity + Stats */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <h2 className="text-xl font-bold truncate">{user.name}</h2>
+            {/* Name Row */}
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-lg font-bold truncate">{user.name}</h2>
               {user.isVerified && (
                 <CheckCircle2 className="w-5 h-5 text-primary fill-primary/20 flex-shrink-0" />
               )}
             </div>
-            <p className="text-muted-foreground -mt-0.5">@{user.username}</p>
+            
+            {/* Username + Integrated Stats */}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+              <span>@{user.username}</span>
+              <span className="text-muted-foreground/50">·</span>
+              <button className="hover:underline">
+                <span className="font-semibold text-foreground">{user.stats?.following || 0}</span> Following
+              </button>
+              <span className="text-muted-foreground/50">·</span>
+              <button className="hover:underline">
+                <span className="font-semibold text-foreground">{user.stats?.followers || 0}</span> Followers
+              </button>
+            </div>
+            
+            {/* Meta Info Row */}
+            <div className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground flex-wrap">
+              {user.location && (
+                <>
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5" />
+                    {user.location}
+                  </span>
+                  {(user.website || user.joinedDate || user.twitter || user.github) && (
+                    <span className="text-muted-foreground/50">·</span>
+                  )}
+                </>
+              )}
+              {user.website && (
+                <>
+                  <a
+                    href={user.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                    {user.website.replace('https://', '')}
+                  </a>
+                  {(user.joinedDate || user.twitter || user.github) && (
+                    <span className="text-muted-foreground/50">·</span>
+                  )}
+                </>
+              )}
+              {user.joinedDate && (
+                <>
+                  <span className="flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Joined {user.joinedDate}
+                  </span>
+                  {(user.twitter || user.github) && (
+                    <span className="text-muted-foreground/50">·</span>
+                  )}
+                </>
+              )}
+              {/* Social Icons inline */}
+              {user.twitter && (
+                <a
+                  href={`https://twitter.com/${user.twitter}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Twitter className="w-4 h-4" />
+                </a>
+              )}
+              {user.github && (
+                <a
+                  href={`https://github.com/${user.github}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+              )}
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
+          
+          {/* Actions */}
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
             {!isOwnProfile && isAuthenticated && (
               <Button 
                 variant="outline" 
@@ -458,74 +538,52 @@ export function UserProfile() {
             )}
           </div>
         </div>
-
-        {/* Bio */}
-        <p className="text-[15px] mb-4 whitespace-pre-wrap">{user.bio}</p>
-
-        {/* Meta Info */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground mb-3">
-          {user.location && (
-            <span className="flex items-center gap-1">
-              <MapPin className="w-4 h-4" />
-              {user.location}
-            </span>
-          )}
-          {user.website && (
-            <a
-              href={user.website}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 text-primary hover:underline"
+        
+        {/* Mobile Actions - Stacked below on small screens */}
+        {!isOwnProfile && (
+          <div className="flex sm:hidden items-center gap-2 mt-4">
+            {isAuthenticated && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="rounded-full border border-border"
+                onClick={handleMessageClick}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </Button>
+            )}
+            {isAuthenticated && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full border border-border">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setShowReportDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Flag className="w-4 h-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            <Button
+              variant={isFollowing ? 'outline' : 'default'}
+              onClick={() => setIsFollowing(!isFollowing)}
+              className="rounded-full px-5 flex-1"
             >
-              <Globe className="w-4 h-4" />
-              {user.website.replace('https://', '')}
-            </a>
-          )}
-          {user.joinedDate && (
-            <span className="flex items-center gap-1">
-              <Calendar className="w-4 h-4" />
-              Joined {user.joinedDate}
-            </span>
-          )}
-        </div>
-
-        {/* Social Links */}
-        {(user.twitter || user.github) && (
-          <div className="flex items-center gap-3 mb-4">
-            {user.twitter && (
-              <a
-                href={`https://twitter.com/${user.twitter}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Twitter className="w-5 h-5" />
-              </a>
-            )}
-            {user.github && (
-              <a
-                href={`https://github.com/${user.github}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <Github className="w-5 h-5" />
-              </a>
-            )}
+              {isFollowing ? 'Following' : 'Follow'}
+            </Button>
           </div>
         )}
-
-        {/* Stats */}
-        <div className="flex items-center gap-4 text-sm">
-          <button className="hover:underline">
-            <span className="font-bold">{user.stats?.following || 0}</span>{' '}
-            <span className="text-muted-foreground">Following</span>
-          </button>
-          <button className="hover:underline">
-            <span className="font-bold">{user.stats?.followers || 0}</span>{' '}
-            <span className="text-muted-foreground">Followers</span>
-          </button>
-        </div>
+        
+        {/* Bio - Full Width Below */}
+        {user.bio && (
+          <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-wrap">{user.bio}</p>
+        )}
       </div>
 
       {/* Tabs */}

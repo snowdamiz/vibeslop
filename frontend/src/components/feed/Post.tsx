@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -51,6 +51,15 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
   const [repostCount, setRepostCount] = useState(item.reposts)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  // Sync local state with props when item changes (e.g., after data refetch)
+  useEffect(() => {
+    setIsLiked(item.liked ?? false)
+    setIsBookmarked(item.bookmarked ?? false)
+    setIsReposted(item.reposted ?? false)
+    setLikeCount(item.likes)
+    setRepostCount(item.reposts)
+  }, [item.id, item.liked, item.bookmarked, item.reposted, item.likes, item.reposts])
 
   const isProject = isProjectPost(item)
   // For reposts, use original_id to navigate to the original content

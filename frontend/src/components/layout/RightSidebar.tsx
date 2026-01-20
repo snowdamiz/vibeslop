@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Search, TrendingUp, Sparkles, Heart } from 'lucide-react'
+import { TrendingUp, Sparkles, Heart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type SuggestedUser } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { SearchTypeahead } from '@/components/search'
 
 // Helper to get initials from display name
 function getInitials(displayName: string): string {
@@ -20,7 +20,6 @@ function getInitials(displayName: string): string {
 
 export function RightSidebar() {
   const { isAuthenticated } = useAuth()
-  const [searchQuery, setSearchQuery] = useState('')
 
   const [trendingProjects, setTrendingProjects] = useState<Array<{ id: string; title: string; author: string; likes: number; tag: string }>>([])
   const [suggestedUsers, setSuggestedUsers] = useState<SuggestedUser[]>([])
@@ -133,16 +132,7 @@ export function RightSidebar() {
       {/* Sticky inner wrapper */}
       <div className="sticky top-0 flex flex-col max-h-screen overflow-y-auto px-5 py-4 gap-5">
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          type="text"
-          placeholder="Search projects..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10 pr-4 bg-muted/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary/30 rounded-xl h-11"
-        />
-      </div>
+      <SearchTypeahead />
 
       {/* Trending Projects */}
       <section className="rounded-2xl bg-muted/30 border border-border/40 overflow-hidden">
@@ -258,7 +248,7 @@ export function RightSidebar() {
 
       {/* Footer */}
       <div className="mt-auto pt-2 px-1">
-        <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} Vibeslop</p>
+        <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} hypevibe</p>
       </div>
       </div>
     </aside>

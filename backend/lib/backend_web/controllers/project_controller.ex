@@ -2,6 +2,7 @@ defmodule BackendWeb.ProjectController do
   use BackendWeb, :controller
 
   alias Backend.Content
+  alias Backend.Recommendations
 
   action_fallback BackendWeb.FallbackController
 
@@ -13,14 +14,28 @@ defmodule BackendWeb.ProjectController do
     stacks = Map.get(params, "stacks", [])
     sort_by = Map.get(params, "sort_by", "recent")
 
-    projects = Content.list_projects(
-      limit: limit,
-      offset: offset,
-      search: search,
-      tools: tools,
-      stacks: stacks,
-      sort_by: sort_by
-    )
+    # Get current user for engagement status
+    current_user_id = case conn.assigns[:current_user] do
+      %{id: uid} -> uid
+      _ -> nil
+    end
+
+    # Use sophisticated trending algorithm if sort_by=trending
+    projects = if sort_by == "trending" do
+      Recommendations.trending_projects(
+        limit: limit,
+        current_user_id: current_user_id
+      )
+    else
+      Content.list_projects(
+        limit: limit,
+        offset: offset,
+        search: search,
+        tools: tools,
+        stacks: stacks,
+        sort_by: sort_by
+      )
+    end
 
     render(conn, :index, projects: projects)
   end

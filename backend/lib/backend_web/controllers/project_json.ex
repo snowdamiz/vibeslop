@@ -23,7 +23,7 @@ defmodule BackendWeb.ProjectJSON do
   defp data(%{project: project} = project_data) do
     user = project.user
 
-    %{
+    base_data = %{
       id: project.id,
       type: "project",
       title: project.title,
@@ -31,7 +31,8 @@ defmodule BackendWeb.ProjectJSON do
       image: get_first_image(project),
       likes: Map.get(project_data, :likes_count, 0),
       comments: Map.get(project_data, :comments_count, 0),
-      reposts: 0,
+      reposts: Map.get(project_data, :reposts_count, 0),
+      impressions: project.view_count || 0,
       created_at: format_datetime(project.published_at || project.inserted_at),
       tools: Enum.map(project.ai_tools || [], & &1.name),
       stack: Enum.map(project.tech_stacks || [], & &1.name),
@@ -44,6 +45,12 @@ defmodule BackendWeb.ProjectJSON do
         is_verified: user.is_verified
       }
     }
+
+    # Add engagement status if present
+    base_data
+    |> add_engagement_field(project_data, :liked)
+    |> add_engagement_field(project_data, :bookmarked)
+    |> add_engagement_field(project_data, :reposted)
   end
 
   defp detail(%{project: project} = project_data) do
@@ -119,6 +126,13 @@ defmodule BackendWeb.ProjectJSON do
       |> String.slice(0, max_length)
       |> String.trim_trailing()
       |> Kernel.<>("...")
+    end
+  end
+
+  defp add_engagement_field(data, source, field) do
+    case Map.get(source, field) do
+      nil -> data
+      value -> Map.put(data, field, value)
     end
   end
 end

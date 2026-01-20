@@ -135,6 +135,43 @@ defmodule BackendWeb.AuthController do
   end
 
   @doc """
+  Updates the current authenticated user's profile.
+  """
+  def update(conn, %{"user" => user_params}) do
+    current_user = conn.assigns.current_user
+
+    case Accounts.update_user(current_user, user_params) do
+      {:ok, user} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          display_name: user.display_name,
+          bio: user.bio,
+          location: user.location,
+          website_url: user.website_url,
+          twitter_handle: user.twitter_handle,
+          github_username: user.github_username,
+          avatar_url: user.avatar_url,
+          banner_url: user.banner_url,
+          is_verified: user.is_verified,
+          has_onboarded: user.has_onboarded
+        })
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          error: "update_failed",
+          message: "Failed to update profile",
+          errors: format_changeset_errors(changeset)
+        })
+    end
+  end
+
+  @doc """
   Logs out the user (client should delete the token).
   """
   def logout(conn, _params) do

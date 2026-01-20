@@ -1,6 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Header, Footer, AppShell } from '@/components/layout'
-import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings } from '@/pages'
+import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
 
 function App() {
@@ -55,6 +55,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/search" element={<Search />} />
         <Route path="/project/:id" element={<ProjectDetail />} />
         <Route path="/post/:id" element={<PostDetail />} />
         <Route path="/user/:username" element={<UserProfile />} />

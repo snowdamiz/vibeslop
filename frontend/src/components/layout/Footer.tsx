@@ -199,7 +199,7 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Vibeslop. All rights reserved.
+            © {new Date().getFullYear()} hypevibe. All rights reserved.
           </p>
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-xs font-normal">

@@ -33,23 +33,39 @@ defmodule BackendWeb.UserController do
   def posts(conn, %{"username" => username} = params) do
     limit = String.to_integer(Map.get(params, "limit", "20"))
     offset = String.to_integer(Map.get(params, "offset", "0"))
+    current_user = conn.assigns[:current_user]
 
     posts = Content.list_user_posts(username, limit: limit, offset: offset)
 
+    # Add engagement status if user is authenticated
+    posts_with_status = if current_user do
+      add_engagement_status(posts, current_user.id, "Post")
+    else
+      posts
+    end
+
     conn
     |> put_view(json: BackendWeb.PostJSON)
-    |> render(:index, posts: posts)
+    |> render(:index, posts: posts_with_status)
   end
 
   def projects(conn, %{"username" => username} = params) do
     limit = String.to_integer(Map.get(params, "limit", "20"))
     offset = String.to_integer(Map.get(params, "offset", "0"))
+    current_user = conn.assigns[:current_user]
 
     projects = Content.list_user_projects(username, limit: limit, offset: offset)
 
+    # Add engagement status if user is authenticated
+    projects_with_status = if current_user do
+      add_engagement_status(projects, current_user.id, "Project")
+    else
+      projects
+    end
+
     conn
     |> put_view(json: BackendWeb.ProjectJSON)
-    |> render(:index, projects: projects)
+    |> render(:index, projects: projects_with_status)
   end
 
   def likes(conn, %{"username" => username} = params) do
@@ -62,14 +78,26 @@ defmodule BackendWeb.UserController do
       user ->
         limit = String.to_integer(Map.get(params, "limit", "20"))
         offset = String.to_integer(Map.get(params, "offset", "0"))
+        current_user = conn.assigns[:current_user]
 
         likes = Social.list_user_likes(user.id, limit: limit, offset: offset)
 
-        # Convert likes to feed format with actual counts
+        # Convert likes to feed format with actual counts and engagement status
         items = Enum.map(likes, fn %{type: type, item: item} ->
           likes_count = Social.get_likes_count(type, item.id)
           reposts_count = Social.get_reposts_count(type, item.id)
           comments_count = Content.get_comments_count(type, item.id)
+
+          # Get engagement status if user is authenticated
+          {liked, bookmarked, reposted} = if current_user do
+            {
+              Social.has_liked?(current_user.id, type, item.id),
+              Social.has_bookmarked?(current_user.id, type, item.id),
+              Social.has_reposted?(current_user.id, type, item.id)
+            }
+          else
+            {false, false, false}
+          end
 
           case type do
             "Post" ->
@@ -78,14 +106,20 @@ defmodule BackendWeb.UserController do
                 user: item.user,
                 likes_count: likes_count,
                 comments_count: comments_count,
-                reposts_count: reposts_count
+                reposts_count: reposts_count,
+                liked: liked,
+                bookmarked: bookmarked,
+                reposted: reposted
               }
             "Project" ->
               %{
                 project: item,
                 likes_count: likes_count,
                 comments_count: comments_count,
-                reposts_count: reposts_count
+                reposts_count: reposts_count,
+                liked: liked,
+                bookmarked: bookmarked,
+                reposted: reposted
               }
           end
         end)
@@ -104,14 +138,26 @@ defmodule BackendWeb.UserController do
       user ->
         limit = String.to_integer(Map.get(params, "limit", "20"))
         offset = String.to_integer(Map.get(params, "offset", "0"))
+        current_user = conn.assigns[:current_user]
 
         reposts = Social.list_user_reposts(user.id, limit: limit, offset: offset)
 
-        # Convert reposts to feed format with actual counts
+        # Convert reposts to feed format with actual counts and engagement status
         items = Enum.map(reposts, fn %{type: type, item: item} ->
           likes_count = Social.get_likes_count(type, item.id)
           reposts_count = Social.get_reposts_count(type, item.id)
           comments_count = Content.get_comments_count(type, item.id)
+
+          # Get engagement status if user is authenticated
+          {liked, bookmarked, reposted} = if current_user do
+            {
+              Social.has_liked?(current_user.id, type, item.id),
+              Social.has_bookmarked?(current_user.id, type, item.id),
+              Social.has_reposted?(current_user.id, type, item.id)
+            }
+          else
+            {false, false, false}
+          end
 
           case type do
             "Post" ->
@@ -120,14 +166,20 @@ defmodule BackendWeb.UserController do
                 user: item.user,
                 likes_count: likes_count,
                 comments_count: comments_count,
-                reposts_count: reposts_count
+                reposts_count: reposts_count,
+                liked: liked,
+                bookmarked: bookmarked,
+                reposted: reposted
               }
             "Project" ->
               %{
                 project: item,
                 likes_count: likes_count,
                 comments_count: comments_count,
-                reposts_count: reposts_count
+                reposts_count: reposts_count,
+                liked: liked,
+                bookmarked: bookmarked,
+                reposted: reposted
               }
           end
         end)
@@ -185,11 +237,22 @@ defmodule BackendWeb.UserController do
   def suggested(conn, params) do
     limit = String.to_integer(Map.get(params, "limit", "3"))
     current_user = conn.assigns[:current_user]
+    context = Map.get(params, "context", "sidebar")
 
-    users = Accounts.list_suggested_users(
-      limit: limit,
-      exclude_user_id: current_user && current_user.id
-    )
+    users = if current_user do
+      # Use sophisticated multi-signal algorithm for authenticated users
+      Backend.Recommendations.suggested_users(
+        current_user.id,
+        limit: limit,
+        context: context
+      )
+    else
+      # Fallback to simple popular users for non-authenticated
+      Accounts.list_suggested_users(
+        limit: limit,
+        exclude_user_id: nil
+      )
+    end
 
     render(conn, :index, users: users)
   end
@@ -212,5 +275,20 @@ defmodule BackendWeb.UserController do
     available = Accounts.username_available?(username, current_user.id)
 
     json(conn, %{available: available})
+  end
+
+  # Helper function to add engagement status to items
+  defp add_engagement_status(items, user_id, item_type) do
+    Enum.map(items, fn item ->
+      item_id = case item_type do
+        "Post" -> item.post.id
+        "Project" -> item.project.id
+      end
+
+      item
+      |> Map.put(:liked, Social.has_liked?(user_id, item_type, item_id))
+      |> Map.put(:bookmarked, Social.has_bookmarked?(user_id, item_type, item_id))
+      |> Map.put(:reposted, Social.has_reposted?(user_id, item_type, item_id))
+    end)
   end
 end

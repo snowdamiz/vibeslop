@@ -170,7 +170,7 @@ export function Hero() {
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            Vibeslop is the portfolio platform for creators who build with AI. 
+            hypevibe is the portfolio platform for creators who build with AI. 
             Showcase your projects, share your process, and connect with fellow vibe coders.
           </p>
 
