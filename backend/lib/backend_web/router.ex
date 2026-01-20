@@ -44,6 +44,7 @@ defmodule BackendWeb.Router do
 
     get "/me", AuthController, :me
     get "/me/counts", AuthController, :counts
+    put "/me/onboard", AuthController, :onboard
 
     # Posts
     post "/posts", PostController, :create
@@ -73,6 +74,7 @@ defmodule BackendWeb.Router do
     # User actions
     post "/users/:username/follow", UserController, :follow
     delete "/users/:username/follow", UserController, :unfollow
+    get "/users/check-username/:username", UserController, :check_username
 
     # Notifications
     get "/notifications", NotificationController, :index

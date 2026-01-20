@@ -129,7 +129,8 @@ defmodule BackendWeb.AuthController do
       github_username: user.github_username,
       avatar_url: user.avatar_url,
       banner_url: user.banner_url,
-      is_verified: user.is_verified
+      is_verified: user.is_verified,
+      has_onboarded: user.has_onboarded
     })
   end
 
@@ -140,6 +141,43 @@ defmodule BackendWeb.AuthController do
     conn
     |> put_status(:ok)
     |> json(%{message: "Logged out successfully"})
+  end
+
+  @doc """
+  Completes user onboarding with profile customization.
+  """
+  def onboard(conn, %{"user" => user_params}) do
+    current_user = conn.assigns.current_user
+
+    case Accounts.complete_onboarding(current_user, user_params) do
+      {:ok, user} ->
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          display_name: user.display_name,
+          bio: user.bio,
+          location: user.location,
+          website_url: user.website_url,
+          twitter_handle: user.twitter_handle,
+          github_username: user.github_username,
+          avatar_url: user.avatar_url,
+          banner_url: user.banner_url,
+          is_verified: user.is_verified,
+          has_onboarded: user.has_onboarded
+        })
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          error: "onboarding_failed",
+          message: "Failed to complete onboarding",
+          errors: format_changeset_errors(changeset)
+        })
+    end
   end
 
   @doc """

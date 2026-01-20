@@ -17,6 +17,7 @@ defmodule Backend.Accounts.User do
     field :avatar_url, :string
     field :banner_url, :string
     field :is_verified, :boolean, default: false
+    field :has_onboarded, :boolean, default: false
 
     has_many :oauth_accounts, Backend.Accounts.OAuthAccount
     has_many :posts, Backend.Content.Post
@@ -43,7 +44,8 @@ defmodule Backend.Accounts.User do
       :github_username,
       :avatar_url,
       :banner_url,
-      :is_verified
+      :is_verified,
+      :has_onboarded
     ])
     |> validate_required([:email, :username, :display_name])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")
@@ -70,5 +72,22 @@ defmodule Backend.Accounts.User do
     |> validate_required([:email, :username, :display_name])
     |> unique_constraint(:email)
     |> unique_constraint(:username)
+  end
+
+  @doc """
+  Changeset for completing user onboarding
+  """
+  def onboarding_changeset(user, attrs) do
+    user
+    |> cast(attrs, [
+      :username,
+      :display_name,
+      :avatar_url
+    ])
+    |> validate_required([:username, :display_name])
+    |> validate_length(:username, min: 2, max: 30)
+    |> validate_format(:username, ~r/^[a-z0-9_]+$/, message: "can only contain lowercase letters, numbers, and underscores")
+    |> unique_constraint(:username)
+    |> put_change(:has_onboarded, true)
   end
 end

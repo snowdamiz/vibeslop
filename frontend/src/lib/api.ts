@@ -17,6 +17,7 @@ export interface User {
   avatar_url?: string
   banner_url?: string
   is_verified: boolean
+  has_onboarded: boolean
 }
 
 export interface SuggestedUser {
@@ -176,6 +177,24 @@ class ApiClient {
    */
   async getUnreadCounts(): Promise<{ notifications: number; messages: number }> {
     return this.get('/me/counts')
+  }
+
+  /**
+   * Complete user onboarding
+   */
+  async completeOnboarding(data: {
+    username: string
+    display_name: string
+    avatar_url?: string
+  }): Promise<User> {
+    return this.put<User>('/me/onboard', { user: data })
+  }
+
+  /**
+   * Check if username is available
+   */
+  async checkUsername(username: string): Promise<{ available: boolean }> {
+    return this.get(`/users/check-username/${username}`)
   }
 
   /**

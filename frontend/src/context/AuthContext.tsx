@@ -16,6 +16,7 @@ interface User {
   website_url?: string
   github_username?: string
   is_verified: boolean
+  has_onboarded: boolean
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ interface AuthContextType {
   login: () => void
   logout: () => void
   handleAuthCallback: (token: string) => Promise<void>
+  updateUser: (user: User) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -49,6 +51,7 @@ function transformApiUser(apiUser: ApiUser): User {
     website_url: apiUser.website_url,
     github_username: apiUser.github_username,
     is_verified: apiUser.is_verified,
+    has_onboarded: apiUser.has_onboarded,
   }
 }
 
@@ -108,6 +111,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  const updateUser = useCallback((updatedUser: User) => {
+    setUser(updatedUser)
+  }, [])
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -115,7 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       login, 
       logout,
-      handleAuthCallback
+      handleAuthCallback,
+      updateUser
     }}>
       {children}
     </AuthContext.Provider>

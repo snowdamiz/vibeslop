@@ -126,6 +126,32 @@ defmodule Backend.Accounts do
   end
 
   @doc """
+  Completes user onboarding with profile customization.
+  """
+  def complete_onboarding(%User{} = user, attrs) do
+    user
+    |> User.onboarding_changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Checks if a username is available.
+  Returns true if available, false if taken.
+  Optionally excludes a user_id from the check.
+  """
+  def username_available?(username, exclude_user_id \\ nil) do
+    query = from u in User, where: u.username == ^username
+
+    query = if exclude_user_id do
+      from u in query, where: u.id != ^exclude_user_id
+    else
+      query
+    end
+
+    Repo.one(query) == nil
+  end
+
+  @doc """
   Deletes a user.
   """
   def delete_user(%User{} = user) do

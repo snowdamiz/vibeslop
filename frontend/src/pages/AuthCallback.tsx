@@ -18,7 +18,28 @@ export function AuthCallback() {
 
     handleAuthCallback(token)
       .then(() => {
-        navigate('/')
+        // Check if user has completed onboarding
+        // The user will be available in context after handleAuthCallback
+        // We'll check it in a microtask to ensure state is updated
+        setTimeout(() => {
+          const userStr = localStorage.getItem('vibeslop_token')
+          if (userStr) {
+            // Fetch the user to check has_onboarded
+            import('@/lib/api').then(({ api }) => {
+              api.getCurrentUser().then((user) => {
+                if (!user.has_onboarded) {
+                  navigate('/onboarding')
+                } else {
+                  navigate('/')
+                }
+              }).catch(() => {
+                navigate('/')
+              })
+            })
+          } else {
+            navigate('/')
+          }
+        }, 100)
       })
       .catch((error) => {
         console.error('Auth callback error:', error)

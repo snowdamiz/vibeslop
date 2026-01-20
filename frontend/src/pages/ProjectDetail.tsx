@@ -726,7 +726,6 @@ export function ProjectDetail() {
                 <StatItem icon={Eye} value={project.stats.views} label="views" animated />
                 <StatItem icon={Heart} value={likeCount} label="likes" animated />
                 <StatItem icon={MessageCircle} value={project.stats.comments} label="comments" />
-                <StatItem icon={Bookmark} value={42} label="saves" />
               </div>
 
               {/* Social Proof - only show if there are likes */}

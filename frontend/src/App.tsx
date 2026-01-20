@@ -1,6 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Header, Footer, AppShell } from '@/components/layout'
-import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks } from '@/pages'
+import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
 
 function App() {
@@ -19,10 +19,10 @@ function App() {
     )
   }
   
-  const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/auth/callback'
+  const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/auth/callback' || location.pathname === '/onboarding'
   const isLandingPage = location.pathname === '/' && !isAuthenticated
 
-  // Auth pages (sign in/up/callback) - centered layout, no chrome
+  // Auth pages (sign in/up/callback/onboarding) - centered layout, no chrome
   if (isAuthPage) {
     return (
       <div className="min-h-screen bg-background">
@@ -30,6 +30,7 @@ function App() {
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/onboarding" element={<Onboarding />} />
         </Routes>
       </div>
     )

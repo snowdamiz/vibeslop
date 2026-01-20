@@ -206,4 +206,11 @@ defmodule BackendWeb.UserController do
 
     render(conn, :index, users: users)
   end
+
+  def check_username(conn, %{"username" => username}) do
+    current_user = conn.assigns[:current_user]
+    available = Accounts.username_available?(username, current_user.id)
+
+    json(conn, %{available: available})
+  end
 end
