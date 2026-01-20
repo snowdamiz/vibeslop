@@ -109,18 +109,27 @@ defmodule Backend.Social do
     case Repo.one(query) do
       nil ->
         # Create like
-        %Like{}
+        result = %Like{}
         |> Like.changeset(%{user_id: user_id, likeable_type: likeable_type, likeable_id: likeable_id})
         |> Repo.insert()
-        |> case do
-          {:ok, like} -> {:ok, :liked, like}
+
+        case result do
+          {:ok, like} ->
+            # Increment counter and record hourly engagement
+            Backend.Metrics.increment_counter(likeable_type, likeable_id, :likes_count)
+            Backend.Metrics.record_hourly_engagement(likeable_type, likeable_id, :likes)
+            {:ok, :liked, like}
           error -> error
         end
       like ->
         # Remove like
-        Repo.delete(like)
-        |> case do
-          {:ok, like} -> {:ok, :unliked, like}
+        result = Repo.delete(like)
+
+        case result do
+          {:ok, like} ->
+            # Decrement counter
+            Backend.Metrics.decrement_counter(likeable_type, likeable_id, :likes_count)
+            {:ok, :unliked, like}
           error -> error
         end
     end
@@ -273,18 +282,27 @@ defmodule Backend.Social do
     case Repo.one(query) do
       nil ->
         # Create repost
-        %Repost{}
+        result = %Repost{}
         |> Repost.changeset(%{user_id: user_id, repostable_type: repostable_type, repostable_id: repostable_id})
         |> Repo.insert()
-        |> case do
-          {:ok, repost} -> {:ok, :reposted, repost}
+
+        case result do
+          {:ok, repost} ->
+            # Increment counter and record hourly engagement
+            Backend.Metrics.increment_counter(repostable_type, repostable_id, :reposts_count)
+            Backend.Metrics.record_hourly_engagement(repostable_type, repostable_id, :reposts)
+            {:ok, :reposted, repost}
           error -> error
         end
       repost ->
         # Remove repost
-        Repo.delete(repost)
-        |> case do
-          {:ok, repost} -> {:ok, :unreposted, repost}
+        result = Repo.delete(repost)
+
+        case result do
+          {:ok, repost} ->
+            # Decrement counter
+            Backend.Metrics.decrement_counter(repostable_type, repostable_id, :reposts_count)
+            {:ok, :unreposted, repost}
           error -> error
         end
     end
@@ -366,18 +384,27 @@ defmodule Backend.Social do
     case Repo.one(query) do
       nil ->
         # Create bookmark
-        %Bookmark{}
+        result = %Bookmark{}
         |> Bookmark.changeset(%{user_id: user_id, bookmarkable_type: bookmarkable_type, bookmarkable_id: bookmarkable_id})
         |> Repo.insert()
-        |> case do
-          {:ok, bookmark} -> {:ok, :bookmarked, bookmark}
+
+        case result do
+          {:ok, bookmark} ->
+            # Increment counter and record hourly engagement
+            Backend.Metrics.increment_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
+            Backend.Metrics.record_hourly_engagement(bookmarkable_type, bookmarkable_id, :bookmarks)
+            {:ok, :bookmarked, bookmark}
           error -> error
         end
       bookmark ->
         # Remove bookmark
-        Repo.delete(bookmark)
-        |> case do
-          {:ok, bookmark} -> {:ok, :unbookmarked, bookmark}
+        result = Repo.delete(bookmark)
+
+        case result do
+          {:ok, bookmark} ->
+            # Decrement counter
+            Backend.Metrics.decrement_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
+            {:ok, :unbookmarked, bookmark}
           error -> error
         end
     end
@@ -468,7 +495,7 @@ defmodule Backend.Social do
   @doc """
   Records an impression for an item (post or project).
   Accepts user_id (for authenticated users) or fingerprint (for anonymous).
-  Returns {:ok, impression} if recorded, {:error, :already_impressed} if duplicate.
+  Returns {:ok, impression} if recorded, {:ok, :already_impressed} if duplicate (no error to avoid transaction abort).
   """
   def record_impression(impressionable_type, impressionable_id, opts \\ []) do
     user_id = Keyword.get(opts, :user_id)
@@ -483,15 +510,26 @@ defmodule Backend.Social do
       ip_address: ip_address
     }
 
-    %Impression{}
-    |> Impression.changeset(attrs)
-    |> Repo.insert()
-    |> case do
-      {:ok, impression} -> {:ok, impression}
+    changeset = Impression.changeset(%Impression{}, attrs)
+
+    # Choose the appropriate conflict target based on whether user is authenticated
+    # This is required for partial unique indexes to work correctly with on_conflict
+    conflict_target = if user_id do
+      {:constraint, :impressions_user_unique_index}
+    else
+      {:constraint, :impressions_fingerprint_unique_index}
+    end
+
+    case Repo.insert(changeset, on_conflict: :nothing, conflict_target: conflict_target) do
+      {:ok, %Impression{id: nil}} ->
+        # on_conflict: :nothing returns struct with nil id when skipped
+        {:ok, :already_impressed}
+      {:ok, impression} ->
+        {:ok, impression}
       {:error, %Ecto.Changeset{errors: errors}} ->
-        # Check if it's a duplicate error
-        if Keyword.has_key?(errors, :user_id) or Keyword.has_key?(errors, :fingerprint) do
-          {:error, :already_impressed}
+        # Handle validation errors (not constraint violations)
+        if Keyword.has_key?(errors, :base) do
+          {:error, :invalid}
         else
           {:error, :invalid}
         end

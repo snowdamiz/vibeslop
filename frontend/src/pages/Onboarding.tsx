@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Avatar } from '@/components/ui/avatar'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
@@ -14,7 +15,8 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -35,6 +37,7 @@ export function Onboarding() {
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '')
   const [displayName, setDisplayName] = useState(user?.name || '')
   const [username, setUsername] = useState(user?.username || '')
+  const [bio, setBio] = useState(user?.bio || '')
   const [usernameError, setUsernameError] = useState('')
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
   
@@ -155,6 +158,7 @@ export function Onboarding() {
         display_name: displayName.trim(),
         username: username.trim(),
         avatar_url: avatarUrl || undefined,
+        bio: bio.trim() || undefined,
       })
 
       // Transform API user to Auth context user format
@@ -419,6 +423,25 @@ export function Onboarding() {
                         </p>
                       )}
                     </div>
+
+                    <div className="space-y-2">
+                      <label className="text-sm font-semibold flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
+                          <FileText className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        Bio
+                      </label>
+                      <Textarea
+                        placeholder="Tell us about yourself..."
+                        value={bio}
+                        onChange={(e) => setBio(e.target.value)}
+                        className="min-h-[80px] resize-none bg-muted/50 border-border/50 focus-visible:bg-background"
+                        maxLength={160}
+                      />
+                      <p className="text-xs text-muted-foreground pl-1">
+                        {bio.length}/160 characters
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -447,6 +470,9 @@ export function Onboarding() {
                         <div className="text-center space-y-1.5">
                           <h3 className="text-xl font-bold">{displayName}</h3>
                           <p className="text-sm text-muted-foreground font-medium">@{username}</p>
+                          {bio && (
+                            <p className="text-sm text-muted-foreground mt-2 max-w-xs mx-auto">{bio}</p>
+                          )}
                           {user.github_username && (
                             <div className="flex items-center justify-center gap-2 mt-2.5 px-3 py-1.5 bg-muted/50 rounded-lg border border-border/50">
                               <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>

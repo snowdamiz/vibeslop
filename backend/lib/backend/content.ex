@@ -424,6 +424,20 @@ defmodule Backend.Content do
             |> Repo.insert!()
           end)
 
+          # If this post quotes another post or project, increment their quotes_count
+          quoted_post_id = Map.get(post_attrs, "quoted_post_id") || Map.get(post_attrs, :quoted_post_id)
+          quoted_project_id = Map.get(post_attrs, "quoted_project_id") || Map.get(post_attrs, :quoted_project_id)
+
+          if quoted_post_id do
+            Backend.Metrics.increment_counter("Post", quoted_post_id, :quotes_count)
+            Backend.Metrics.record_hourly_engagement("Post", quoted_post_id, :quotes)
+          end
+
+          if quoted_project_id do
+            Backend.Metrics.increment_counter("Project", quoted_project_id, :quotes_count)
+            Backend.Metrics.record_hourly_engagement("Project", quoted_project_id, :quotes)
+          end
+
           post
 
         {:error, changeset} ->
@@ -828,12 +842,16 @@ defmodule Backend.Content do
       |> Comment.changeset(Map.put(attrs, "user_id", user_id))
       |> Repo.insert()
 
-    # If comment was created successfully, process mentions
+    # If comment was created successfully, process mentions and update counters
     case result do
       {:ok, comment} ->
         content = Map.get(attrs, "content") || Map.get(attrs, :content) || ""
         commentable_type = Map.get(attrs, "commentable_type") || Map.get(attrs, :commentable_type)
         commentable_id = Map.get(attrs, "commentable_id") || Map.get(attrs, :commentable_id)
+
+        # Increment comments counter and record hourly engagement
+        Backend.Metrics.increment_counter(commentable_type, commentable_id, :comments_count)
+        Backend.Metrics.record_hourly_engagement(commentable_type, commentable_id, :comments)
 
         # Create mention notifications with the commentable as the target
         Backend.Mentions.notify_mentioned_users(content, user_id, commentable_type, commentable_id)
@@ -850,8 +868,16 @@ defmodule Backend.Content do
       nil ->
         {:error, :not_found}
 
-      %Comment{user_id: ^user_id} = comment ->
-        Repo.delete(comment)
+      %Comment{user_id: ^user_id, commentable_type: commentable_type, commentable_id: commentable_id} = comment ->
+        result = Repo.delete(comment)
+
+        case result do
+          {:ok, deleted_comment} ->
+            # Decrement comments counter
+            Backend.Metrics.decrement_counter(commentable_type, commentable_id, :comments_count)
+            {:ok, deleted_comment}
+          error -> error
+        end
 
       %Comment{} ->
         {:error, :unauthorized}
@@ -884,12 +910,9 @@ defmodule Backend.Content do
     ip_address = Keyword.get(opts, :ip_address)
 
     Repo.transaction(fn ->
-      # Track successfully recorded impressions by type
-      recorded_posts = []
-      recorded_projects = []
-
       # Process each impression individually to respect uniqueness constraints
-      Enum.each(impressions, fn imp ->
+      # and collect successfully recorded IDs
+      {recorded_posts, recorded_projects} = Enum.reduce(impressions, {[], []}, fn imp, {posts_acc, projects_acc} ->
         type_str = imp["type"] || imp[:type]
         id = imp["id"] || imp[:id]
 
@@ -908,19 +931,24 @@ defmodule Backend.Content do
           fingerprint: fingerprint,
           ip_address: ip_address
         ) do
-          {:ok, _impression} ->
-            # Successfully recorded, track for counter increment
+          {:ok, %Backend.Social.Impression{}} ->
+            # Successfully recorded NEW impression, track for counter increment and hourly tracking
             case impressionable_type do
-              "Post" -> recorded_posts ++ [id]
-              "Project" -> recorded_projects ++ [id]
-              _ -> :ok
+              "Post" ->
+                # Record hourly engagement for impressions
+                Backend.Metrics.record_hourly_engagement("Post", id, :impressions)
+                {[id | posts_acc], projects_acc}
+              "Project" ->
+                Backend.Metrics.record_hourly_engagement("Project", id, :impressions)
+                {posts_acc, [id | projects_acc]}
+              _ -> {posts_acc, projects_acc}
             end
-          {:error, :already_impressed} ->
-            # Skip duplicates silently
-            :ok
+          {:ok, :already_impressed} ->
+            # Skip duplicates silently (no counter increment needed)
+            {posts_acc, projects_acc}
           {:error, _reason} ->
-            # Skip other errors silently
-            :ok
+            # Skip errors silently
+            {posts_acc, projects_acc}
         end
       end)
 

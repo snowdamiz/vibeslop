@@ -8,6 +8,11 @@ defmodule Backend.Content.Post do
   schema "posts" do
     field :content, :string
     field :impression_count, :integer, default: 0
+    field :likes_count, :integer, default: 0
+    field :comments_count, :integer, default: 0
+    field :reposts_count, :integer, default: 0
+    field :bookmarks_count, :integer, default: 0
+    field :quotes_count, :integer, default: 0
 
     belongs_to :user, Backend.Accounts.User
     belongs_to :linked_project, Backend.Content.Project

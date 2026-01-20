@@ -14,6 +14,11 @@ defmodule Backend.Content.Project do
     field :github_url, :string
     field :view_count, :integer, default: 0
     field :published_at, :utc_datetime
+    field :likes_count, :integer, default: 0
+    field :comments_count, :integer, default: 0
+    field :reposts_count, :integer, default: 0
+    field :bookmarks_count, :integer, default: 0
+    field :quotes_count, :integer, default: 0
 
     belongs_to :user, Backend.Accounts.User
 

@@ -82,7 +82,8 @@ defmodule Backend.Accounts.User do
     |> cast(attrs, [
       :username,
       :display_name,
-      :avatar_url
+      :avatar_url,
+      :bio
     ])
     |> validate_required([:username, :display_name])
     |> validate_length(:username, min: 2, max: 30)

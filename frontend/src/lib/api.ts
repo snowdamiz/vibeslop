@@ -186,8 +186,24 @@ class ApiClient {
     username: string
     display_name: string
     avatar_url?: string
+    bio?: string
   }): Promise<User> {
     return this.put<User>('/me/onboard', { user: data })
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateProfile(data: {
+    display_name?: string
+    username?: string
+    bio?: string
+    avatar_url?: string
+    location?: string
+    website_url?: string
+    twitter_handle?: string
+  }): Promise<User> {
+    return this.put<User>('/me', { user: data })
   }
 
   /**
@@ -449,6 +465,10 @@ class ApiClient {
 
   async reportComment(id: string): Promise<{ success: boolean }> {
     return this.post('/reports', { type: 'comment', id })
+  }
+
+  async reportUser(id: string): Promise<{ success: boolean }> {
+    return this.post('/reports', { type: 'user', id })
   }
 
   // Impressions

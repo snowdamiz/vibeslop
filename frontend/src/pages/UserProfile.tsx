@@ -18,13 +18,24 @@ import {
   MessageSquare,
   Loader2,
   Repeat2,
+  Camera,
+  Flag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { AvatarEditDialog } from '@/components/AvatarEditDialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 // Backup mock user data
 const mockUserData = {
+  id: 'mock-id',
   username: 'sarahc',
   name: 'Sarah Chen',
   initials: 'SC',
@@ -178,6 +189,9 @@ export function UserProfile() {
   const [activeTab, setActiveTab] = useState<ProfileTab>('posts')
   const [tabContent, setTabContent] = useState<FeedItem[]>([])
   const [tabLoading, setTabLoading] = useState(false)
+  const [showAvatarDialog, setShowAvatarDialog] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const [isReporting, setIsReporting] = useState(false)
 
   // Fetch user data
   useEffect(() => {
@@ -211,6 +225,7 @@ export function UserProfile() {
         
         // Map API response to component format
         const mappedUser: typeof mockUserData = {
+          id: apiData.id,
           username: apiData.username,
           name: apiData.display_name,
           initials: apiData.display_name
@@ -310,6 +325,21 @@ export function UserProfile() {
     navigate(`/messages?user=${username}`)
   }
 
+  const handleReportUser = async () => {
+    if (!user?.id) return
+    
+    setIsReporting(true)
+    try {
+      await api.reportUser(user.id)
+      console.log('User reported successfully')
+      setShowReportDialog(false)
+    } catch (err) {
+      console.error('Failed to report user:', err)
+    } finally {
+      setIsReporting(false)
+    }
+  }
+
   // Check if viewing own profile
   const isOwnProfile = currentUser?.username === username
 
@@ -355,12 +385,29 @@ export function UserProfile() {
       <div className="max-w-[600px] mx-auto px-4 pb-4 pt-4">
         {/* Avatar & Name Row */}
         <div className="flex items-center gap-4 mb-4">
-          <Avatar className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
-            <AvatarImage src={user.avatar_url} alt={user.name} />
-            <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
-              {user.initials}
-            </AvatarFallback>
-          </Avatar>
+          {isOwnProfile ? (
+            <button 
+              onClick={() => setShowAvatarDialog(true)}
+              className="relative group cursor-pointer flex-shrink-0"
+            >
+              <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
+                <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
+                <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
+                  {user.initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera className="w-6 h-6 text-white" />
+              </div>
+            </button>
+          ) : (
+            <Avatar className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+              <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
+              <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
+                {user.initials}
+              </AvatarFallback>
+            </Avatar>
+          )}
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
@@ -382,9 +429,24 @@ export function UserProfile() {
                 <MessageSquare className="w-5 h-5" />
               </Button>
             )}
-            <Button variant="ghost" size="icon" className="rounded-full border border-border">
-              <MoreHorizontal className="w-5 h-5" />
-            </Button>
+            {!isOwnProfile && isAuthenticated && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full border border-border">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => setShowReportDialog(true)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Flag className="w-4 h-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             {!isOwnProfile && (
               <Button
                 variant={isFollowing ? 'outline' : 'default'}
@@ -569,6 +631,24 @@ export function UserProfile() {
           </div>
         )}
       </div>
+
+      {/* Avatar Edit Dialog */}
+      <AvatarEditDialog 
+        open={showAvatarDialog} 
+        onOpenChange={setShowAvatarDialog}
+      />
+
+      {/* Report User Dialog */}
+      <ConfirmDialog
+        open={showReportDialog}
+        onOpenChange={setShowReportDialog}
+        title="Report User"
+        description="Are you sure you want to report this user? Our moderation team will review your report."
+        confirmLabel={isReporting ? "Reporting..." : "Report"}
+        variant="destructive"
+        isLoading={isReporting}
+        onConfirm={handleReportUser}
+      />
     </div>
   )
 }
