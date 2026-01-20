@@ -25,7 +25,7 @@ defmodule BackendWeb.NotificationJSON do
       actor: render_actor(notification.actor),
       target: render_target(notification.target_type, notification.target_id),
       content: notification.content_preview,
-      created_at: notification.inserted_at,
+      created_at: format_datetime(notification.inserted_at),
       read: notification.read
     }
   end
@@ -75,4 +75,9 @@ defmodule BackendWeb.NotificationJSON do
     |> Enum.join("")
     |> String.upcase()
   end
+
+  # Format DateTime to ISO 8601 with Z suffix for proper JS parsing
+  defp format_datetime(nil), do: nil
+  defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
+  defp format_datetime(other), do: other
 end

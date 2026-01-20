@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { api } from '@/lib/api'
@@ -75,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsLoading(false)
         })
     } else {
-      setIsLoading(false)
+      Promise.resolve().then(() => setIsLoading(false))
     }
   }, [])
 

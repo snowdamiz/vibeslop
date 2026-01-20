@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -533,9 +534,11 @@ export function About() {
                     Join the Community
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
-                  <Button size="lg" variant="outline">
-                    <Globe className="mr-2 h-4 w-4" />
-                    Explore Projects
+                  <Button size="lg" variant="outline" asChild>
+                    <Link to="/">
+                      <Globe className="mr-2 h-4 w-4" />
+                      View Projects
+                    </Link>
                   </Button>
                 </div>
               </motion.div>

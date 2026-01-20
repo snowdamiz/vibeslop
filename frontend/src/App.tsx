@@ -1,8 +1,7 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Header, Footer, AppShell } from '@/components/layout'
-import { Landing, Home, About, Explore, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback } from '@/pages'
+import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
-import { ExploreProvider } from '@/context/ExploreContext'
 
 function App() {
   const location = useLocation()
@@ -51,31 +50,18 @@ function App() {
 
   // App shell layout for authenticated users and app pages
   return (
-    <ExploreProvider>
-      <AppShell>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/explore" element={<Explore />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/project/:id" element={<ProjectDetail />} />
-          <Route path="/post/:id" element={<PostDetail />} />
-          <Route path="/user/:username" element={<UserProfile />} />
-          <Route path="/notifications" element={<Notifications />} />
-          <Route path="/messages" element={<Messages />} />
-          <Route path="/bookmarks" element={<ComingSoon title="Bookmarks" />} />
-        </Routes>
-      </AppShell>
-    </ExploreProvider>
-  )
-}
-
-// Placeholder for pages not yet implemented
-function ComingSoon({ title }: { title: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
-      <h1 className="text-2xl font-bold mb-2">{title}</h1>
-      <p className="text-muted-foreground">Coming soon</p>
-    </div>
+    <AppShell>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/project/:id" element={<ProjectDetail />} />
+        <Route path="/post/:id" element={<PostDetail />} />
+        <Route path="/user/:username" element={<UserProfile />} />
+        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/bookmarks" element={<Bookmarks />} />
+      </Routes>
+    </AppShell>
   )
 }
 

@@ -36,7 +36,7 @@ defmodule Backend.Content.Project do
     |> cast(attrs, [:title, :description, :long_description, :status, :live_url, :github_url, :user_id, :published_at])
     |> validate_required([:title, :description, :user_id])
     |> validate_length(:title, min: 3, max: 200)
-    |> validate_length(:description, min: 10, max: 1000)
+    |> validate_length(:description, min: 1, max: 5000)
     |> validate_inclusion(:status, ["draft", "published", "archived"])
     |> foreign_key_constraint(:user_id)
   end

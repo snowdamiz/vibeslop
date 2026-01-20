@@ -6,39 +6,57 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
   Heart,
   MessageCircle,
   Repeat2,
-  Share,
   Bookmark,
   MoreHorizontal,
   ExternalLink,
   Flag,
   UserMinus,
   Code2,
+  Trash2,
+  Quote,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { FeedItem, ProjectPost } from './types'
-import { isProjectPost } from './types'
+import { api } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
+import { MarkdownContent } from '@/components/ui/markdown-content'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { QuotedPostPreview } from './QuotedPostPreview'
+import type { FeedItem, ProjectPost, StatusUpdate } from './types'
+import { isProjectPost, isStatusUpdate } from './types'
 
 interface PostProps {
   item: FeedItem
   showBorder?: boolean
+  onDelete?: (id: string) => void
+  onUnbookmark?: (id: string) => void
+  onQuote?: (item: FeedItem) => void
+  trackRef?: (element: HTMLElement | null) => void
 }
 
-export function Post({ item, showBorder = true }: PostProps) {
+export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote, trackRef }: PostProps) {
   const navigate = useNavigate()
-  const [isLiked, setIsLiked] = useState(false)
-  const [isBookmarked, setIsBookmarked] = useState(false)
-  const [isReposted, setIsReposted] = useState(false)
+  const { user } = useAuth()
+  const [isLiked, setIsLiked] = useState(item.liked ?? false)
+  const [isBookmarked, setIsBookmarked] = useState(item.bookmarked ?? false)
+  const [isReposted, setIsReposted] = useState(item.reposted ?? false)
   const [likeCount, setLikeCount] = useState(item.likes)
   const [repostCount, setRepostCount] = useState(item.reposts)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const isProject = isProjectPost(item)
-  const detailPath = isProject ? `/project/${item.id}` : `/post/${item.id}`
+  // For reposts, use original_id to navigate to the original content
+  const contentId = item.original_id || item.id
+  const detailPath = isProject ? `/project/${contentId}` : `/post/${contentId}`
+  const isOwner = user?.username === item.author.username
 
   const handlePostClick = (e: React.MouseEvent) => {
     // Only navigate if clicking on the post itself, not on interactive elements
@@ -49,32 +67,104 @@ export function Post({ item, showBorder = true }: PostProps) {
     navigate(detailPath)
   }
 
-  const handleLike = (e: React.MouseEvent) => {
+  // For reposts, engagement actions target the original content
+  const engagementId = contentId
+
+  const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsLiked(!isLiked)
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1)
+    try {
+      const type = isProject ? 'project' : 'post'
+      const response = await api.toggleLike(type, engagementId)
+      setIsLiked(response.liked)
+      setLikeCount(response.liked ? likeCount + 1 : likeCount - 1)
+    } catch (error) {
+      console.error('Failed to toggle like:', error)
+    }
   }
 
-  const handleRepost = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    setIsReposted(!isReposted)
-    setRepostCount(isReposted ? repostCount - 1 : repostCount + 1)
+  const handleRepost = async (e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    try {
+      const type = isProject ? 'project' : 'post'
+      const response = await api.toggleRepost(type, engagementId)
+      setIsReposted(response.reposted)
+      setRepostCount(response.reposted ? repostCount + 1 : repostCount - 1)
+    } catch (error) {
+      console.error('Failed to toggle repost:', error)
+    }
   }
 
-  const handleBookmark = (e: React.MouseEvent) => {
+  const handleQuote = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsBookmarked(!isBookmarked)
+    onQuote?.(item)
+  }
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      const type = isProject ? 'project' : 'post'
+      const response = await api.toggleBookmark(type, engagementId)
+      setIsBookmarked(response.bookmarked)
+      // Notify parent if unbookmarked (useful for bookmarks page)
+      if (!response.bookmarked && onUnbookmark) {
+        onUnbookmark(item.id)
+      }
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error)
+    }
+  }
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    setShowDeleteDialog(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (isDeleting) return
+    
+    setIsDeleting(true)
+    try {
+      // For reposts, use original_id to delete the actual post/project
+      const deleteId = item.original_id || item.id
+      if (isProject) {
+        await api.deleteProject(deleteId)
+      } else {
+        await api.deletePost(deleteId)
+      }
+      setShowDeleteDialog(false)
+      setIsDeleting(false)
+      // Use the item's actual id (repost id for reposts) for filtering
+      onDelete?.(item.id)
+    } catch (error) {
+      console.error(`Failed to delete ${isProject ? 'project' : 'post'}:`, error)
+      setIsDeleting(false)
+    }
   }
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
-    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60))
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    const diffInMinutes = Math.floor(diffInSeconds / 60)
+    const diffInHours = Math.floor(diffInMinutes / 60)
+    const diffInDays = Math.floor(diffInHours / 24)
     
-    if (diffInHours < 1) return 'now'
+    if (diffInSeconds < 60) return 'now'
+    if (diffInMinutes < 60) return `${diffInMinutes}m`
     if (diffInHours < 24) return `${diffInHours}h`
-    if (diffInHours < 168) return `${Math.floor(diffInHours / 24)}d`
+    if (diffInDays < 7) return `${diffInDays}d`
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const formatCount = (count: number) => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`
+    }
+    if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`
+    }
+    return count.toString()
   }
 
   // Get image(s) based on post type
@@ -89,31 +179,50 @@ export function Post({ item, showBorder = true }: PostProps) {
 
   return (
     <article
+      ref={trackRef}
+      data-impression-type={isProject ? 'project' : 'post'}
+      data-impression-id={contentId}
       onClick={handlePostClick}
       className={cn(
         'block hover:bg-muted/30 transition-colors cursor-pointer',
         showBorder && 'border-b border-border'
       )}
     >
-      <div className="flex gap-3 max-w-[600px] mx-auto px-4 py-3">
-        {/* Avatar */}
-        <Link
-          to={`/user/${item.author.username}`}
-          onClick={(e) => e.stopPropagation()}
-          className="flex-shrink-0"
-        >
-          <Avatar className="w-10 h-10 hover:opacity-90 transition-opacity">
-            <AvatarImage src={`https://i.pravatar.cc/150?img=${item.author.username?.charCodeAt(0) % 70 || 1}`} alt={item.author.name} />
-            <AvatarFallback
-              className={cn(
-                'text-white text-sm font-medium',
-                item.author.color || 'bg-gradient-to-br from-violet-500 to-purple-600'
-              )}
+      <div className="max-w-[600px] mx-auto px-4 py-3">
+        {/* Reposted By Indicator */}
+        {item.is_repost && item.reposted_by && (
+          <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-2 ml-[52px]">
+            <Repeat2 className="w-3.5 h-3.5" />
+            <Link
+              to={`/user/${item.reposted_by.username}`}
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium hover:underline"
             >
-              {item.author.initials}
-            </AvatarFallback>
-          </Avatar>
-        </Link>
+              {item.reposted_by.name}
+            </Link>
+            <span>reposted</span>
+          </div>
+        )}
+
+        <div className="flex gap-3">
+          {/* Avatar */}
+          <Link
+            to={`/user/${item.author.username}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex-shrink-0"
+          >
+            <Avatar className="w-10 h-10 hover:opacity-90 transition-opacity">
+              <AvatarImage src={item.author.avatar_url} alt={item.author.name} />
+              <AvatarFallback
+                className={cn(
+                  'text-white text-sm font-medium',
+                  item.author.color || 'bg-gradient-to-br from-violet-500 to-purple-600'
+                )}
+              >
+                {item.author.initials}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -136,7 +245,7 @@ export function Post({ item, showBorder = true }: PostProps) {
               </Link>
               <span className="text-muted-foreground text-sm">·</span>
               <span className="text-muted-foreground text-sm whitespace-nowrap">
-                {formatTimeAgo(item.createdAt)}
+                {formatTimeAgo(item.created_at)}
               </span>
             </div>
 
@@ -157,14 +266,30 @@ export function Post({ item, showBorder = true }: PostProps) {
                   <ExternalLink className="w-4 h-4 mr-2" />
                   {isProject ? 'Open project' : 'Open post'}
                 </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <UserMinus className="w-4 h-4 mr-2" />
-                  Unfollow @{item.author.username}
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
-                  <Flag className="w-4 h-4 mr-2" />
-                  Report
-                </DropdownMenuItem>
+                {!isOwner && (
+                  <DropdownMenuItem>
+                    <UserMinus className="w-4 h-4 mr-2" />
+                    Unfollow @{item.author.username}
+                  </DropdownMenuItem>
+                )}
+                {isOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      className="text-destructive focus:text-destructive"
+                      onClick={handleDeleteClick}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {!isOwner && (
+                  <DropdownMenuItem className="text-destructive focus:text-destructive">
+                    <Flag className="w-4 h-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -177,9 +302,9 @@ export function Post({ item, showBorder = true }: PostProps) {
           )}
 
           {/* Description/Content */}
-          <p className="text-[15px] text-foreground/90 leading-normal mb-3 whitespace-pre-wrap">
-            {item.content}
-          </p>
+          <div className="text-[15px] text-foreground/90 leading-normal mb-3">
+            <MarkdownContent content={item.content} />
+          </div>
 
           {/* Images */}
           {images.length > 0 && (
@@ -199,6 +324,20 @@ export function Post({ item, showBorder = true }: PostProps) {
                 />
               ))}
             </div>
+          )}
+
+          {/* Quoted Post/Project */}
+          {isStatusUpdate(item) && (item as StatusUpdate).quoted_post && (
+            <QuotedPostPreview
+              item={(item as StatusUpdate).quoted_post!}
+              className="mb-3"
+            />
+          )}
+          {isStatusUpdate(item) && (item as StatusUpdate).quoted_project && (
+            <QuotedPostPreview
+              item={(item as StatusUpdate).quoted_project!}
+              className="mb-3"
+            />
           )}
 
           {/* Built With Tags (only for project posts) */}
@@ -225,103 +364,142 @@ export function Post({ item, showBorder = true }: PostProps) {
           )}
 
           {/* Engagement Actions */}
-          <div className="flex items-center justify-between max-w-md -ml-2">
-            {/* Reply/Comment */}
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                <MessageCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                {item.comments > 0 && item.comments}
-              </span>
-            </button>
-
-            {/* Repost */}
-            <button
-              onClick={handleRepost}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
-                <Repeat2
-                  className={cn(
-                    'w-[18px] h-[18px] transition-colors',
-                    isReposted
-                      ? 'text-green-500'
-                      : 'text-muted-foreground group-hover:text-green-500'
-                  )}
-                />
-              </div>
-              <span
-                className={cn(
-                  'text-sm transition-colors',
-                  isReposted
-                    ? 'text-green-500'
-                    : 'text-muted-foreground group-hover:text-green-500'
-                )}
+          <div className="flex items-center justify-between -ml-2">
+            {/* Left Column: Comments, Likes, Views */}
+            <div className="flex items-center gap-1">
+              {/* Reply/Comment */}
+              <button
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 group"
               >
-                {repostCount > 0 && repostCount}
-              </span>
-            </button>
+                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                  <MessageCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                  {item.comments > 0 && item.comments}
+                </span>
+              </button>
 
-            {/* Like */}
-            <button
-              onClick={handleLike}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
-                <Heart
+              {/* Like */}
+              <button
+                onClick={handleLike}
+                className="flex items-center gap-1.5 group"
+              >
+                <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
+                  <Heart
+                    className={cn(
+                      'w-[18px] h-[18px] transition-colors',
+                      isLiked
+                        ? 'text-rose-500 fill-rose-500'
+                        : 'text-muted-foreground group-hover:text-rose-500'
+                    )}
+                  />
+                </div>
+                <span
                   className={cn(
-                    'w-[18px] h-[18px] transition-colors',
+                    'text-sm transition-colors',
                     isLiked
-                      ? 'text-rose-500 fill-rose-500'
+                      ? 'text-rose-500'
                       : 'text-muted-foreground group-hover:text-rose-500'
                   )}
-                />
-              </div>
-              <span
-                className={cn(
-                  'text-sm transition-colors',
-                  isLiked
-                    ? 'text-rose-500'
-                    : 'text-muted-foreground group-hover:text-rose-500'
-                )}
-              >
-                {likeCount > 0 && likeCount}
-              </span>
-            </button>
+                >
+                  {likeCount > 0 && likeCount}
+                </span>
+              </button>
 
-            {/* Share */}
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className="group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                <Share className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+              {/* Impressions */}
+              <div className="flex items-center gap-1.5">
+                <div className="p-2">
+                  <Eye className="w-[18px] h-[18px] text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {item.impressions > 0 && formatCount(item.impressions)}
+                </span>
               </div>
-            </button>
+            </div>
 
-            {/* Bookmark */}
-            <button
-              onClick={handleBookmark}
-              className="group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                <Bookmark
-                  className={cn(
-                    'w-[18px] h-[18px] transition-colors',
-                    isBookmarked
-                      ? 'text-primary fill-primary'
-                      : 'text-muted-foreground group-hover:text-primary'
+            {/* Right Column: Repost, Bookmark */}
+            <div className="flex items-center gap-1">
+              {/* Repost */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1.5 group"
+                  >
+                    <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
+                      <Repeat2
+                        className={cn(
+                          'w-[18px] h-[18px] transition-colors',
+                          isReposted
+                            ? 'text-green-500'
+                            : 'text-muted-foreground group-hover:text-green-500'
+                        )}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        'text-sm transition-colors',
+                        isReposted
+                          ? 'text-green-500'
+                          : 'text-muted-foreground group-hover:text-green-500'
+                      )}
+                    >
+                      {repostCount > 0 && repostCount}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center" onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuItem onClick={() => handleRepost()}>
+                    <Repeat2 className="w-4 h-4 mr-2" />
+                    {isReposted ? 'Undo repost' : 'Repost'}
+                  </DropdownMenuItem>
+                  {onQuote && (
+                    <DropdownMenuItem onClick={handleQuote}>
+                      <Quote className="w-4 h-4 mr-2" />
+                      Quote
+                    </DropdownMenuItem>
                   )}
-                />
-              </div>
-            </button>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Bookmark */}
+              <button
+                onClick={handleBookmark}
+                className="group"
+              >
+                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                  <Bookmark
+                    className={cn(
+                      'w-[18px] h-[18px] transition-colors',
+                      isBookmarked
+                        ? 'text-primary fill-primary'
+                        : 'text-muted-foreground group-hover:text-primary'
+                    )}
+                  />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
+        </div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title={isProject ? "Delete project?" : "Delete post?"}
+        description={isProject 
+          ? "This can't be undone. The project and all its associated data will be permanently removed from your profile and the feed."
+          : "This can't be undone and it will be removed from your profile, the timeline of any accounts that follow you, and from search results."
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        variant="destructive"
+        isLoading={isDeleting}
+        onConfirm={handleDeleteConfirm}
+      />
     </article>
   )
 }

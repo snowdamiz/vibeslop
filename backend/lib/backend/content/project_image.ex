@@ -8,7 +8,7 @@ defmodule Backend.Content.ProjectImage do
   schema "project_images" do
     field :url, :string
     field :alt_text, :string
-    field :display_order, :integer
+    field :position, :integer
 
     belongs_to :project, Backend.Content.Project
 
@@ -18,7 +18,7 @@ defmodule Backend.Content.ProjectImage do
   @doc false
   def changeset(project_image, attrs) do
     project_image
-    |> cast(attrs, [:url, :alt_text, :display_order, :project_id])
+    |> cast(attrs, [:url, :alt_text, :position, :project_id])
     |> validate_required([:url, :project_id])
     |> foreign_key_constraint(:project_id)
   end

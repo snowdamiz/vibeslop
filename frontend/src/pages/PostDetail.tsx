@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
 import { CommentsSection } from '@/components/comments'
+import type { Comment as CommentType } from '@/components/comments/types'
 import { cn } from '@/lib/utils'
 import {
   Heart,
@@ -28,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 
 // Backup mock post data
 const mockPostData = {
@@ -38,11 +40,12 @@ const mockPostData = {
   likes: 89,
   comments: 12,
   reposts: 5,
-  createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
   author: {
     name: 'Sarah Chen',
     username: 'sarahc',
     initials: 'SC',
+    avatar_url: undefined as string | undefined,
     bio: 'Full-stack developer passionate about developer tools. Building things that make developers\' lives easier.',
     color: 'from-violet-500 to-purple-600',
     verified: true,
@@ -56,7 +59,7 @@ const mockPostData = {
       author: { name: 'Alex Rivera', initials: 'AR', username: 'alexr' },
       content: 'This is game changing! I\'ve been doing something similar but with smaller chunks. Never thought to feed it the whole structure first.',
       likes: 8,
-      createdAt: '1 hour ago',
+      created_at: '1 hour ago',
       replyCount: 1,
       replies: [
         {
@@ -64,7 +67,7 @@ const mockPostData = {
           author: { name: 'Sarah Chen', initials: 'SC', username: 'sarahc' },
           content: 'Yeah the context window in Claude 3.5 is huge! Definitely try it with the full structure - the results are much more coherent.',
           likes: 3,
-          createdAt: '45 minutes ago',
+          created_at: '45 minutes ago',
           replyTo: '1',
         },
       ],
@@ -74,21 +77,21 @@ const mockPostData = {
       author: { name: 'Marcus Johnson', initials: 'MJ', username: 'marcusj' },
       content: 'Do you have a template prompt you could share? Would love to try this approach.',
       likes: 5,
-      createdAt: '30 minutes ago',
+      created_at: '30 minutes ago',
     },
     {
       id: '3',
       author: { name: 'Luna Park', initials: 'LP', username: 'lunap' },
       content: 'This is exactly what I needed to hear today. Been struggling with a legacy Rails app and was about to give up.',
       likes: 2,
-      createdAt: '15 minutes ago',
+      created_at: '15 minutes ago',
     },
   ],
 }
 
 export function PostDetail() {
   const { id } = useParams()
-  const [post, setPost] = useState<any>(null)
+  const [post, setPost] = useState<typeof mockPostData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isLiked, setIsLiked] = useState(false)
@@ -97,6 +100,9 @@ export function PostDetail() {
   const [likeCount, setLikeCount] = useState(0)
   const [repostCount, setRepostCount] = useState(0)
   const [copiedShare, setCopiedShare] = useState(false)
+  const [comments, setComments] = useState<CommentType[]>([])
+  const [commentCount, setCommentCount] = useState(0)
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
 
   // Fetch post data
   useEffect(() => {
@@ -108,9 +114,11 @@ export function PostDetail() {
       
       try {
         const response = await api.getPost(id)
-        setPost(response.data)
-        setLikeCount(response.data.likes || 0)
-        setRepostCount(response.data.reposts || 0)
+        const postData = response.data as typeof mockPostData
+        setPost(postData)
+        setLikeCount(postData.likes || 0)
+        setRepostCount(postData.reposts || 0)
+        setCommentCount(postData.comments || 0)
       } catch (err) {
         console.error('Failed to fetch post:', err)
         setError('Failed to load post')
@@ -118,6 +126,7 @@ export function PostDetail() {
         setPost(mockPostData)
         setLikeCount(mockPostData.likes)
         setRepostCount(mockPostData.reposts)
+        setCommentCount(mockPostData.comments)
       } finally {
         setIsLoading(false)
       }
@@ -125,6 +134,88 @@ export function PostDetail() {
 
     fetchPost()
   }, [id])
+
+  // Fetch comments after post loads
+  useEffect(() => {
+    if (!id || !post) return
+
+    const fetchComments = async () => {
+      setIsLoadingComments(true)
+      try {
+        const response = await api.getComments('post', id)
+        setComments(response.data as CommentType[])
+        setCommentCount((response.data as CommentType[]).length)
+      } catch (err) {
+        console.error('Failed to fetch comments:', err)
+        // Keep any existing comments from mock data
+      } finally {
+        setIsLoadingComments(false)
+      }
+    }
+
+    fetchComments()
+  }, [id, post])
+
+  // Handle adding a comment
+  const handleAddComment = async (content: string, parentId?: string) => {
+    if (!id) return
+
+    try {
+      const response = await api.createComment({
+        commentable_type: 'Post',
+        commentable_id: id,
+        content,
+        parent_id: parentId,
+      })
+
+      const newComment = response.data as CommentType
+
+      if (parentId) {
+        // If it's a reply, refetch all comments to keep nested structure correct
+        const commentsResponse = await api.getComments('post', id)
+        setComments(commentsResponse.data as CommentType[])
+      } else {
+        // Add new top-level comment to the beginning
+        setComments(prev => [newComment, ...prev])
+      }
+
+      // Update comment count
+      setCommentCount(prev => prev + 1)
+    } catch (err) {
+      console.error('Failed to create comment:', err)
+    }
+  }
+
+  // Handle liking a comment
+  const handleLikeComment = async (commentId: string) => {
+    try {
+      await api.toggleLike('comment', commentId)
+    } catch (err) {
+      console.error('Failed to like comment:', err)
+    }
+  }
+
+  // Handle deleting a comment
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await api.deleteComment(commentId)
+      setCommentCount(prev => Math.max(0, prev - 1))
+    } catch (err) {
+      console.error('Failed to delete comment:', err)
+      throw err // Re-throw so the UI can handle it
+    }
+  }
+
+  // Handle reporting a comment
+  const handleReportComment = async (commentId: string) => {
+    try {
+      await api.reportComment(commentId)
+      // Show success feedback (could add a toast notification here)
+      console.log('Comment reported successfully')
+    } catch (err) {
+      console.error('Failed to report comment:', err)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -157,8 +248,13 @@ export function PostDetail() {
     setRepostCount(isReposted ? repostCount - 1 : repostCount + 1)
   }
 
-  const handleBookmark = () => {
-    setIsBookmarked(!isBookmarked)
+  const handleBookmark = async () => {
+    try {
+      const response = await api.toggleBookmark('post', id!)
+      setIsBookmarked(response.bookmarked)
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error)
+    }
   }
 
   const copyShareLink = () => {
@@ -200,7 +296,7 @@ export function PostDetail() {
             <div className="flex items-start gap-3">
               <Link to={`/user/${post.author.username}`}>
                 <Avatar className="w-12 h-12 hover:opacity-90 transition-opacity">
-                  <AvatarImage src={`https://i.pravatar.cc/150?img=${post.author.username?.charCodeAt(0) % 70 || 3}`} alt={post.author.name} />
+                  <AvatarImage src={post.author.avatar_url} alt={post.author.name} />
                   <AvatarFallback className={`bg-gradient-to-br ${post.author.color} text-white text-sm font-medium`}>
                     {post.author.initials}
                   </AvatarFallback>
@@ -242,10 +338,8 @@ export function PostDetail() {
           </div>
 
           {/* Content */}
-          <div className="mb-4">
-            <p className="text-[17px] leading-relaxed whitespace-pre-wrap">
-              {post.content}
-            </p>
+          <div className="mb-4 text-[17px] leading-relaxed">
+            <MarkdownContent content={post.content} />
           </div>
 
           {/* Media */}
@@ -254,7 +348,7 @@ export function PostDetail() {
               'mb-4 rounded-2xl overflow-hidden border border-border',
               post.media.length > 1 && 'grid grid-cols-2 gap-0.5'
             )}>
-              {post.media.slice(0, 4).map((img, idx) => (
+              {post.media.slice(0, 4).map((img: string, idx: number) => (
                 <img
                   key={idx}
                   src={img}
@@ -270,7 +364,7 @@ export function PostDetail() {
 
           {/* Timestamp */}
           <div className="text-muted-foreground text-sm mb-4">
-            {formatDate(post.createdAt)}
+            {formatDate(post.created_at)}
           </div>
 
           {/* Action Buttons with Stats */}
@@ -283,9 +377,9 @@ export function PostDetail() {
               <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
                 <MessageCircle className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
               </div>
-              {post.commentsList.length > 0 && (
+              {commentCount > 0 && (
                 <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                  {post.commentsList.length}
+                  {commentCount}
                 </span>
               )}
             </button>
@@ -368,7 +462,19 @@ export function PostDetail() {
         </div>
 
         {/* Comments Section */}
-        <CommentsSection comments={post.commentsList} />
+        {isLoadingComments ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <CommentsSection 
+            comments={comments} 
+            onAddComment={handleAddComment}
+            onLikeComment={handleLikeComment}
+            onDeleteComment={handleDeleteComment}
+            onReportComment={handleReportComment}
+          />
+        )}
 
         {/* Share Card - Sticky at bottom on mobile */}
         <div className="p-4 border-t border-border lg:hidden">

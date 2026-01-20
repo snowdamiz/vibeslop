@@ -61,12 +61,6 @@ export function Header() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             <Button variant="nav" size="sm" asChild>
-              <Link to="/explore">Explore</Link>
-            </Button>
-            <Button variant="nav" size="sm" asChild>
-              <Link to="/explore">Trending</Link>
-            </Button>
-            <Button variant="nav" size="sm" asChild>
               <Link to="/about">About</Link>
             </Button>
           </div>
@@ -138,7 +132,7 @@ export function Header() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src="https://i.pravatar.cc/150?img=1" alt={user?.name} />
+                        <AvatarImage src={user?.avatar_url} alt={user?.name} />
                         <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
                           {user?.initials}
                         </AvatarFallback>
@@ -218,12 +212,6 @@ export function Header() {
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/explore">Explore</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link to="/explore">Trending</Link>
-                </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link to="/about">About</Link>
                 </DropdownMenuItem>

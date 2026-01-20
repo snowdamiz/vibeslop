@@ -6,6 +6,7 @@ defmodule Backend.Accounts do
   import Ecto.Query, warn: false
   alias Backend.Repo
   alias Backend.Accounts.{User, OAuthAccount}
+  alias Backend.Social.Follow
 
   @doc """
   Gets a single user by ID.
@@ -129,5 +130,70 @@ defmodule Backend.Accounts do
   """
   def delete_user(%User{} = user) do
     Repo.delete(user)
+  end
+
+  @doc """
+  Lists suggested users to follow.
+  Returns users ordered by follower count, excluding the current user and users already followed.
+  """
+  def list_suggested_users(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 3)
+    exclude_user_id = Keyword.get(opts, :exclude_user_id)
+
+    # Start with base query - get users with their follower counts
+    query =
+      from u in User,
+        left_join: f in Follow, on: f.following_id == u.id,
+        group_by: u.id,
+        order_by: [desc: count(f.id), desc: u.inserted_at],
+        limit: ^limit,
+        select: u
+
+    # Exclude the current user if provided
+    query = if exclude_user_id do
+      from u in query, where: u.id != ^exclude_user_id
+    else
+      query
+    end
+
+    # Exclude users already followed by current user
+    query = if exclude_user_id do
+      from u in query,
+        where: u.id not in subquery(
+          from f in Follow,
+            where: f.follower_id == ^exclude_user_id,
+            select: f.following_id
+        )
+    else
+      query
+    end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Searches for users by username or display name.
+  """
+  def search_users(query_string, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 10)
+    exclude_user_id = Keyword.get(opts, :exclude_user_id)
+
+    search_pattern = "%#{query_string}%"
+
+    query =
+      from u in User,
+        where: ilike(u.username, ^search_pattern) or ilike(u.display_name, ^search_pattern),
+        order_by: [asc: u.username],
+        limit: ^limit,
+        select: u
+
+    # Exclude the current user if provided
+    query = if exclude_user_id do
+      from u in query, where: u.id != ^exclude_user_id
+    else
+      query
+    end
+
+    Repo.all(query)
   end
 end

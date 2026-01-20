@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Sparkles, Zap, Users, Heart, MessageCircle, BarChart3, MessageSquare, Palette } from 'lucide-react'
@@ -179,8 +180,10 @@ export function Hero() {
               Start Building Your Portfolio
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <Button size="lg" variant="outline" className="text-base px-8">
-              Explore Projects
+            <Button size="lg" variant="outline" className="text-base px-8" asChild>
+              <Link to="/signin">
+                View Projects
+              </Link>
             </Button>
           </div>
 

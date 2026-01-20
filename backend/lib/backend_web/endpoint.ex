@@ -44,7 +44,8 @@ defmodule BackendWeb.Endpoint do
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],
     pass: ["*/*"],
-    json_decoder: Phoenix.json_library()
+    json_decoder: Phoenix.json_library(),
+    length: 20_000_000  # 20MB to accommodate base64 images
 
   plug Plug.MethodOverride
   plug Plug.Head

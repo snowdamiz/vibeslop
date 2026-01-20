@@ -5,8 +5,9 @@ import { ComposeBox } from './ComposeBox'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Sparkles, Users } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useImpressionTracker } from '@/hooks/useImpressionTracker'
 
 // Backup mock data in case API fails
 const mockFeedData: FeedItem[] = [
@@ -18,7 +19,8 @@ const mockFeedData: FeedItem[] = [
     likes: 89,
     comments: 12,
     reposts: 5,
-    createdAt: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
     author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
   },
   // Project post
@@ -33,7 +35,8 @@ const mockFeedData: FeedItem[] = [
     likes: 234,
     comments: 45,
     reposts: 12,
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
   },
   // Status update
@@ -44,7 +47,8 @@ const mockFeedData: FeedItem[] = [
     likes: 156,
     comments: 34,
     reposts: 18,
-    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Marcus Johnson', username: 'marcusj', initials: 'MJ' },
   },
   // Project post
@@ -59,7 +63,8 @@ const mockFeedData: FeedItem[] = [
     likes: 189,
     comments: 32,
     reposts: 8,
-    createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Marcus Johnson', username: 'marcusj', initials: 'MJ' },
   },
   // Status update with tip
@@ -70,7 +75,8 @@ const mockFeedData: FeedItem[] = [
     likes: 203,
     comments: 28,
     reposts: 42,
-    createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Luna Park', username: 'lunap', initials: 'LP' },
   },
   // Project post
@@ -85,7 +91,8 @@ const mockFeedData: FeedItem[] = [
     likes: 312,
     comments: 67,
     reposts: 24,
-    createdAt: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Luna Park', username: 'lunap', initials: 'LP' },
   },
   // Status update - question
@@ -96,7 +103,8 @@ const mockFeedData: FeedItem[] = [
     likes: 67,
     comments: 89,
     reposts: 3,
-    createdAt: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Alex Rivera', username: 'alexr', initials: 'AR' },
   },
   // Project post
@@ -111,7 +119,8 @@ const mockFeedData: FeedItem[] = [
     likes: 156,
     comments: 28,
     reposts: 5,
-    createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Alex Rivera', username: 'alexr', initials: 'AR' },
   },
   // Status update - celebration
@@ -122,7 +131,8 @@ const mockFeedData: FeedItem[] = [
     likes: 445,
     comments: 56,
     reposts: 23,
-    createdAt: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Jordan Lee', username: 'jordanl', initials: 'JL' },
   },
   // Project post
@@ -137,7 +147,8 @@ const mockFeedData: FeedItem[] = [
     likes: 278,
     comments: 51,
     reposts: 18,
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Jordan Lee', username: 'jordanl', initials: 'JL' },
   },
   // Status update - learning
@@ -148,7 +159,8 @@ const mockFeedData: FeedItem[] = [
     likes: 178,
     comments: 15,
     reposts: 31,
-    createdAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Mia Thompson', username: 'miat', initials: 'MT' },
   },
   // Project post
@@ -163,7 +175,8 @@ const mockFeedData: FeedItem[] = [
     likes: 145,
     comments: 23,
     reposts: 7,
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    impressions: 0,
+    created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
     author: { name: 'Mia Thompson', username: 'miat', initials: 'MT' },
   },
 ]
@@ -188,7 +201,20 @@ export function Feed({
   const [isLoading, setIsLoading] = useState(false)
   const [hasNewPosts, setHasNewPosts] = useState(false)
   const [posts, setPosts] = useState<FeedItem[]>(providedPosts || [])
-  const [error, setError] = useState<string | null>(null)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_error, setError] = useState<string | null>(null)
+  const [quotedItem, setQuotedItem] = useState<FeedItem | null>(null)
+  const [isComposeOpen, setIsComposeOpen] = useState(false)
+  const { trackRef } = useImpressionTracker()
+
+  const handleQuote = (item: FeedItem) => {
+    setQuotedItem(item)
+    setIsComposeOpen(true)
+  }
+
+  const handleClearQuote = () => {
+    setQuotedItem(null)
+  }
 
   // Fetch posts when tab changes
   useEffect(() => {
@@ -207,7 +233,7 @@ export function Feed({
           limit: 20
         })
         
-        setPosts(response.data || [])
+        setPosts((response.data as FeedItem[]) || [])
       } catch (err) {
         console.error('Failed to fetch posts:', err)
         setError('Failed to load posts')
@@ -275,7 +301,84 @@ export function Feed({
 
       {/* Compose Box */}
       {showCompose && isAuthenticated && (
-        <ComposeBox />
+        <ComposeBox 
+          isOpen={isComposeOpen}
+          onOpenChange={setIsComposeOpen}
+          quotedItem={quotedItem}
+          onClearQuote={handleClearQuote}
+          onPost={async (item) => {
+            try {
+              let response;
+              
+              if (item.type === 'project') {
+                // Call project API for projects
+                const projectItem = item as { 
+                  type: 'project'; 
+                  title: string;
+                  content: string;
+                  images?: string[];
+                  tools?: string[];
+                  stack?: string[];
+                  links?: { live?: string; github?: string };
+                  highlights?: string[];
+                  prompts?: { title: string; description?: string; code: string }[];
+                  timeline?: { date: string; title: string; description?: string }[];
+                }
+                
+                response = await api.createProject({
+                  title: projectItem.title,
+                  description: projectItem.content,
+                  images: projectItem.images,
+                  tools: projectItem.tools,
+                  stack: projectItem.stack,
+                  links: projectItem.links,
+                  highlights: projectItem.highlights,
+                  prompts: projectItem.prompts,
+                  timeline: projectItem.timeline,
+                })
+              } else {
+                // Call posts API for status updates
+                const updateItem = item as { 
+                  type: 'update'
+                  content: string
+                  media?: string[]
+                  quoted_post_id?: string
+                  quoted_project_id?: string
+                }
+                const postData: { 
+                  content: string
+                  media?: string[]
+                  quoted_post_id?: string
+                  quoted_project_id?: string
+                } = {
+                  content: updateItem.content,
+                }
+                
+                if (updateItem.media && updateItem.media.length > 0) {
+                  postData.media = updateItem.media
+                }
+                
+                // Add quoted item references
+                if (updateItem.quoted_post_id) {
+                  postData.quoted_post_id = updateItem.quoted_post_id
+                }
+                if (updateItem.quoted_project_id) {
+                  postData.quoted_project_id = updateItem.quoted_project_id
+                }
+                
+                response = await api.createPost(postData)
+              }
+              
+              // Optimistically add to feed
+              const newPost = response.data as FeedItem
+              setPosts((prev) => [newPost, ...prev])
+              handleClearQuote()
+            } catch (err) {
+              console.error('Failed to create:', err)
+              // Could show a toast here
+            }
+          }}
+        />
       )}
 
       {/* Posts Feed */}
@@ -290,17 +393,32 @@ export function Feed({
               key={item.id}
               item={item}
               showBorder={index !== filteredPosts.length - 1}
+              onDelete={(id) => {
+                setPosts((prev) => prev.filter((p) => p.id !== id))
+              }}
+              onQuote={handleQuote}
+              trackRef={trackRef}
             />
           ))
         ) : (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
             <div className="max-w-[600px] mx-auto px-4">
-              <p className="text-muted-foreground">No posts yet</p>
-              {activeTab === 'following' && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Follow some creators to see their posts here
-                </p>
-              )}
+              <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+                {activeTab === 'following' ? (
+                  <Users className="w-8 h-8 text-muted-foreground" />
+                ) : (
+                  <Sparkles className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <h3 className="text-lg font-semibold mb-2">
+                {activeTab === 'following' ? 'No posts from people you follow' : 'No posts yet'}
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                {activeTab === 'following' 
+                  ? 'Follow some creators to see their posts here'
+                  : 'Be the first to share something!'
+                }
+              </p>
             </div>
           </div>
         )}

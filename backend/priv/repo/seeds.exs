@@ -228,10 +228,15 @@ defmodule Seeds do
     nextjs = Repo.get_by!(Backend.Catalog.TechStack, slug: "nextjs")
     nodejs = Repo.get_by!(Backend.Catalog.TechStack, slug: "nodejs")
 
+    # Convert user IDs to binary format
+    {:ok, sarah_id} = Ecto.UUID.dump(sarah.id)
+    {:ok, marcus_id} = Ecto.UUID.dump(marcus.id)
+    {:ok, luna_id} = Ecto.UUID.dump(luna.id)
+
     projects = [
       %{
         id: generate_uuid(),
-        user_id: sarah.id,
+        user_id: sarah_id,
         title: "AI-Powered Code Review Dashboard",
         description: "A real-time dashboard that uses Claude to analyze pull requests and provide actionable feedback.",
         long_description: "This project started as a weekend experiment and evolved into a full-featured code review tool. The dashboard connects to your GitHub repositories and automatically analyzes every pull request using Claude.",
@@ -244,7 +249,7 @@ defmodule Seeds do
       },
       %{
         id: generate_uuid(),
-        user_id: marcus.id,
+        user_id: marcus_id,
         title: "Conversational Data Explorer",
         description: "Chat with your data using natural language. Built in a weekend with v0 and GPT-4.",
         long_description: "A tool that lets you explore your database using plain English. Just ask questions and get insights.",
@@ -256,7 +261,7 @@ defmodule Seeds do
       },
       %{
         id: generate_uuid(),
-        user_id: luna.id,
+        user_id: luna_id,
         title: "Generative Art Studio",
         description: "Create stunning visuals with AI. A creative playground combining multiple AI tools.",
         long_description: "An interactive studio for creating AI-generated art with real-time preview and editing.",
@@ -275,24 +280,42 @@ defmodule Seeds do
     project2 = Repo.get_by!(Backend.Content.Project, title: "Conversational Data Explorer")
     project3 = Repo.get_by!(Backend.Content.Project, title: "Generative Art Studio")
 
+    # Convert IDs to binary
+    {:ok, project1_id} = Ecto.UUID.dump(project1.id)
+    {:ok, project2_id} = Ecto.UUID.dump(project2.id)
+    {:ok, project3_id} = Ecto.UUID.dump(project3.id)
+    {:ok, cursor_id} = Ecto.UUID.dump(cursor.id)
+    {:ok, claude_id} = Ecto.UUID.dump(claude.id)
+    {:ok, v0_id} = Ecto.UUID.dump(v0.id)
+    {:ok, gpt4_id} = Ecto.UUID.dump(gpt4.id)
+    {:ok, react_id} = Ecto.UUID.dump(react.id)
+    {:ok, nextjs_id} = Ecto.UUID.dump(nextjs.id)
+    {:ok, nodejs_id} = Ecto.UUID.dump(nodejs.id)
+
     project_tools = [
-      %{project_id: project1.id, ai_tool_id: cursor.id},
-      %{project_id: project1.id, ai_tool_id: claude.id},
-      %{project_id: project2.id, ai_tool_id: v0.id},
-      %{project_id: project2.id, ai_tool_id: gpt4.id},
-      %{project_id: project3.id, ai_tool_id: claude.id}
+      %{project_id: project1_id, ai_tool_id: cursor_id},
+      %{project_id: project1_id, ai_tool_id: claude_id},
+      %{project_id: project2_id, ai_tool_id: v0_id},
+      %{project_id: project2_id, ai_tool_id: gpt4_id},
+      %{project_id: project3_id, ai_tool_id: claude_id}
     ]
 
-    Repo.insert_all("project_ai_tools", project_tools, on_conflict: :nothing)
+    Repo.insert_all("project_ai_tools", project_tools,
+      on_conflict: :nothing,
+      conflict_target: [:project_id, :ai_tool_id]
+    )
 
     project_stacks = [
-      %{project_id: project1.id, tech_stack_id: react.id},
-      %{project_id: project1.id, tech_stack_id: nodejs.id},
-      %{project_id: project2.id, tech_stack_id: nextjs.id},
-      %{project_id: project3.id, tech_stack_id: react.id}
+      %{project_id: project1_id, tech_stack_id: react_id},
+      %{project_id: project1_id, tech_stack_id: nodejs_id},
+      %{project_id: project2_id, tech_stack_id: nextjs_id},
+      %{project_id: project3_id, tech_stack_id: react_id}
     ]
 
-    Repo.insert_all("project_tech_stacks", project_stacks, on_conflict: :nothing)
+    Repo.insert_all("project_tech_stacks", project_stacks,
+      on_conflict: :nothing,
+      conflict_target: [:project_id, :tech_stack_id]
+    )
 
     IO.puts("  Seeded #{length(projects)} projects")
   end
@@ -306,31 +329,37 @@ defmodule Seeds do
     luna = Repo.get_by!(Backend.Accounts.User, username: "lunap")
     alex = Repo.get_by!(Backend.Accounts.User, username: "alexr")
 
+    # Convert user IDs to binary format
+    {:ok, sarah_id} = Ecto.UUID.dump(sarah.id)
+    {:ok, marcus_id} = Ecto.UUID.dump(marcus.id)
+    {:ok, luna_id} = Ecto.UUID.dump(luna.id)
+    {:ok, alex_id} = Ecto.UUID.dump(alex.id)
+
     posts = [
       %{
         id: generate_uuid(),
-        user_id: sarah.id,
+        user_id: sarah_id,
         content: "Just discovered you can use Claude to refactor entire modules at once. Game changer for legacy codebases! The key is giving it enough context about your patterns.",
         inserted_at: DateTime.add(now, -2 * 3600, :second),
         updated_at: DateTime.add(now, -2 * 3600, :second)
       },
       %{
         id: generate_uuid(),
-        user_id: marcus.id,
+        user_id: marcus_id,
         content: "Hot take: vibe coding isn't about replacing developers, it's about amplifying what we can build. I shipped more this month than the entire Q1 last year.",
         inserted_at: DateTime.add(now, -3 * 3600, :second),
         updated_at: DateTime.add(now, -3 * 3600, :second)
       },
       %{
         id: generate_uuid(),
-        user_id: luna.id,
+        user_id: luna_id,
         content: "Pro tip: When using Cursor, keep your project structure flat at first. Let the AI help you refactor into modules once patterns emerge. Fighting the AI early leads to frustration.",
         inserted_at: DateTime.add(now, -6 * 3600, :second),
         updated_at: DateTime.add(now, -6 * 3600, :second)
       },
       %{
         id: generate_uuid(),
-        user_id: alex.id,
+        user_id: alex_id,
         content: "Anyone else finding that Claude 3.5 Sonnet handles React better than GPT-4? Curious what your experiences have been. Thinking of switching my whole workflow.",
         inserted_at: DateTime.add(now, -10 * 3600, :second),
         updated_at: DateTime.add(now, -10 * 3600, :second)

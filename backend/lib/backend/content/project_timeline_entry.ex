@@ -6,10 +6,10 @@ defmodule Backend.Content.ProjectTimelineEntry do
   @foreign_key_type :binary_id
 
   schema "project_timeline_entries" do
-    field :date, :date
+    field :occurred_at, :date
     field :title, :string
     field :description, :string
-    field :display_order, :integer
+    field :position, :integer
 
     belongs_to :project, Backend.Content.Project
 
@@ -19,8 +19,8 @@ defmodule Backend.Content.ProjectTimelineEntry do
   @doc false
   def changeset(project_timeline_entry, attrs) do
     project_timeline_entry
-    |> cast(attrs, [:date, :title, :description, :display_order, :project_id])
-    |> validate_required([:date, :title, :project_id])
+    |> cast(attrs, [:occurred_at, :title, :description, :position, :project_id])
+    |> validate_required([:occurred_at, :title, :project_id])
     |> validate_length(:title, min: 1, max: 200)
     |> foreign_key_constraint(:project_id)
   end

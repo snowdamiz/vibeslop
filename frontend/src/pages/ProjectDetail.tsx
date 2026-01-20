@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { CommentsSection } from '@/components/comments'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 import {
   Heart,
   MessageCircle,
@@ -35,6 +36,7 @@ import {
   BadgeCheck,
   ChevronDown,
   ChevronUp,
+  Loader2,
 } from 'lucide-react'
 
 // Animation variants
@@ -55,231 +57,146 @@ const itemVariants = {
   },
 }
 
-// Mock project data
-const projectData = {
-  id: '1',
-  title: 'AI-Powered Code Review Dashboard',
-  description: 'A real-time dashboard that uses Claude to analyze pull requests and provide actionable feedback. Built to help teams maintain code quality without slowing down development velocity.',
-  longDescription: `This project started as a weekend experiment and evolved into a full-featured code review tool. The idea came from frustration with manual code reviews that were either too slow or too superficial.
-
-The dashboard connects to your GitHub repositories and automatically analyzes every pull request using Claude. It looks for common issues like security vulnerabilities, performance problems, and code style inconsistencies.
-
-What makes it special is the contextual understanding—it doesn't just flag issues, it explains why they matter and suggests specific fixes. The AI has been fine-tuned on thousands of real code reviews to understand what experienced developers look for.`,
-  highlights: [
-    'Analyzes PRs in under 30 seconds',
-    'Integrates with GitHub Actions',
-    'Supports 15+ programming languages',
-    'Custom rule configuration',
-  ],
-  images: [
-    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&h=800&fit=crop',
-    'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=800&fit=crop',
-  ],
+// API project types
+interface ApiProject {
+  id: string
+  title: string
+  description: string
+  long_description?: string
+  status?: string
+  live_url?: string
+  github_url?: string
+  view_count?: number
+  likes: number
+  comments: number
+  liked?: boolean
+  bookmarked?: boolean
+  created_at: string
+  images: Array<{ id: string; url: string; alt_text?: string }>
+  highlights: Array<{ id: string; content: string }>
+  prompts: Array<{ id: string; title: string; description: string; code: string }>
+  timeline: Array<{ id: string; date: string; title: string; description: string }>
+  ai_tools: Array<{ id: string; name: string; slug: string }>
+  tech_stack: Array<{ id: string; name: string; slug: string; category?: string }>
   author: {
-    name: 'Sarah Chen',
-    username: 'sarahc',
-    initials: 'SC',
-    bio: 'Full-stack developer passionate about developer tools. Building things that make developers\' lives easier.',
-    color: 'from-violet-500 to-purple-600',
-    verified: true,
-    followers: 1247,
-    following: 89,
-    projects: 12,
-  },
-  aiTools: ['Cursor', 'Claude', 'GitHub Copilot'],
-  techStack: ['React', 'TypeScript', 'Node.js', 'PostgreSQL', 'Tailwind CSS'],
+    id: string
+    name: string
+    username: string
+    initials: string
+    avatar_url?: string
+    bio?: string
+    is_verified?: boolean
+  }
+}
+
+// Normalized project type for component use
+interface NormalizedProject {
+  id: string
+  title: string
+  description: string
+  longDescription: string
+  highlights: string[]
+  images: string[]
+  author: {
+    name: string
+    username: string
+    initials: string
+    avatar_url?: string
+    bio: string
+    color: string
+    verified: boolean
+    followers?: number
+    following?: number
+    projects?: number
+  }
+  aiTools: string[]
+  techStack: string[]
   links: {
-    live: 'https://example.com',
-    github: 'https://github.com/example/project',
-  },
+    live?: string
+    github?: string
+  }
   stats: {
-    likes: 234,
-    comments: 45,
-    views: 1892,
-  },
-  createdAt: '2026-01-10',
-  prompts: [
-    {
-      title: 'Initial UI Generation',
-      description: 'Used v0 to generate the base dashboard layout',
-      code: `Create a modern dashboard for code review analytics with:
-- A sidebar navigation with icons
-- A main content area with cards showing PR statistics
-- A real-time activity feed on the right
-- Dark mode support
-- Responsive design for mobile
+    likes: number
+    comments: number
+    views: number
+  }
+  created_at: string
+  prompts: Array<{ title: string; description: string; code: string }>
+  timeline: Array<{ date: string; title: string; description: string }>
+  comments: Array<{
+    id: string
+    author: { name: string; initials: string; username: string }
+    content: string
+    likes: number
+    created_at: string
+    replyCount?: number
+    replies?: Array<{
+      id: string
+      author: { name: string; initials: string; username: string }
+      content: string
+      likes: number
+      created_at: string
+      replyTo?: string
+      replies?: Array<{
+        id: string
+        author: { name: string; initials: string; username: string }
+        content: string
+        likes: number
+        created_at: string
+        replyTo?: string
+      }>
+    }>
+  }>
+  moreFromAuthor: Array<{ id: string; title: string; image: string; likes: number; views: number }>
+  relatedProjects: Array<{ id: string; title: string; image: string; author: string; likes?: number }>
+}
 
-Use shadcn/ui components and Tailwind CSS.`,
+// Helper function to normalize API response to component format
+function normalizeProject(apiProject: ApiProject): NormalizedProject {
+  return {
+    id: apiProject.id,
+    title: apiProject.title,
+    description: apiProject.description,
+    longDescription: apiProject.long_description || apiProject.description,
+    highlights: apiProject.highlights?.map(h => h.content) || [],
+    images: apiProject.images?.map(img => img.url) || [
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=1200&h=800&fit=crop'
+    ],
+    author: {
+      name: apiProject.author.name,
+      username: apiProject.author.username,
+      initials: apiProject.author.initials,
+      avatar_url: apiProject.author.avatar_url,
+      bio: apiProject.author.bio || '',
+      color: 'from-violet-500 to-purple-600',
+      verified: apiProject.author.is_verified || false,
     },
-    {
-      title: 'Claude Integration',
-      description: 'Prompt for analyzing pull requests',
-      code: `You are a senior code reviewer. Analyze the following pull request diff and provide:
-
-1. A severity score (1-10) for potential issues
-2. Security vulnerabilities (if any)
-3. Performance concerns
-4. Code style improvements
-5. Specific suggestions with code examples
-
-Be concise but thorough. Format your response as JSON.
-
-<diff>
-{diff_content}
-</diff>`,
+    aiTools: apiProject.ai_tools?.map(t => t.name) || [],
+    techStack: apiProject.tech_stack?.map(t => t.name) || [],
+    links: {
+      live: apiProject.live_url,
+      github: apiProject.github_url,
     },
-  ],
-  timeline: [
-    {
-      date: 'Jan 5, 2026',
-      title: 'Initial Idea',
-      description: 'Started sketching out the concept after a frustrating code review experience.',
+    stats: {
+      likes: apiProject.likes || 0,
+      comments: apiProject.comments || 0,
+      views: apiProject.view_count || 0,
     },
-    {
-      date: 'Jan 7, 2026',
-      title: 'MVP Built',
-      description: 'Used Cursor and Claude to build the core functionality in a weekend.',
-    },
-    {
-      date: 'Jan 10, 2026',
-      title: 'First Users',
-      description: 'Shared with a few developer friends and got valuable feedback.',
-    },
-    {
-      date: 'Jan 15, 2026',
-      title: 'Public Launch',
-      description: 'Posted on Vibeslop and got featured on the trending page!',
-    },
-  ],
-  comments: [
-    {
-      id: '1',
-      author: { name: 'Alex Rivera', initials: 'AR', username: 'alexr' },
-      content: 'This is exactly what our team needed! The Claude integration is brilliant.',
-      likes: 12,
-      createdAt: '2 days ago',
-      replyCount: 2,
-      replies: [
-        {
-          id: '1-1',
-          author: { name: 'Sarah Chen', initials: 'SC', username: 'sarahc' },
-          content: 'Thanks Alex! Happy to hear it\'s useful. Let me know if you have any questions about the setup.',
-          likes: 4,
-          createdAt: '2 days ago',
-          replyTo: '1',
-          replies: [
-            {
-              id: '1-1-1',
-              author: { name: 'Alex Rivera', initials: 'AR', username: 'alexr' },
-              content: 'Actually yes - how did you handle rate limiting with the Claude API? We\'re hitting limits during peak hours.',
-              likes: 2,
-              createdAt: '1 day ago',
-              replyTo: '1-1',
-            },
-          ],
-        },
-        {
-          id: '1-2',
-          author: { name: 'Dev Kumar', initials: 'DK', username: 'devk' },
-          content: 'Same here! Already integrated it into our CI pipeline.',
-          likes: 3,
-          createdAt: '1 day ago',
-          replyTo: '1',
-        },
-      ],
-    },
-    {
-      id: '2',
-      author: { name: 'Jordan Lee', initials: 'JL', username: 'jordanl' },
-      content: 'Love the prompt sharing feature. Learned a lot from your approach to structuring the AI requests.',
-      likes: 8,
-      createdAt: '1 day ago',
-      replyCount: 1,
-      replies: [
-        {
-          id: '2-1',
-          author: { name: 'Sarah Chen', initials: 'SC', username: 'sarahc' },
-          content: 'The key is being very specific about the output format. JSON schemas help a lot!',
-          likes: 5,
-          createdAt: '20 hours ago',
-          replyTo: '2',
-        },
-      ],
-    },
-    {
-      id: '3',
-      author: { name: 'Mia Thompson', initials: 'MT', username: 'miat' },
-      content: 'Would love to see a video walkthrough of how you built this!',
-      likes: 5,
-      createdAt: '5 hours ago',
-      replyCount: 2,
-      replies: [
-        {
-          id: '3-1',
-          author: { name: 'Sarah Chen', initials: 'SC', username: 'sarahc' },
-          content: 'Great idea! I\'ll put together a video this weekend and post it here.',
-          likes: 8,
-          createdAt: '4 hours ago',
-          replyTo: '3',
-        },
-        {
-          id: '3-2',
-          author: { name: 'Chris Park', initials: 'CP', username: 'chrisp' },
-          content: '+1 for this! Would especially love to see the Cursor workflow.',
-          likes: 3,
-          createdAt: '2 hours ago',
-          replyTo: '3',
-        },
-      ],
-    },
-  ],
-  moreFromAuthor: [
-    {
-      id: '10',
-      title: 'Git Commit Message Generator',
-      image: 'https://images.unsplash.com/photo-1556075798-4825dfaaf498?w=600&h=400&fit=crop',
-      likes: 156,
-      views: 892,
-    },
-    {
-      id: '11',
-      title: 'PR Description Writer',
-      image: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?w=600&h=400&fit=crop',
-      likes: 98,
-      views: 543,
-    },
-  ],
-  relatedProjects: [
-    {
-      id: '20',
-      title: 'AI Test Generator',
-      image: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=600&h=400&fit=crop',
-      author: 'Mike Ross',
-      likes: 312,
-    },
-    {
-      id: '21',
-      title: 'Documentation Bot',
-      image: 'https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=600&h=400&fit=crop',
-      author: 'Lisa Park',
-      likes: 189,
-    },
-    {
-      id: '22',
-      title: 'Code Refactoring Assistant',
-      image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=600&h=400&fit=crop',
-      author: 'Alex Rivera',
-      likes: 267,
-    },
-    {
-      id: '23',
-      title: 'Bug Prediction ML',
-      image: 'https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=600&h=400&fit=crop',
-      author: 'Jordan Lee',
-      likes: 198,
-    },
-  ],
+    created_at: apiProject.created_at,
+    prompts: apiProject.prompts?.map(p => ({
+      title: p.title,
+      description: p.description,
+      code: p.code,
+    })) || [],
+    timeline: apiProject.timeline?.map(t => ({
+      date: t.date,
+      title: t.title,
+      description: t.description,
+    })) || [],
+    comments: [], // Comments would need to be fetched separately
+    moreFromAuthor: [],
+    relatedProjects: [],
+  }
 }
 
 // Animated counter component
@@ -336,17 +253,20 @@ function StatItem({
 
 export function ProjectDetail() {
   const { id } = useParams()
-  const [project, setProject] = useState<any>(null)
+  const [project, setProject] = useState<NormalizedProject | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
+  const [likeCount, setLikeCount] = useState(0)
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isImageHovered, setIsImageHovered] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
   const [expandedPrompts, setExpandedPrompts] = useState<number[]>([])
+  const [comments, setComments] = useState<NormalizedProject['comments']>([])
+  const [isLoadingComments, setIsLoadingComments] = useState(false)
 
   // Fetch project data
   useEffect(() => {
@@ -358,12 +278,16 @@ export function ProjectDetail() {
       
       try {
         const response = await api.getProject(id)
-        setProject(response.data)
+        const apiData = response.data as ApiProject
+        const normalized = normalizeProject(apiData)
+        setProject(normalized)
+        // Initialize engagement state from API response
+        setIsLiked(apiData.liked ?? false)
+        setIsBookmarked(apiData.bookmarked ?? false)
+        setLikeCount(apiData.likes ?? 0)
       } catch (err) {
         console.error('Failed to fetch project:', err)
         setError('Failed to load project')
-        // Fallback to mock data
-        setProject(projectData)
       } finally {
         setIsLoading(false)
       }
@@ -371,6 +295,39 @@ export function ProjectDetail() {
 
     fetchProject()
   }, [id])
+
+  // Fetch comments after project loads
+  useEffect(() => {
+    if (!id || !project) return
+
+    const fetchComments = async () => {
+      setIsLoadingComments(true)
+      try {
+        const response = await api.getComments('project', id)
+        setComments(response.data as NormalizedProject['comments'])
+      } catch (err) {
+        console.error('Failed to fetch comments:', err)
+      } finally {
+        setIsLoadingComments(false)
+      }
+    }
+
+    fetchComments()
+  }, [id, project])
+
+  // Keyboard navigation for gallery
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (isFullscreen && project?.images) {
+      if (e.key === 'Escape') setIsFullscreen(false)
+      if (e.key === 'ArrowRight') setCurrentImageIndex((prev) => (prev + 1) % project.images.length)
+      if (e.key === 'ArrowLeft') setCurrentImageIndex((prev) => (prev - 1 + project.images.length) % project.images.length)
+    }
+  }, [isFullscreen, project])
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   if (isLoading) {
     return (
@@ -392,20 +349,6 @@ export function ProjectDetail() {
       </div>
     )
   }
-
-  // Keyboard navigation for gallery
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    if (isFullscreen) {
-      if (e.key === 'Escape') setIsFullscreen(false)
-      if (e.key === 'ArrowRight') setCurrentImageIndex((prev) => (prev + 1) % project.images.length)
-      if (e.key === 'ArrowLeft') setCurrentImageIndex((prev) => (prev - 1 + project.images.length) % project.images.length)
-    }
-  }, [isFullscreen, project.images.length])
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
 
   const nextImage = () => {
     setCurrentImageIndex((prev) => (prev + 1) % project.images.length)
@@ -433,6 +376,87 @@ export function ProjectDetail() {
     )
   }
 
+  // Handle adding a comment
+  const handleAddComment = async (content: string, parentId?: string) => {
+    if (!id) return
+
+    try {
+      const response = await api.createComment({
+        commentable_type: 'Project',
+        commentable_id: id,
+        content,
+        parent_id: parentId,
+      })
+
+      const newComment = response.data as NormalizedProject['comments'][0]
+      
+      if (parentId) {
+        // If it's a reply, we need to update the nested structure
+        // For now, just refetch all comments to keep it simple
+        const commentsResponse = await api.getComments('project', id)
+        setComments(commentsResponse.data as NormalizedProject['comments'])
+      } else {
+        // Add new top-level comment to the beginning
+        setComments(prev => [newComment, ...prev])
+      }
+
+      // Update comment count in project stats
+      if (project) {
+        setProject({
+          ...project,
+          stats: {
+            ...project.stats,
+            comments: project.stats.comments + 1,
+          },
+        })
+      }
+    } catch (err) {
+      console.error('Failed to create comment:', err)
+    }
+  }
+
+  // Handle liking a comment
+  const handleLikeComment = async (commentId: string) => {
+    try {
+      await api.toggleLike('comment', commentId)
+      // Optionally update local state to reflect the like
+      // For now, the Comment component handles this optimistically
+    } catch (err) {
+      console.error('Failed to like comment:', err)
+    }
+  }
+
+  // Handle deleting a comment
+  const handleDeleteComment = async (commentId: string) => {
+    try {
+      await api.deleteComment(commentId)
+      // Update comment count in project stats
+      if (project) {
+        setProject({
+          ...project,
+          stats: {
+            ...project.stats,
+            comments: Math.max(0, project.stats.comments - 1),
+          },
+        })
+      }
+    } catch (err) {
+      console.error('Failed to delete comment:', err)
+      throw err // Re-throw so the UI can handle it
+    }
+  }
+
+  // Handle reporting a comment
+  const handleReportComment = async (commentId: string) => {
+    try {
+      await api.reportComment(commentId)
+      // Show success feedback (could add a toast notification here)
+      console.log('Comment reported successfully')
+    } catch (err) {
+      console.error('Failed to report comment:', err)
+    }
+  }
+
   return (
     <div className="relative min-h-screen">
       {/* Background */}
@@ -445,10 +469,10 @@ export function ProjectDetail() {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
         >
-          <Link to="/explore">
+          <Link to="/">
             <Button variant="ghost" size="sm" className="mb-6 group hover:bg-muted">
               <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-              Back to Explore
+              Back
             </Button>
           </Link>
         </motion.div>
@@ -520,7 +544,7 @@ export function ProjectDetail() {
 
                   {/* Image Indicators */}
                   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    {project.images.map((_, index) => (
+                    {project.images.map((_: string, index: number) => (
                       <button
                         key={index}
                         onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index) }}
@@ -597,7 +621,7 @@ export function ProjectDetail() {
 
                   {/* Thumbnail strip in fullscreen */}
                   <div className="absolute bottom-16 left-1/2 -translate-x-1/2 flex gap-2">
-                    {project.images.map((img, i) => (
+                    {project.images.map((img: string, i: number) => (
                       <button
                         key={i}
                         onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i) }}
@@ -633,7 +657,7 @@ export function ProjectDetail() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
-                      {project.createdAt}
+                      {project.created_at}
                     </span>
                   </div>
                 </div>
@@ -641,22 +665,46 @@ export function ProjectDetail() {
                   <Button
                     variant={isLiked ? 'default' : 'outline'}
                     size="sm"
-                    onClick={() => setIsLiked(!isLiked)}
+                    onClick={async () => {
+                      // Optimistic update
+                      const newIsLiked = !isLiked
+                      setIsLiked(newIsLiked)
+                      setLikeCount(prev => newIsLiked ? prev + 1 : prev - 1)
+                      try {
+                        await api.toggleLike('project', id!)
+                      } catch (error) {
+                        // Revert on error
+                        setIsLiked(!newIsLiked)
+                        setLikeCount(prev => newIsLiked ? prev - 1 : prev + 1)
+                        console.error('Failed to toggle like:', error)
+                      }
+                    }}
                     className={cn(
                       "transition-all",
-                      isLiked && "bg-red-500 hover:bg-red-600 border-red-500"
+                      isLiked && "bg-red-500 hover:bg-red-600 border-red-500 text-white"
                     )}
                   >
                     <Heart className={cn(
                       "w-4 h-4 mr-2 transition-transform",
                       isLiked && "fill-current scale-110"
                     )} />
-                    {project.stats.likes + (isLiked ? 1 : 0)}
+                    {likeCount}
                   </Button>
                   <Button
                     variant={isBookmarked ? 'default' : 'outline'}
                     size="icon"
-                    onClick={() => setIsBookmarked(!isBookmarked)}
+                    onClick={async () => {
+                      // Optimistic update
+                      const newIsBookmarked = !isBookmarked
+                      setIsBookmarked(newIsBookmarked)
+                      try {
+                        await api.toggleBookmark('project', id!)
+                      } catch (error) {
+                        // Revert on error
+                        setIsBookmarked(!newIsBookmarked)
+                        console.error('Failed to toggle bookmark:', error)
+                      }
+                    }}
                     className={cn(
                       "transition-all",
                       isBookmarked && "bg-yellow-500 hover:bg-yellow-600 border-yellow-500"
@@ -676,58 +724,66 @@ export function ProjectDetail() {
               {/* Stats Bar */}
               <div className="flex flex-wrap items-center gap-6 py-4 mb-4 border-y border-border">
                 <StatItem icon={Eye} value={project.stats.views} label="views" animated />
-                <StatItem icon={Heart} value={project.stats.likes + (isLiked ? 1 : 0)} label="likes" animated />
-                <StatItem icon={MessageCircle} value={project.comments.length} label="comments" />
+                <StatItem icon={Heart} value={likeCount} label="likes" animated />
+                <StatItem icon={MessageCircle} value={project.stats.comments} label="comments" />
                 <StatItem icon={Bookmark} value={42} label="saves" />
               </div>
 
-              {/* Social Proof */}
-              <div className="flex items-center gap-3 mb-6">
-                <div className="flex -space-x-2">
-                  {['AR', 'JL', 'MT', 'DK'].map((initials, i) => (
-                    <Avatar key={i} className="w-7 h-7 ring-2 ring-background">
-                      <AvatarImage src={`https://i.pravatar.cc/150?img=${10 + i}`} alt={initials} />
-                      <AvatarFallback className={cn(
-                        "text-[10px] font-medium text-white",
-                        i === 0 && "bg-gradient-to-br from-blue-500 to-cyan-500",
-                        i === 1 && "bg-gradient-to-br from-green-500 to-emerald-500",
-                        i === 2 && "bg-gradient-to-br from-orange-500 to-amber-500",
-                        i === 3 && "bg-gradient-to-br from-purple-500 to-pink-500"
-                      )}>
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
+              {/* Social Proof - only show if there are likes */}
+              {likeCount > 0 && (
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex -space-x-2">
+                    {['AR', 'JL', 'MT', 'DK'].slice(0, Math.min(4, likeCount)).map((initials, i) => (
+                      <Avatar key={i} className="w-7 h-7 ring-2 ring-background">
+                        <AvatarImage src={`https://i.pravatar.cc/150?img=${10 + i}`} alt={initials} />
+                        <AvatarFallback className={cn(
+                          "text-[10px] font-medium text-white",
+                          i === 0 && "bg-gradient-to-br from-blue-500 to-cyan-500",
+                          i === 1 && "bg-gradient-to-br from-green-500 to-emerald-500",
+                          i === 2 && "bg-gradient-to-br from-orange-500 to-amber-500",
+                          i === 3 && "bg-gradient-to-br from-purple-500 to-pink-500"
+                        )}>
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {likeCount === 1 ? (
+                      <span className="font-medium text-foreground">1 person liked this</span>
+                    ) : (
+                      <span className="font-medium text-foreground">{likeCount.toLocaleString()} people liked this</span>
+                    )}
+                  </p>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Liked by <Link to="/user/alexr" className="font-medium text-foreground hover:text-primary">@alexr</Link>, 
-                  <Link to="/user/jordanl" className="font-medium text-foreground hover:text-primary"> @jordanl</Link> and 
-                  <span className="font-medium text-foreground"> {project.stats.likes - 2} others</span>
-                </p>
-              </div>
+              )}
 
               {/* Description */}
-              <p className="text-muted-foreground mb-6 leading-relaxed text-lg">{project.description}</p>
-
-              {/* Links */}
-              <div className="flex flex-wrap gap-3 mb-8">
-                {project.links.live && (
-                  <a href={project.links.live} target="_blank" rel="noopener noreferrer">
-                    <Button className="group shadow-md hover:shadow-lg transition-all">
-                      <Globe className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
-                      Live Demo
-                    </Button>
-                  </a>
-                )}
-                {project.links.github && (
-                  <a href={project.links.github} target="_blank" rel="noopener noreferrer">
-                    <Button variant="outline" className="group hover:bg-muted transition-all">
-                      <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
-                      View Source
-                    </Button>
-                  </a>
-                )}
+              <div className="text-muted-foreground mb-6 leading-relaxed text-lg">
+                <MarkdownContent content={project.description} />
               </div>
+
+              {/* Links - only show if there are links */}
+              {(project.links.live || project.links.github) && (
+                <div className="flex flex-wrap gap-3 mb-8">
+                  {project.links.live && (
+                    <a href={project.links.live} target="_blank" rel="noopener noreferrer">
+                      <Button className="group shadow-md hover:shadow-lg transition-all">
+                        <Globe className="w-4 h-4 mr-2 group-hover:rotate-12 transition-transform" />
+                        Live Demo
+                      </Button>
+                    </a>
+                  )}
+                  {project.links.github && (
+                    <a href={project.links.github} target="_blank" rel="noopener noreferrer">
+                      <Button variant="outline" className="group hover:bg-muted transition-all">
+                        <Github className="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" />
+                        View Source
+                      </Button>
+                    </a>
+                  )}
+                </div>
+              )}
 
               {/* Tabs */}
               <Tabs defaultValue="about" className="mt-8">
@@ -745,32 +801,34 @@ export function ProjectDetail() {
                   </TabsTrigger>
                   <TabsTrigger value="comments" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     <MessageCircle className="w-4 h-4 mr-1.5" />
-                    Comments ({project.comments.length})
+                    Comments ({project.stats.comments})
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="about">
                   <Card className="border-border !py-0 !gap-0">
                     <CardContent className="p-4">
-                      {/* Key Highlights */}
-                      <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
-                        <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
-                          <Sparkles className="w-4 h-4 text-primary" />
-                          Key Highlights
-                        </h4>
-                        <ul className="grid gap-2">
-                          {project.highlights.map((highlight, index) => (
-                            <li key={index} className="flex items-center gap-2 text-sm">
-                              <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                              <span>{highlight}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {/* Key Highlights - only show if there are highlights */}
+                      {project.highlights.length > 0 && (
+                        <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
+                          <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                            <Sparkles className="w-4 h-4 text-primary" />
+                            Key Highlights
+                          </h4>
+                          <ul className="grid gap-2">
+                            {project.highlights.map((highlight: string, index: number) => (
+                              <li key={index} className="flex items-center gap-2 text-sm">
+                                <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                <span>{highlight}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       <h3 className="font-semibold mb-4">About this project</h3>
                       <div className="prose prose-sm max-w-none text-muted-foreground">
-                        {project.longDescription.split('\n\n').map((paragraph, index) => (
+                        {project.longDescription.split('\n\n').map((paragraph: string, index: number) => (
                           <p key={index} className="mb-4 last:mb-0 leading-relaxed text-[15px]">
                             {index === 0 && (
                               <span className="text-3xl font-semibold text-foreground float-left mr-2 leading-none">
@@ -786,13 +844,21 @@ export function ProjectDetail() {
                 </TabsContent>
 
                 <TabsContent value="prompts">
+                  {project.prompts.length === 0 ? (
+                    <Card className="border-border !py-0 !gap-0">
+                      <CardContent className="p-8 text-center text-muted-foreground">
+                        <Code2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No prompts shared for this project yet.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
                   <motion.div
                     className="space-y-4"
                     variants={containerVariants}
                     initial="hidden"
                     animate="visible"
                   >
-                    {project.prompts.map((prompt, index) => {
+                    {project.prompts.map((prompt: { title: string; description: string; code: string }, index: number) => {
                       const isExpanded = expandedPrompts.includes(index)
                       const isLongPrompt = prompt.code.split('\n').length > 10
                       
@@ -887,9 +953,18 @@ export function ProjectDetail() {
                       )
                     })}
                   </motion.div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="timeline">
+                  {project.timeline.length === 0 ? (
+                    <Card className="border-border !py-0 !gap-0">
+                      <CardContent className="p-8 text-center text-muted-foreground">
+                        <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        <p>No build timeline shared for this project yet.</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
                   <Card className="border-border !py-0 !gap-0">
                     <CardContent className="p-5">
                       <h3 className="font-semibold mb-6 flex items-center gap-2">
@@ -901,7 +976,7 @@ export function ProjectDetail() {
                         <div className="absolute left-[15px] top-3 bottom-3 w-px bg-primary/20" />
                         
                         <div className="space-y-6">
-                          {project.timeline.map((item, index) => {
+                          {project.timeline.map((item: { date: string; title: string; description: string }, index: number) => {
                             const icons = [Lightbulb, Code2, Users, Rocket]
                             const Icon = icons[index % icons.length]
                             
@@ -933,10 +1008,23 @@ export function ProjectDetail() {
                       </div>
                     </CardContent>
                   </Card>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="comments">
-                  <CommentsSection comments={project.comments} />
+                  {isLoadingComments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <CommentsSection 
+                      comments={comments} 
+                      onAddComment={handleAddComment}
+                      onLikeComment={handleLikeComment}
+                      onDeleteComment={handleDeleteComment}
+                      onReportComment={handleReportComment}
+                    />
+                  )}
                 </TabsContent>
               </Tabs>
             </motion.div>
@@ -950,23 +1038,17 @@ export function ProjectDetail() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              <Card className="border-border overflow-hidden !py-0 !gap-0">
-                {/* Gradient header */}
-                <div className="h-20 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500" />
-                <CardContent className="px-4 pb-4 pt-0 -mt-8">
-                  <div className="text-center mb-3">
+              <Card className="border-border !py-0 !gap-0">
+                <CardContent className="p-4">
+                  <div className="text-center mb-4">
                     <Link to={`/user/${project.author.username}`} className="inline-block">
-                      <div className="relative inline-block">
-                        {/* Animated ring */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 rounded-full animate-pulse opacity-75" />
-                        <Avatar className="relative w-16 h-16 ring-4 ring-background">
-                          <AvatarImage src={`https://i.pravatar.cc/150?img=${project.author.username?.charCodeAt(0) % 70 || 3}`} alt={project.author.name} />
-                          <AvatarFallback className={`bg-gradient-to-br ${project.author.color} text-white text-lg font-semibold`}>
-                            {project.author.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                      </div>
-                      <div className="mt-2 flex items-center justify-center gap-1.5">
+                      <Avatar className="w-16 h-16 mx-auto mb-3">
+                        <AvatarImage src={project.author.avatar_url} alt={project.author.name} />
+                        <AvatarFallback className={`bg-gradient-to-br ${project.author.color} text-white text-lg font-semibold`}>
+                          {project.author.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex items-center justify-center gap-1.5">
                         <h3 className="font-semibold hover:text-primary transition-colors">
                           {project.author.name}
                         </h3>
@@ -978,25 +1060,36 @@ export function ProjectDetail() {
                     <p className="text-sm text-muted-foreground">@{project.author.username}</p>
                   </div>
 
-                  {/* Stats row */}
-                  <div className="flex justify-center gap-5 py-2.5 mb-2.5 border-y border-border">
-                    <div className="text-center">
-                      <p className="font-semibold text-sm">{project.author.followers?.toLocaleString()}</p>
-                      <p className="text-[10px] text-muted-foreground">Followers</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="font-semibold text-sm">{project.author.following}</p>
-                      <p className="text-[10px] text-muted-foreground">Following</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="font-semibold text-sm">{project.author.projects}</p>
-                      <p className="text-[10px] text-muted-foreground">Projects</p>
-                    </div>
-                  </div>
+                  {project.author.bio && (
+                    <p className="text-sm text-muted-foreground text-center mb-4 line-clamp-3">
+                      {project.author.bio}
+                    </p>
+                  )}
 
-                  <p className="text-sm text-muted-foreground text-center mb-3">
-                    {project.author.bio}
-                  </p>
+                  {/* Stats row - only show if stats are available */}
+                  {(project.author.followers !== undefined || project.author.following !== undefined || project.author.projects !== undefined) && (
+                    <div className="flex justify-center gap-5 py-3 mb-3 border-y border-border">
+                      {project.author.followers !== undefined && (
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">{project.author.followers.toLocaleString()}</p>
+                          <p className="text-[10px] text-muted-foreground">Followers</p>
+                        </div>
+                      )}
+                      {project.author.following !== undefined && (
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">{project.author.following}</p>
+                          <p className="text-[10px] text-muted-foreground">Following</p>
+                        </div>
+                      )}
+                      {project.author.projects !== undefined && (
+                        <div className="text-center">
+                          <p className="font-semibold text-sm">{project.author.projects}</p>
+                          <p className="text-[10px] text-muted-foreground">Projects</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <Button className="w-full group" size="sm">
                     <span className="group-hover:hidden">Follow</span>
                     <span className="hidden group-hover:inline">Follow @{project.author.username}</span>
@@ -1005,56 +1098,60 @@ export function ProjectDetail() {
               </Card>
             </motion.div>
 
-            {/* Built With */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            >
-              <Card className="border-border !py-0 !gap-0">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    Built With
-                  </h3>
-                  
-                  {/* AI Tools */}
-                  <div className="mb-4 p-2.5 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">AI Tools</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {project.aiTools.map((tool) => (
-                        <Link key={tool} to={`/explore?tool=${tool.toLowerCase()}`}>
-                          <Badge 
-                            variant="default" 
-                            className="bg-primary/15 text-primary hover:bg-primary/25 cursor-pointer transition-all hover:scale-105 font-medium text-xs"
-                          >
-                            <Sparkles className="w-3 h-3 mr-1" />
-                            {tool}
-                          </Badge>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
+            {/* Built With - only show if there are tools or stack */}
+            {(project.aiTools.length > 0 || project.techStack.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <Card className="border-border !py-0 !gap-0">
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-primary" />
+                      Built With
+                    </h3>
+                    
+                    {/* AI Tools */}
+                    {project.aiTools.length > 0 && (
+                      <div className="mb-4 p-2.5 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">AI Tools</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {project.aiTools.map((tool: string) => (
+                            <Badge 
+                              key={tool}
+                              variant="default" 
+                              className="bg-primary/15 text-primary font-medium text-xs"
+                            >
+                              <Sparkles className="w-3 h-3 mr-1" />
+                              {tool}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
-                  {/* Tech Stack */}
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">Tech Stack</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {project.techStack.map((tech) => (
-                        <Link key={tech} to={`/explore?tech=${tech.toLowerCase()}`}>
-                          <Badge 
-                            variant="outline" 
-                            className="hover:bg-muted cursor-pointer transition-all hover:scale-105 text-xs"
-                          >
-                            {tech}
-                          </Badge>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                    {/* Tech Stack */}
+                    {project.techStack.length > 0 && (
+                      <div>
+                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">Tech Stack</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {project.techStack.map((tech: string) => (
+                            <Badge 
+                              key={tech}
+                              variant="outline" 
+                              className="text-xs"
+                            >
+                              {tech}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Share */}
             <motion.div
@@ -1105,88 +1202,92 @@ export function ProjectDetail() {
               </Card>
             </motion.div>
 
-            {/* More from Author */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-            >
-              <Card className="border-border !py-0 !gap-0">
-                <CardContent className="p-4">
-                  <div className="flex items-baseline justify-between gap-2 mb-4">
-                    <h3 className="font-semibold text-sm">More from {project.author.name}</h3>
-                    <Link 
-                      to={`/user/${project.author.username}`} 
-                      className="text-xs text-primary hover:underline shrink-0"
-                    >
-                      View all
-                    </Link>
-                  </div>
-                  <div className="space-y-4">
-                    {project.moreFromAuthor.map((item) => (
-                      <Link key={item.id} to={`/project/${item.id}`} className="block">
-                        <div className="group">
-                          <div className="aspect-video rounded-lg bg-muted overflow-hidden mb-2">
-                            <img
-                              src={item.image}
-                              alt={item.title}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
-                          </div>
-                          <h4 className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                            {item.title}
-                          </h4>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1.5">
-                            <span className="flex items-center gap-1.5">
-                              <Heart className="w-3.5 h-3.5" />
-                              {item.likes}
-                            </span>
-                            <span className="flex items-center gap-1.5">
-                              <Eye className="w-3.5 h-3.5" />
-                              {item.views}
-                            </span>
-                          </div>
-                        </div>
+            {/* More from Author - only show if there are more projects */}
+            {project.moreFromAuthor.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+              >
+                <Card className="border-border !py-0 !gap-0">
+                  <CardContent className="p-4">
+                    <div className="flex items-baseline justify-between gap-2 mb-4">
+                      <h3 className="font-semibold text-sm">More from {project.author.name}</h3>
+                      <Link 
+                        to={`/user/${project.author.username}`} 
+                        className="text-xs text-primary hover:underline shrink-0"
+                      >
+                        View all
                       </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                    </div>
+                    <div className="space-y-4">
+                      {project.moreFromAuthor.map((item: { id: string; image: string; title: string; likes: number; views: number }) => (
+                        <Link key={item.id} to={`/project/${item.id}`} className="block">
+                          <div className="group">
+                            <div className="aspect-video rounded-lg bg-muted overflow-hidden mb-2">
+                              <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                            <h4 className="text-sm font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                              {item.title}
+                            </h4>
+                            <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1.5">
+                              <span className="flex items-center gap-1.5">
+                                <Heart className="w-3.5 h-3.5" />
+                                {item.likes}
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <Eye className="w-3.5 h-3.5" />
+                                {item.views}
+                              </span>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
-            {/* Related Projects */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-            >
-              <Card className="border-border !py-0 !gap-0">
-                <CardContent className="p-4">
-                  <h3 className="font-semibold text-sm mb-4">Similar Projects</h3>
-                  <div className="grid grid-cols-2 gap-3">
-                    {project.relatedProjects.map((item) => (
-                      <Link key={item.id} to={`/project/${item.id}`} className="block">
-                        <div className="group">
-                          <div className="aspect-video rounded-lg bg-muted overflow-hidden mb-2">
-                            <img
-                              src={item.image}
-                              alt={item.title}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                            />
+            {/* Related Projects - only show if there are related projects */}
+            {project.relatedProjects.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.6 }}
+              >
+                <Card className="border-border !py-0 !gap-0">
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold text-sm mb-4">Similar Projects</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      {project.relatedProjects.map((item: { id: string; image: string; title: string; author: string }) => (
+                        <Link key={item.id} to={`/project/${item.id}`} className="block">
+                          <div className="group">
+                            <div className="aspect-video rounded-lg bg-muted overflow-hidden mb-2">
+                              <img
+                                src={item.image}
+                                alt={item.title}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                              />
+                            </div>
+                            <h4 className="text-xs font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
+                              {item.title}
+                            </h4>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              by {item.author}
+                            </p>
                           </div>
-                          <h4 className="text-xs font-medium leading-snug group-hover:text-primary transition-colors line-clamp-2">
-                            {item.title}
-                          </h4>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            by {item.author}
-                          </p>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
+                        </Link>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
           </div>
         </div>
       </div>

@@ -1,12 +1,11 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Home, Compass, Bell, Mail, User, PenSquare } from 'lucide-react'
+import { Home, Bell, Mail, User, PenSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/', badge: undefined },
-  { icon: Compass, label: 'Explore', path: '/explore', badge: undefined },
   { icon: Bell, label: 'Notifications', path: '/notifications', badge: 3 },
   { icon: Mail, label: 'Messages', path: '/messages', badge: 2 },
 ]

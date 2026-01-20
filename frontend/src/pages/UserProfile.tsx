@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { Badge } from '@/components/ui/badge'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Post } from '@/components/feed'
@@ -16,18 +15,20 @@ import {
   MoreHorizontal,
   CheckCircle2,
   ArrowLeft,
-  Code2,
   MessageSquare,
   Loader2,
+  Repeat2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 
 // Backup mock user data
 const mockUserData = {
   username: 'sarahc',
   name: 'Sarah Chen',
   initials: 'SC',
+  avatar_url: undefined as string | undefined,
   bio: 'Full-stack developer passionate about developer tools and AI-assisted workflows. Building things that make developers\' lives easier. Currently obsessed with real-time collaboration features.',
   location: 'San Francisco, CA',
   website: 'https://sarahchen.dev',
@@ -55,7 +56,7 @@ const mockUserData = {
       likes: 89,
       comments: 12,
       reposts: 5,
-      createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
     {
@@ -69,7 +70,7 @@ const mockUserData = {
       likes: 234,
       comments: 45,
       reposts: 12,
-      createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
     {
@@ -79,7 +80,7 @@ const mockUserData = {
       likes: 45,
       comments: 8,
       reposts: 2,
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
     {
@@ -92,7 +93,7 @@ const mockUserData = {
       likes: 156,
       comments: 28,
       reposts: 8,
-      createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
     {
@@ -102,7 +103,7 @@ const mockUserData = {
       likes: 178,
       comments: 34,
       reposts: 45,
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
     {
@@ -115,7 +116,7 @@ const mockUserData = {
       likes: 98,
       comments: 15,
       reposts: 5,
-      createdAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Sarah Chen', username: 'sarahc', initials: 'SC' },
     },
   ] as FeedItem[],
@@ -134,7 +135,7 @@ const mockUserData = {
       likes: 189,
       comments: 32,
       reposts: 8,
-      createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Marcus Johnson', username: 'marcusj', initials: 'MJ' },
     },
     {
@@ -144,7 +145,7 @@ const mockUserData = {
       likes: 312,
       comments: 67,
       reposts: 89,
-      createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Luna Park', username: 'lunap', initials: 'LP' },
     },
     {
@@ -158,17 +159,19 @@ const mockUserData = {
       likes: 312,
       comments: 67,
       reposts: 24,
-      createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
       author: { name: 'Luna Park', username: 'lunap', initials: 'LP' },
     },
   ] as FeedItem[],
 }
 
-type ProfileTab = 'posts' | 'projects' | 'likes'
+type ProfileTab = 'posts' | 'projects' | 'reposts' | 'likes'
 
 export function UserProfile() {
   const { username } = useParams()
-  const [user, setUser] = useState<any>(null)
+  const navigate = useNavigate()
+  const { user: currentUser, isAuthenticated } = useAuth()
+  const [user, setUser] = useState<typeof mockUserData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -186,7 +189,63 @@ export function UserProfile() {
       
       try {
         const response = await api.getUser(username)
-        setUser(response.data)
+        const apiData = response.data as {
+          id: string
+          username: string
+          display_name: string
+          bio?: string
+          location?: string
+          website_url?: string
+          twitter_handle?: string
+          github_username?: string
+          avatar_url?: string
+          is_verified: boolean
+          joined_at?: string
+          stats?: {
+            followers_count?: number
+            following_count?: number
+            posts_count?: number
+            projects_count?: number
+          }
+        }
+        
+        // Map API response to component format
+        const mappedUser: typeof mockUserData = {
+          username: apiData.username,
+          name: apiData.display_name,
+          initials: apiData.display_name
+            .split(' ')
+            .slice(0, 2)
+            .map(n => n[0])
+            .join('')
+            .toUpperCase(),
+          avatar_url: apiData.avatar_url,
+          bio: apiData.bio || '',
+          location: apiData.location || '',
+          website: apiData.website_url || '',
+          twitter: apiData.twitter_handle || '',
+          github: apiData.github_username || '',
+          joinedDate: apiData.joined_at 
+            ? new Date(apiData.joined_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            : '',
+          color: 'from-violet-500 to-purple-600',
+          specializations: [],
+          favoriteTools: [],
+          isVerified: apiData.is_verified,
+          stats: {
+            projects: apiData.stats?.projects_count || 0,
+            posts: apiData.stats?.posts_count || 0,
+            likes: 0,
+            followers: apiData.stats?.followers_count || 0,
+            following: apiData.stats?.following_count || 0,
+          },
+          isFollowing: false,
+          posts: [],
+          projects: [],
+          likedPosts: [],
+        }
+        
+        setUser(mappedUser)
       } catch (err) {
         console.error('Failed to fetch user:', err)
         setError('Failed to load user')
@@ -216,19 +275,24 @@ export function UserProfile() {
           case 'projects':
             response = await api.getUserProjects(username, { limit: 20 })
             break
+          case 'reposts':
+            response = await api.getUserReposts(username, { limit: 20 })
+            break
           case 'likes':
             response = await api.getUserLikes(username, { limit: 20 })
             break
         }
         
-        setTabContent(response.data || [])
+        setTabContent((response.data as FeedItem[]) || [])
       } catch (err) {
         console.error(`Failed to fetch ${activeTab}:`, err)
         // Fallback to mock data
         if (activeTab === 'posts') {
           setTabContent(mockUserData.posts)
         } else if (activeTab === 'projects') {
-          setTabContent(mockUserData.posts.filter((p: any) => p.type === 'project'))
+          setTabContent(mockUserData.posts.filter(p => p.type === 'project'))
+        } else if (activeTab === 'reposts') {
+          setTabContent([]) // No mock data for reposts
         } else {
           setTabContent(mockUserData.likedPosts)
         }
@@ -239,6 +303,15 @@ export function UserProfile() {
 
     fetchTabContent()
   }, [activeTab, username, user])
+
+  const handleMessageClick = () => {
+    if (!username) return
+    // Navigate to messages page with username param to auto-start conversation
+    navigate(`/messages?user=${username}`)
+  }
+
+  // Check if viewing own profile
+  const isOwnProfile = currentUser?.username === username
 
   if (isLoading) {
     return (
@@ -272,56 +345,63 @@ export function UserProfile() {
             </Button>
           </Link>
           <div>
-            <h1 className="font-bold text-lg leading-tight">{user.display_name}</h1>
-            <p className="text-xs text-muted-foreground">{user.stats?.posts_count || 0} posts</p>
+            <h1 className="font-bold text-lg leading-tight">{user.name}</h1>
+            <p className="text-xs text-muted-foreground">{user.stats?.posts || 0} posts</p>
           </div>
         </div>
       </div>
 
-      {/* Banner */}
-      <div className="h-32 sm:h-40 bg-gradient-to-br from-primary/30 via-primary/10 to-primary/20" />
-
       {/* Profile Info */}
-      <div className="max-w-[600px] mx-auto px-4 pb-4">
-        {/* Avatar & Follow Button Row */}
-        <div className="flex justify-between items-start -mt-16 mb-3">
-          <Avatar className="w-24 h-24 sm:w-32 sm:h-32 ring-4 ring-background">
-            <AvatarImage src={`https://i.pravatar.cc/150?img=${user.username?.charCodeAt(0) % 70 || 3}`} alt={user.name} />
-            <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-2xl sm:text-3xl font-semibold`}>
+      <div className="max-w-[600px] mx-auto px-4 pb-4 pt-4">
+        {/* Avatar & Name Row */}
+        <div className="flex items-center gap-4 mb-4">
+          <Avatar className="w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+            <AvatarImage src={user.avatar_url} alt={user.name} />
+            <AvatarFallback className={`bg-gradient-to-br ${user.color} text-white text-xl sm:text-2xl font-semibold`}>
               {user.initials}
             </AvatarFallback>
           </Avatar>
           
-          <div className="flex items-center gap-2 mt-20">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <h2 className="text-xl font-bold truncate">{user.name}</h2>
+              {user.isVerified && (
+                <CheckCircle2 className="w-5 h-5 text-primary fill-primary/20 flex-shrink-0" />
+              )}
+            </div>
+            <p className="text-muted-foreground -mt-0.5">@{user.username}</p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {!isOwnProfile && isAuthenticated && (
+              <Button 
+                variant="outline" 
+                size="icon" 
+                className="rounded-full border border-border"
+                onClick={handleMessageClick}
+              >
+                <MessageSquare className="w-5 h-5" />
+              </Button>
+            )}
             <Button variant="ghost" size="icon" className="rounded-full border border-border">
               <MoreHorizontal className="w-5 h-5" />
             </Button>
-            <Button
-              variant={isFollowing ? 'outline' : 'default'}
-              onClick={() => setIsFollowing(!isFollowing)}
-              className="rounded-full px-5"
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </Button>
-          </div>
-        </div>
-
-        {/* Name & Username */}
-        <div className="mb-3">
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-xl font-bold">{user.display_name}</h2>
-            {user.is_verified && (
-              <CheckCircle2 className="w-5 h-5 text-primary fill-primary/20" />
+            {!isOwnProfile && (
+              <Button
+                variant={isFollowing ? 'outline' : 'default'}
+                onClick={() => setIsFollowing(!isFollowing)}
+                className="rounded-full px-5"
+              >
+                {isFollowing ? 'Following' : 'Follow'}
+              </Button>
             )}
           </div>
-          <p className="text-muted-foreground">@{user.username}</p>
         </div>
 
         {/* Bio */}
-        <p className="text-[15px] mb-3 whitespace-pre-wrap">{user.bio}</p>
+        <p className="text-[15px] mb-4 whitespace-pre-wrap">{user.bio}</p>
 
         {/* Meta Info */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground mb-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground mb-3">
           {user.location && (
             <span className="flex items-center gap-1">
               <MapPin className="w-4 h-4" />
@@ -339,46 +419,48 @@ export function UserProfile() {
               {user.website.replace('https://', '')}
             </a>
           )}
-          {user.joined_at && (
+          {user.joinedDate && (
             <span className="flex items-center gap-1">
               <Calendar className="w-4 h-4" />
-              Joined {new Date(user.joined_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              Joined {user.joinedDate}
             </span>
           )}
         </div>
 
         {/* Social Links */}
-        <div className="flex items-center gap-3 mb-3">
-          {user.twitter && (
-            <a
-              href={`https://twitter.com/${user.twitter}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Twitter className="w-5 h-5" />
-            </a>
-          )}
-          {user.github && (
-            <a
-              href={`https://github.com/${user.github}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <Github className="w-5 h-5" />
-            </a>
-          )}
-        </div>
+        {(user.twitter || user.github) && (
+          <div className="flex items-center gap-3 mb-4">
+            {user.twitter && (
+              <a
+                href={`https://twitter.com/${user.twitter}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Twitter className="w-5 h-5" />
+              </a>
+            )}
+            {user.github && (
+              <a
+                href={`https://github.com/${user.github}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="w-5 h-5" />
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Stats */}
-        <div className="flex items-center gap-4 text-sm mb-4">
+        <div className="flex items-center gap-4 text-sm">
           <button className="hover:underline">
-            <span className="font-bold">{user.stats?.following_count || 0}</span>{' '}
+            <span className="font-bold">{user.stats?.following || 0}</span>{' '}
             <span className="text-muted-foreground">Following</span>
           </button>
           <button className="hover:underline">
-            <span className="font-bold">{user.stats?.followers_count || 0}</span>{' '}
+            <span className="font-bold">{user.stats?.followers || 0}</span>{' '}
             <span className="text-muted-foreground">Followers</span>
           </button>
         </div>
@@ -410,6 +492,19 @@ export function UserProfile() {
             <Sparkles className="w-4 h-4" />
             Projects
             {activeTab === 'projects' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
+            )}
+          </button>
+          <button
+            onClick={() => setActiveTab('reposts')}
+            className={cn(
+              'flex-1 py-4 text-sm font-medium transition-colors relative hover:bg-muted/50 flex items-center justify-center gap-1.5',
+              activeTab === 'reposts' ? 'text-foreground' : 'text-muted-foreground'
+            )}
+          >
+            <Repeat2 className="w-4 h-4" />
+            Reposts
+            {activeTab === 'reposts' && (
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
             )}
           </button>
@@ -456,6 +551,12 @@ export function UserProfile() {
                 <>
                   <Sparkles className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
                   <p className="text-muted-foreground">No projects yet</p>
+                </>
+              )}
+              {activeTab === 'reposts' && (
+                <>
+                  <Repeat2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                  <p className="text-muted-foreground">No reposts yet</p>
                 </>
               )}
               {activeTab === 'likes' && (

@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -10,7 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   Home,
-  Compass,
   Bell,
   Mail,
   Bookmark,
@@ -26,22 +26,56 @@ import {
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
 
-const navItems = [
-  { icon: Home, label: 'Home', path: '/', badge: undefined },
-  { icon: Compass, label: 'Explore', path: '/explore', badge: undefined },
-  { icon: Bell, label: 'Notifications', path: '/notifications', badge: 3 },
-  { icon: Mail, label: 'Messages', path: '/messages', badge: 2 },
-  { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks', badge: undefined },
+interface NavItem {
+  icon: typeof Home
+  label: string
+  path: string
+  badgeKey?: 'notifications' | 'messages'
+}
+
+const navItems: NavItem[] = [
+  { icon: Home, label: 'Home', path: '/' },
+  { icon: Bell, label: 'Notifications', path: '/notifications', badgeKey: 'notifications' },
+  { icon: Mail, label: 'Messages', path: '/messages', badgeKey: 'messages' },
+  { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
 ]
 
 export function LeftSidebar() {
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated } = useAuth()
   const { resolvedTheme, setTheme } = useTheme()
+  const [unreadCounts, setUnreadCounts] = useState<{ notifications: number; messages: number }>({
+    notifications: 0,
+    messages: 0,
+  })
+
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const counts = await api.getUnreadCounts()
+      setUnreadCounts(counts)
+    } catch (error) {
+      console.error('Failed to fetch unread counts:', error)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    fetchUnreadCounts()
+    // Refresh counts every 30 seconds
+    const interval = setInterval(fetchUnreadCounts, 30000)
+    return () => clearInterval(interval)
+  }, [fetchUnreadCounts])
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')
+  }
+
+  const getBadgeCount = (badgeKey?: 'notifications' | 'messages') => {
+    if (!badgeKey) return undefined
+    const count = unreadCounts[badgeKey]
+    return count > 0 ? count : undefined
   }
 
   return (
@@ -60,6 +94,7 @@ export function LeftSidebar() {
       <nav className="flex-1 mt-2 space-y-1 overflow-y-auto min-h-0">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path
+          const badge = getBadgeCount(item.badgeKey)
           return (
             <Link
               key={item.path}
@@ -79,9 +114,9 @@ export function LeftSidebar() {
                   )} 
                   strokeWidth={isActive ? 2.5 : 2}
                 />
-                {item.badge && (
+                {badge && (
                   <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-semibold">
-                    {item.badge}
+                    {badge > 99 ? '99+' : badge}
                   </span>
                 )}
               </div>
@@ -143,7 +178,7 @@ export function LeftSidebar() {
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/60 w-full text-left">
                 <Avatar className="w-10 h-10 ring-2 ring-border/50">
-                  <AvatarImage src="https://i.pravatar.cc/150?img=1" alt={user.name} />
+                  <AvatarImage src={user.avatar_url} alt={user.name} />
                   <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
                     {user.initials}
                   </AvatarFallback>

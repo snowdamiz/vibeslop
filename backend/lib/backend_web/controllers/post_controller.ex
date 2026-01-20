@@ -15,9 +15,15 @@ defmodule BackendWeb.PostController do
     stacks = Map.get(params, "stacks", [])
     sort_by = Map.get(params, "sort_by", "recent")
 
-    posts = case Map.get(params, "type") do
+    # Get current user if authenticated (from optional auth plug)
+    current_user_id = case conn.assigns[:current_user] do
+      nil -> nil
+      user -> user.id
+    end
+
+    case Map.get(params, "type") do
       "explore" ->
-        Content.list_explore_posts(
+        posts = Content.list_explore_posts(
           limit: limit,
           offset: offset,
           search: search,
@@ -25,21 +31,33 @@ defmodule BackendWeb.PostController do
           stacks: stacks,
           sort_by: sort_by
         )
+        render(conn, :index, posts: posts)
       _ ->
-        Content.list_feed_posts(
+        # Use unified feed that combines posts and projects
+        feed_items = Content.list_unified_feed(
           feed_type: feed_type,
           limit: limit,
-          offset: offset
+          offset: offset,
+          current_user_id: current_user_id
         )
+        render(conn, :index_unified, feed_items: feed_items)
     end
-
-    render(conn, :index, posts: posts)
   end
 
   def show(conn, %{"id" => id}) do
-    case Content.get_post!(id) do
-      {:ok, post} -> render(conn, :show, post: post)
-      {:error, :not_found} ->
+    # Validate UUID format before querying
+    case Ecto.UUID.cast(id) do
+      {:ok, _uuid} ->
+        case Content.get_post!(id) do
+          {:ok, post} -> render(conn, :show, post: post)
+          {:error, :not_found} ->
+            conn
+            |> put_status(:not_found)
+            |> put_view(json: BackendWeb.ErrorJSON)
+            |> render(:"404")
+        end
+      :error ->
+        # Invalid UUID format - return 404
         conn
         |> put_status(:not_found)
         |> put_view(json: BackendWeb.ErrorJSON)
@@ -57,6 +75,29 @@ defmodule BackendWeb.PostController do
       conn
       |> put_status(:created)
       |> render(:show, post: post_data)
+    end
+  end
+
+  def delete(conn, %{"id" => id}) do
+    current_user = conn.assigns[:current_user]
+
+    case Content.delete_post(id, current_user.id) do
+      {:ok, _post} ->
+        conn
+        |> put_status(:no_content)
+        |> send_resp(:no_content, "")
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(json: BackendWeb.ErrorJSON)
+        |> render(:"404")
+
+      {:error, :unauthorized} ->
+        conn
+        |> put_status(:forbidden)
+        |> put_view(json: BackendWeb.ErrorJSON)
+        |> render(:"403")
     end
   end
 end

@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useCallback, useRef, DragEvent, ClipboardEvent } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,14 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/context/AuthContext'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Placeholder from '@tiptap/extension-placeholder'
+import Link from '@tiptap/extension-link'
+import Mention from '@tiptap/extension-mention'
+import { ReactRenderer } from '@tiptap/react'
+import tippy from 'tippy.js'
+import type { Instance as TippyInstance } from 'tippy.js'
 import { 
   Image, 
   Code2, 
@@ -33,55 +41,287 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FeedItem, ProjectPost, StatusUpdate } from './types'
+import { ProjectComposer } from './ProjectComposer'
+import { QuotedPostPreview } from './QuotedPostPreview'
+import { MentionList } from '@/components/ui/mention-list'
+import { useDebouncedSearch } from '@/hooks/useDebouncedSearch'
 
 type ComposeMode = 'update' | 'project'
 
+// Define MentionListRef inline to avoid Vite type export issues
+type MentionListRef = {
+  onKeyDown: (props: { event: KeyboardEvent }) => boolean
+}
+
 interface ComposeBoxProps {
   placeholder?: string
-  onPost?: (item: Omit<FeedItem, 'id' | 'likes' | 'comments' | 'reposts' | 'createdAt' | 'author'>) => void
+  onPost?: (item: Omit<FeedItem, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'>) => void
+  quotedItem?: FeedItem | null
+  onClearQuote?: () => void
+  isOpen?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 // Common AI tools for quick selection
 const AI_TOOLS = ['Cursor', 'Claude', 'GPT-4', 'v0', 'Bolt', 'Copilot', 'Replit AI']
 
-// Formatting actions for markdown
-type FormatAction = 'bold' | 'italic' | 'heading' | 'quote' | 'code' | 'list' | 'link'
-
-const FORMAT_CONFIGS: Record<FormatAction, { prefix: string; suffix: string; placeholder: string }> = {
-  bold: { prefix: '**', suffix: '**', placeholder: 'bold text' },
-  italic: { prefix: '_', suffix: '_', placeholder: 'italic text' },
-  heading: { prefix: '## ', suffix: '', placeholder: 'Heading' },
-  quote: { prefix: '> ', suffix: '', placeholder: 'quote' },
-  code: { prefix: '`', suffix: '`', placeholder: 'code' },
-  list: { prefix: '- ', suffix: '', placeholder: 'list item' },
-  link: { prefix: '[', suffix: '](url)', placeholder: 'link text' },
-}
-
-export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
+export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOpen: controlledIsOpen, onOpenChange }: ComposeBoxProps) {
   const { user } = useAuth()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalIsOpen, setInternalIsOpen] = useState(false)
+  
+  // Support both controlled and uncontrolled modes
+  const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
+  const setIsOpen = onOpenChange || setInternalIsOpen
   const [mode, setMode] = useState<ComposeMode>('update')
-  const [content, setContent] = useState('')
   
   // Project-specific fields
   const [projectTitle, setProjectTitle] = useState('')
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [customTool, setCustomTool] = useState('')
   const [showToolPicker, setShowToolPicker] = useState(false)
+  const [, setEditorState] = useState(0) // Force re-render on editor changes
+
+  // Image upload state
+  const [attachedImage, setAttachedImage] = useState<string | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const defaultPlaceholder = mode === 'update' 
     ? "What's on your mind?" 
     : "Describe your project..."
 
-  const resetForm = () => {
-    setContent('')
+  // Debounced user search for mentions
+  const { search, results, isLoading } = useDebouncedSearch()
+
+  // TipTap editor setup
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        heading: {
+          levels: [2, 3],
+        },
+      }),
+      Placeholder.configure({
+        placeholder: placeholder || defaultPlaceholder,
+      }),
+      Link.configure({
+        openOnClick: false,
+      }),
+      Mention.configure({
+        HTMLAttributes: {
+          class: 'mention',
+        },
+        suggestion: {
+          char: '@',
+          items: async ({ query }) => {
+            search(query)
+            // Return empty array as items will be provided via component props
+            return []
+          },
+          render: () => {
+            let component: ReactRenderer<MentionListRef> | undefined
+            let popup: TippyInstance[] | undefined
+
+            return {
+              onStart: (props) => {
+                component = new ReactRenderer(MentionList, {
+                  props: { ...props, items: results, isLoading },
+                  editor: props.editor,
+                })
+
+                if (!props.clientRect) {
+                  return
+                }
+
+                popup = tippy('body', {
+                  getReferenceClientRect: props.clientRect as () => DOMRect,
+                  appendTo: () => document.body,
+                  content: component.element,
+                  showOnCreate: true,
+                  interactive: true,
+                  trigger: 'manual',
+                  placement: 'bottom-start',
+                  zIndex: 9999,
+                })
+              },
+
+              onUpdate(props) {
+                component?.updateProps({ ...props, items: results, isLoading })
+
+                if (!props.clientRect) {
+                  return
+                }
+
+                popup?.[0]?.setProps({
+                  getReferenceClientRect: props.clientRect as () => DOMRect,
+                })
+              },
+
+              onKeyDown(props) {
+                if (props.event.key === 'Escape') {
+                  popup?.[0]?.hide()
+                  return true
+                }
+
+                return component?.ref?.onKeyDown(props) ?? false
+              },
+
+              onExit() {
+                popup?.[0]?.destroy()
+                component?.destroy()
+              },
+            }
+          },
+        },
+      }),
+    ],
+    content: '',
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[120px] text-[15px]',
+      },
+    },
+    onTransaction: () => {
+      // Force re-render to update toolbar button states
+      setEditorState(prev => prev + 1)
+    },
+  })
+
+  // Convert file to base64 data URI
+  const fileToBase64 = useCallback((file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('File must be an image'))
+        return
+      }
+
+      // Limit file size to 5MB
+      const maxSize = 5 * 1024 * 1024
+      if (file.size > maxSize) {
+        reject(new Error('Image must be less than 5MB'))
+        return
+      }
+
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }, [])
+
+  // Handle image from various sources (file input, paste, drag)
+  const handleImageUpload = useCallback(async (file: File) => {
+    try {
+      const base64 = await fileToBase64(file)
+      setAttachedImage(base64)
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      alert(error instanceof Error ? error.message : 'Failed to upload image')
+    }
+  }, [fileToBase64])
+
+  // Handle paste event for images
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items
+    if (!items) return
+
+    for (const item of Array.from(items)) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault()
+        const file = item.getAsFile()
+        if (file) {
+          handleImageUpload(file)
+        }
+        break
+      }
+    }
+  }, [handleImageUpload])
+
+  // Handle drag over
+  const handleDragOver = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  // Handle drag leave
+  const handleDragLeave = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  // Handle drop
+  const handleDrop = useCallback((e: DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = e.dataTransfer?.files
+    if (files && files.length > 0) {
+      const file = files[0]
+      if (file.type.startsWith('image/')) {
+        handleImageUpload(file)
+      }
+    }
+  }, [handleImageUpload])
+
+  // Handle file input change
+  const handleFileInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      handleImageUpload(file)
+    }
+    // Reset input so same file can be selected again
+    e.target.value = ''
+  }, [handleImageUpload])
+
+  // Remove attached image
+  const removeAttachedImage = useCallback(() => {
+    setAttachedImage(null)
+  }, [])
+
+  // Get markdown content from editor
+  const getMarkdownContent = useCallback(() => {
+    if (!editor) return ''
+    
+    const html = editor.getHTML()
+    // Convert HTML back to markdown-like format for storage
+    // This is a simple conversion - for complex needs, use a proper converter
+    let markdown = html
+      .replace(/<h2>(.*?)<\/h2>/g, '## $1\n')
+      .replace(/<h3>(.*?)<\/h3>/g, '### $1\n')
+      .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
+      .replace(/<em>(.*?)<\/em>/g, '_$1_')
+      .replace(/<code>(.*?)<\/code>/g, '`$1`')
+      .replace(/<blockquote><p>(.*?)<\/p><\/blockquote>/g, '> $1\n')
+      .replace(/<li><p>(.*?)<\/p><\/li>/g, '- $1\n')
+      .replace(/<ul>/g, '')
+      .replace(/<\/ul>/g, '')
+      .replace(/<ol>/g, '')
+      .replace(/<\/ol>/g, '')
+      .replace(/<p><\/p>/g, '\n')
+      .replace(/<p>(.*?)<\/p>/g, '$1\n')
+      .replace(/<br\s*\/?>/g, '\n')
+      .replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)')
+      .replace(/\n+/g, '\n')
+      .trim()
+    
+    return markdown
+  }, [editor])
+
+  const resetForm = useCallback(() => {
+    editor?.commands.clearContent()
     setProjectTitle('')
     setSelectedTools([])
     setCustomTool('')
     setShowToolPicker(false)
     setMode('update')
-  }
+    setAttachedImage(null)
+    setIsDragging(false)
+    onClearQuote?.()
+  }, [editor, onClearQuote])
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
@@ -91,60 +331,45 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
   }
 
   const handlePost = () => {
-    if (!content.trim()) return
+    const content = getMarkdownContent()
+    // Allow posting with just an image (no text required)
+    if (!content.trim() && !attachedImage) return
     
     if (mode === 'project') {
       if (!projectTitle.trim()) return
       
-      const projectPost: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'createdAt' | 'author'> = {
+      const projectPost: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> = {
         type: 'project',
         title: projectTitle.trim(),
         content: content.trim(),
         tools: selectedTools.length > 0 ? selectedTools : undefined,
+        image: attachedImage || undefined,
       }
       onPost?.(projectPost)
     } else {
-      const statusUpdate: Omit<StatusUpdate, 'id' | 'likes' | 'comments' | 'reposts' | 'createdAt' | 'author'> = {
+      const statusUpdate: Omit<StatusUpdate, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> & {
+        quoted_post_id?: string
+        quoted_project_id?: string
+      } = {
         type: 'update',
         content: content.trim(),
+        media: attachedImage ? [attachedImage] : undefined,
       }
-      onPost?.(statusUpdate)
+      
+      // Add quoted item reference if present
+      if (quotedItem) {
+        if (quotedItem.type === 'update') {
+          statusUpdate.quoted_post_id = quotedItem.id
+        } else if (quotedItem.type === 'project') {
+          statusUpdate.quoted_project_id = quotedItem.id
+        }
+      }
+      
+      onPost?.(statusUpdate as any)
     }
     
     resetForm()
     setIsOpen(false)
-  }
-
-  const applyFormat = (action: FormatAction) => {
-    const textarea = textareaRef.current
-    if (!textarea) return
-
-    const { selectionStart, selectionEnd } = textarea
-    const selectedText = content.substring(selectionStart, selectionEnd)
-    const config = FORMAT_CONFIGS[action]
-    
-    const textToWrap = selectedText || config.placeholder
-    const newText = `${config.prefix}${textToWrap}${config.suffix}`
-    
-    const before = content.substring(0, selectionStart)
-    const after = content.substring(selectionEnd)
-    
-    setContent(before + newText + after)
-    
-    // Focus and set cursor position after React re-renders
-    setTimeout(() => {
-      textarea.focus()
-      if (selectedText) {
-        // If text was selected, place cursor after the formatted text
-        const newPosition = selectionStart + newText.length
-        textarea.setSelectionRange(newPosition, newPosition)
-      } else {
-        // If no text was selected, select the placeholder
-        const placeholderStart = selectionStart + config.prefix.length
-        const placeholderEnd = placeholderStart + config.placeholder.length
-        textarea.setSelectionRange(placeholderStart, placeholderEnd)
-      }
-    }, 0)
   }
 
   const toggleTool = (tool: string) => {
@@ -166,9 +391,12 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
     setSelectedTools(prev => prev.filter(t => t !== tool))
   }
 
+  const content = getMarkdownContent()
+  const charCount = content.length
+  
   const canPost = mode === 'update' 
-    ? content.trim().length > 0
-    : content.trim().length > 0 && projectTitle.trim().length > 0
+    ? content.trim().length > 0 || attachedImage !== null || quotedItem !== null
+    : (content.trim().length > 0 || attachedImage !== null) && projectTitle.trim().length > 0
 
   if (!user) return null
 
@@ -179,6 +407,13 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
 
   const CurrentModeIcon = modeConfig[mode].icon
 
+  const addLink = () => {
+    const url = window.prompt('Enter URL:')
+    if (url) {
+      editor?.chain().focus().setLink({ href: url }).run()
+    }
+  }
+
   return (
     <>
       {/* Compact Trigger */}
@@ -188,7 +423,7 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
       >
         <div className="flex items-center gap-3 max-w-[600px] mx-auto px-4 py-3">
           <Avatar className="w-10 h-10">
-            <AvatarImage src="https://i.pravatar.cc/150?img=1" alt={user.name} />
+            <AvatarImage src={user.avatar_url} alt={user.name} />
             <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
               {user.initials}
             </AvatarFallback>
@@ -207,9 +442,27 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
         </div>
       </div>
 
+      {/* Hidden file input for image upload */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
       {/* Compose Dialog */}
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent className="sm:max-w-[580px] p-0 gap-0 overflow-hidden">
+        <DialogContent 
+          className={cn(
+            "p-0 gap-0 overflow-hidden",
+            mode === 'project' ? "sm:max-w-[700px]" : "sm:max-w-[580px]"
+          )}
+          onDragOver={mode === 'update' ? handleDragOver : undefined}
+          onDragLeave={mode === 'update' ? handleDragLeave : undefined}
+          onDrop={mode === 'update' ? handleDrop : undefined}
+          aria-describedby={undefined}
+        >
           <DialogHeader className="sr-only">
             <DialogTitle>Create a post</DialogTitle>
           </DialogHeader>
@@ -218,7 +471,7 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">
               <Avatar className="w-9 h-9">
-                <AvatarImage src="https://i.pravatar.cc/150?img=1" alt={user.name} />
+                <AvatarImage src={user.avatar_url} alt={user.name} />
                 <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
                   {user.initials}
                 </AvatarFallback>
@@ -259,88 +512,69 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               </div>
             </div>
           </div>
+          
+          {/* Project Composer (replaces regular compose UI when in project mode) */}
+          {mode === 'project' ? (
+            <ProjectComposer
+              onPost={(projectPost) => {
+                onPost?.(projectPost)
+                resetForm()
+                setIsOpen(false)
+              }}
+              onCancel={() => setIsOpen(false)}
+            />
+          ) : (
+            <>
+
+          {/* Drag overlay */}
+          {isDragging && (
+            <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center">
+              <div className="text-center">
+                <Image className="w-12 h-12 mx-auto text-primary mb-2" />
+                <p className="text-primary font-medium">Drop image here</p>
+              </div>
+            </div>
+          )}
 
           {/* Content Area */}
-          <div className="px-4 pt-3 pb-2">
-            {/* Project Title (only in project mode) */}
-            {mode === 'project' && (
-              <Input
-                placeholder="Project title"
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-                className="mb-3 bg-transparent border-0 border-b border-border rounded-none px-0 text-lg font-semibold placeholder:font-normal focus-visible:ring-0 focus-visible:border-primary"
-              />
-            )}
-
-            {/* Main Content */}
-            <textarea
-              ref={textareaRef}
-              placeholder={placeholder || defaultPlaceholder}
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              className="w-full bg-transparent text-[15px] placeholder:text-muted-foreground resize-none focus:outline-none min-h-[140px]"
-              rows={5}
-              autoFocus
+          <div className="px-4 pt-3 pb-2" onPaste={handlePaste}>
+            {/* Rich Text Editor */}
+            <EditorContent 
+              editor={editor} 
+              className="[&_.tiptap]:min-h-[120px] [&_.tiptap]:focus:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
             />
 
-            {/* Selected Tools (project mode) */}
-            {mode === 'project' && selectedTools.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap py-2">
-                <Code2 className="w-3.5 h-3.5 text-muted-foreground" />
-                {selectedTools.map((tool) => (
-                  <span
-                    key={tool}
-                    className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium flex items-center gap-1"
+            {/* Attached Image Preview - Always at the bottom */}
+            {attachedImage && (
+              <div className="mt-3 relative group">
+                <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+                  <img
+                    src={attachedImage}
+                    alt="Attached image"
+                    className="w-full max-h-[300px] object-contain"
+                  />
+                  <button
+                    onClick={removeAttachedImage}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
+                    title="Remove image"
                   >
-                    {tool}
-                    <button
-                      onClick={() => removeTool(tool)}
-                      className="hover:bg-primary/20 rounded-full p-0.5"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             )}
-
-            {/* Tool Picker (project mode) */}
-            {mode === 'project' && showToolPicker && (
-              <div className="my-2 p-3 bg-muted/50 rounded-lg border border-border">
-                <p className="text-xs text-muted-foreground mb-2">Built with</p>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {AI_TOOLS.map((tool) => (
-                    <button
-                      key={tool}
-                      onClick={() => toggleTool(tool)}
-                      className={cn(
-                        'text-xs px-2 py-1 rounded-full transition-colors',
-                        selectedTools.includes(tool)
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-background border border-border hover:border-primary'
-                      )}
-                    >
-                      {tool}
-                    </button>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add custom tool..."
-                    value={customTool}
-                    onChange={(e) => setCustomTool(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addCustomTool()}
-                    className="h-8 text-sm"
-                  />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={addCustomTool}
-                    disabled={!customTool.trim()}
-                  >
-                    Add
-                  </Button>
-                </div>
+            
+            {/* Quoted Item Preview */}
+            {quotedItem && (
+              <div className="mt-3 relative">
+                <QuotedPostPreview item={quotedItem} />
+                <button
+                  onClick={onClearQuote}
+                  className="absolute top-2 right-2 p-1 rounded-full bg-background/80 border border-border hover:bg-muted transition-colors"
+                  title="Remove quote"
+                >
+                  <X className="w-3 h-3" />
+                </button>
               </div>
             )}
           </div>
@@ -351,18 +585,24 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('bold')}
-                title="Bold"
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('bold') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleBold().run()}
+                title="Bold (Ctrl+B)"
               >
                 <Bold className="w-4 h-4" />
               </Button>
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('italic')}
-                title="Italic"
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('italic') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleItalic().run()}
+                title="Italic (Ctrl+I)"
               >
                 <Italic className="w-4 h-4" />
               </Button>
@@ -370,8 +610,11 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('heading')}
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('heading') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
                 title="Heading"
               >
                 <Heading2 className="w-4 h-4" />
@@ -379,8 +622,11 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('quote')}
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('blockquote') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleBlockquote().run()}
                 title="Quote"
               >
                 <Quote className="w-4 h-4" />
@@ -388,8 +634,11 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('code')}
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('code') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleCode().run()}
                 title="Inline Code"
               >
                 <Code className="w-4 h-4" />
@@ -398,8 +647,11 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('list')}
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('bulletList') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={() => editor?.chain().focus().toggleBulletList().run()}
                 title="List"
               >
                 <List className="w-4 h-4" />
@@ -407,8 +659,11 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               <Button 
                 variant="ghost" 
                 size="icon" 
-                className="w-8 h-8 rounded text-muted-foreground hover:text-foreground hover:bg-muted"
-                onClick={() => applyFormat('link')}
+                className={cn(
+                  "w-8 h-8 rounded hover:bg-muted",
+                  editor?.isActive('link') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                )}
+                onClick={addLink}
                 title="Link"
               >
                 <Link2 className="w-4 h-4" />
@@ -419,34 +674,30 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
           {/* Action Bar */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-background">
             <div className="flex items-center gap-1">
-              <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-primary hover:bg-primary/10">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className={cn(
+                  "w-9 h-9 rounded-full hover:bg-primary/10",
+                  attachedImage ? "text-primary bg-primary/10" : "text-primary"
+                )}
+                onClick={() => fileInputRef.current?.click()}
+                title="Add image"
+              >
                 <Image className="w-5 h-5" />
               </Button>
-              {mode === 'project' && (
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className={cn(
-                    "w-9 h-9 rounded-full hover:bg-primary/10",
-                    showToolPicker ? "text-primary bg-primary/10" : "text-primary"
-                  )}
-                  onClick={() => setShowToolPicker(!showToolPicker)}
-                >
-                  <Code2 className="w-5 h-5" />
-                </Button>
-              )}
               <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full text-primary hover:bg-primary/10">
                 <Sparkles className="w-5 h-5" />
               </Button>
             </div>
 
             <div className="flex items-center gap-3">
-              {content.length > 0 && (
+              {charCount > 0 && (
                 <span className={cn(
                   "text-xs",
-                  content.length > 500 ? "text-destructive" : "text-muted-foreground"
+                  charCount > 500 ? "text-destructive" : "text-muted-foreground"
                 )}>
-                  {content.length}
+                  {charCount}
                 </span>
               )}
               <Button
@@ -458,6 +709,8 @@ export function ComposeBox({ placeholder, onPost }: ComposeBoxProps) {
               </Button>
             </div>
           </div>
+          </>
+          )}
         </DialogContent>
       </Dialog>
     </>

@@ -8,19 +8,21 @@ interface ConversationListProps {
   conversations: Conversation[]
   activeConversationId: string | null
   onSelectConversation: (id: string) => void
+  onNewMessage?: () => void
 }
 
 export function ConversationList({
   conversations,
   activeConversationId,
   onSelectConversation,
+  onNewMessage,
 }: ConversationListProps) {
   const unreadCount = conversations.reduce((sum, c) => sum + c.unreadCount, 0)
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
+    <div className="flex flex-col h-full">
+      {/* Header - Fixed */}
+      <div className="flex-shrink-0 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="flex items-center justify-between px-4 h-14">
           <div>
             <h1 className="font-bold text-lg leading-tight">Messages</h1>
@@ -28,7 +30,13 @@ export function ConversationList({
               <p className="text-xs text-muted-foreground">{unreadCount} unread</p>
             )}
           </div>
-          <Button variant="ghost" size="icon" className="rounded-full" disabled>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            className="rounded-full"
+            onClick={onNewMessage}
+            disabled={!onNewMessage}
+          >
             <PenSquare className="w-5 h-5" />
           </Button>
         </div>
@@ -46,7 +54,7 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* Conversation List */}
+      {/* Conversation List - Scrollable */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden">
         {conversations.length > 0 ? (
           <div className="divide-y divide-border">

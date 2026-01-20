@@ -10,19 +10,21 @@ interface AppShellProps {
 
 export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
   return (
-    <div className="h-screen bg-background overflow-hidden">
-      {/* Desktop/Tablet Layout - Full width with sidebars at edges */}
-      <div className="flex h-screen">
-        {/* Left Sidebar - Fixed to left edge */}
-        <LeftSidebar />
+    <div className="h-screen bg-background overflow-hidden flex">
+      {/* Left Sidebar - Fixed to left edge */}
+      <LeftSidebar />
 
-        {/* Main Content Area - Scrollable content between sidebars */}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+      {/* Single scroll container for main + right sidebar */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex min-h-full">
+          {/* Main Content Area */}
+          <main className="flex-1 min-w-0">
+            {children}
+          </main>
 
-        {/* Right Sidebar - Fixed to right edge */}
-        {showRightSidebar && <RightSidebar />}
+          {/* Right Sidebar - Sticky at top */}
+          {showRightSidebar && <RightSidebar />}
+        </div>
       </div>
 
       {/* Mobile Bottom Navigation */}

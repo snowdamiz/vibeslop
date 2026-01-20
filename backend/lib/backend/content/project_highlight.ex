@@ -7,7 +7,7 @@ defmodule Backend.Content.ProjectHighlight do
 
   schema "project_highlights" do
     field :content, :string
-    field :display_order, :integer
+    field :position, :integer
 
     belongs_to :project, Backend.Content.Project
 
@@ -17,7 +17,7 @@ defmodule Backend.Content.ProjectHighlight do
   @doc false
   def changeset(project_highlight, attrs) do
     project_highlight
-    |> cast(attrs, [:content, :display_order, :project_id])
+    |> cast(attrs, [:content, :position, :project_id])
     |> validate_required([:content, :project_id])
     |> validate_length(:content, min: 1, max: 500)
     |> foreign_key_constraint(:project_id)

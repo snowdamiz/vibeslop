@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SectionDivider } from '@/components/ui/section-divider'
@@ -34,9 +35,11 @@ export function AITools() {
               Discover what others are building with your favorite tools, learn new techniques, 
               and find the perfect stack for your next project.
             </p>
-            <Button className="glow">
-              Explore by Tool
-              <ArrowRight className="ml-2 h-4 w-4" />
+            <Button className="glow" asChild>
+              <Link to="/signin">
+                Get Started
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </Button>
           </div>
 

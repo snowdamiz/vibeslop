@@ -7,11 +7,15 @@ import { Comment } from './Comment'
 import type { Comment as CommentType } from './types'
 import { cn } from '@/lib/utils'
 import { ArrowUpDown, Clock, Flame, Sparkles } from 'lucide-react'
+import { useAuth } from '@/context/AuthContext'
+import { MentionInput } from '@/components/ui/mention-input'
 
 interface CommentsSectionProps {
   comments: CommentType[]
   onAddComment?: (content: string, replyTo?: string) => void
   onLikeComment?: (commentId: string) => void
+  onDeleteComment?: (commentId: string) => void
+  onReportComment?: (commentId: string) => void
 }
 
 type SortOption = 'newest' | 'oldest' | 'top'
@@ -20,7 +24,10 @@ export function CommentsSection({
   comments: initialComments,
   onAddComment,
   onLikeComment,
+  onDeleteComment,
+  onReportComment,
 }: CommentsSectionProps) {
+  const { user } = useAuth()
   const [comments, setComments] = useState<CommentType[]>(initialComments)
   const [newComment, setNewComment] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
@@ -57,10 +64,15 @@ export function CommentsSection({
 
     const comment: CommentType = {
       id: `new-${Date.now()}`,
-      author: { name: 'You', initials: 'U' },
+      author: { 
+        name: user?.name || 'You', 
+        initials: user?.initials || 'U',
+        username: user?.username,
+        avatar_url: user?.avatar_url
+      },
       content: newComment,
       likes: 0,
-      createdAt: 'Just now',
+      created_at: 'Just now',
     }
 
     setComments((prev) => [comment, ...prev])
@@ -71,10 +83,15 @@ export function CommentsSection({
   const handleReply = (parentId: string, content: string) => {
     const reply: CommentType = {
       id: `reply-${Date.now()}`,
-      author: { name: 'You', initials: 'U' },
+      author: { 
+        name: user?.name || 'You', 
+        initials: user?.initials || 'U',
+        username: user?.username,
+        avatar_url: user?.avatar_url
+      },
       content,
       likes: 0,
-      createdAt: 'Just now',
+      created_at: 'Just now',
       replyTo: parentId,
     }
 
@@ -84,6 +101,33 @@ export function CommentsSection({
 
   const handleLike = (commentId: string) => {
     onLikeComment?.(commentId)
+  }
+
+  // Helper to recursively remove a comment from the list
+  const removeComment = (
+    commentList: CommentType[],
+    commentId: string
+  ): CommentType[] => {
+    return commentList
+      .filter((comment) => comment.id !== commentId)
+      .map((comment) => {
+        if (comment.replies && comment.replies.length > 0) {
+          return {
+            ...comment,
+            replies: removeComment(comment.replies, commentId),
+          }
+        }
+        return comment
+      })
+  }
+
+  const handleDelete = async (commentId: string) => {
+    await onDeleteComment?.(commentId)
+    setComments((prev) => removeComment(prev, commentId))
+  }
+
+  const handleReport = (commentId: string) => {
+    onReportComment?.(commentId)
   }
 
   // Calculate total comments including replies
@@ -125,20 +169,20 @@ export function CommentsSection({
         <CardContent className="p-4">
           <div className="flex gap-3">
             <Avatar className="w-10 h-10 flex-shrink-0 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
-              <AvatarImage src="https://i.pravatar.cc/150?img=1" alt="You" />
+              <AvatarImage src={user?.avatar_url} alt={user?.name || 'You'} />
               <AvatarFallback className="text-sm bg-gradient-to-br from-violet-500 to-purple-600 text-white font-medium">
-                U
+                {user?.initials || 'U'}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <textarea
+              <MentionInput
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={setNewComment}
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
                 placeholder="Share your thoughts on this project..."
                 className={cn(
-                  "w-full bg-muted rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary transition-all min-h-[80px]",
+                  "min-h-[80px]",
                   isOverLimit && "ring-2 ring-red-500"
                 )}
                 rows={3}
@@ -228,6 +272,8 @@ export function CommentsSection({
                     comment={comment}
                     onReply={handleReply}
                     onLike={handleLike}
+                    onDelete={handleDelete}
+                    onReport={handleReport}
                   />
                 </CardContent>
               </Card>

@@ -8,8 +8,7 @@ import { Badge } from '@/components/ui/badge'
 
 const footerLinks = {
   product: [
-    { name: 'Explore', href: '/explore', isInternal: true },
-    { name: 'Trending', href: '/explore', isInternal: true },
+    { name: 'Home', href: '/', isInternal: true },
     { name: 'AI Tools', href: '#' },
     { name: 'Collections', href: '#' },
   ],

@@ -19,6 +19,10 @@ defmodule BackendWeb.Router do
     plug BackendWeb.Plugs.Auth
   end
 
+  pipeline :optional_auth do
+    plug BackendWeb.Plugs.OptionalAuth
+  end
+
   # Public auth routes (need session support for OAuth)
   scope "/api/auth", BackendWeb do
     pipe_through :auth
@@ -39,12 +43,32 @@ defmodule BackendWeb.Router do
     pipe_through [:api, :authenticated]
 
     get "/me", AuthController, :me
+    get "/me/counts", AuthController, :counts
 
     # Posts
     post "/posts", PostController, :create
+    delete "/posts/:id", PostController, :delete
+
+    # Projects
+    post "/projects", ProjectController, :create
+    delete "/projects/:id", ProjectController, :delete
+
+    # Comments
+    post "/comments", CommentController, :create
+    delete "/comments/:id", CommentController, :delete
 
     # Likes
     post "/likes", LikeController, :toggle
+
+    # Reposts
+    post "/reposts", RepostController, :toggle
+
+    # Bookmarks
+    post "/bookmarks", BookmarkController, :toggle
+    get "/bookmarks", BookmarkController, :index
+
+    # Reports
+    post "/reports", ReportController, :create
 
     # User actions
     post "/users/:username/follow", UserController, :follow
@@ -54,25 +78,63 @@ defmodule BackendWeb.Router do
     get "/notifications", NotificationController, :index
     post "/notifications/:id/read", NotificationController, :mark_read
     post "/notifications/read-all", NotificationController, :mark_all_read
+
+    # Messaging
+    get "/conversations", ConversationController, :index
+    post "/conversations", ConversationController, :create
+    get "/conversations/:id", ConversationController, :show
+    post "/conversations/:id/messages", ConversationController, :create_message
+    post "/conversations/:id/read", ConversationController, :mark_read
+
+    # User search (authenticated)
+    get "/users/search", UserController, :search
+  end
+
+  # Public API routes with optional auth
+  scope "/api", BackendWeb do
+    pipe_through [:api, :optional_auth]
+
+    # Users with optional auth (to exclude current user from suggestions)
+    get "/users/suggested", UserController, :suggested
+  end
+
+  # Public API routes with optional auth
+  scope "/api", BackendWeb do
+    pipe_through [:api, :optional_auth]
+
+    # Posts (with optional auth for engagement status)
+    get "/posts", PostController, :index
+  end
+
+  # Public API routes with optional auth (for engagement status)
+  scope "/api", BackendWeb do
+    pipe_through [:api, :optional_auth]
+
+    # Comments (with optional auth for like status)
+    get "/comments", CommentController, :index
+
+    # Projects (with optional auth for like/bookmark status)
+    get "/projects/:id", ProjectController, :show
+
+    # Impressions (with optional auth for user tracking)
+    post "/impressions", ImpressionController, :create
   end
 
   # Public API routes (no auth required)
   scope "/api", BackendWeb do
     pipe_through :api
 
-    # Posts
-    get "/posts", PostController, :index
     get "/posts/:id", PostController, :show
 
     # Projects
     get "/projects", ProjectController, :index
-    get "/projects/:id", ProjectController, :show
 
     # Users
     get "/users/:username", UserController, :show
     get "/users/:username/posts", UserController, :posts
     get "/users/:username/projects", UserController, :projects
     get "/users/:username/likes", UserController, :likes
+    get "/users/:username/reposts", UserController, :reposts
 
     # Catalog
     get "/tools", CatalogController, :ai_tools
