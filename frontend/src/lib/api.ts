@@ -19,6 +19,15 @@ export interface User {
   is_verified: boolean
 }
 
+export interface SuggestedUser {
+  id: string
+  username: string
+  display_name: string
+  bio?: string
+  avatar_url?: string
+  is_verified: boolean
+}
+
 export interface NotificationActor {
   id: string
   username: string
@@ -113,6 +122,11 @@ class ApiClient {
       throw new Error(error.message || `API error: ${response.status}`)
     }
 
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return undefined as T
+    }
+
     return response.json()
   }
 
@@ -158,10 +172,19 @@ class ApiClient {
   }
 
   /**
+   * Get unread counts for notifications and messages
+   */
+  async getUnreadCounts(): Promise<{ notifications: number; messages: number }> {
+    return this.get('/me/counts')
+  }
+
+  /**
    * Initiate GitHub OAuth login
+   * Uses prompt=select_account to always show the account picker,
+   * allowing users to switch GitHub accounts
    */
   loginWithGithub(): void {
-    window.location.href = `${this.baseUrl}/auth/github`
+    window.location.href = `${this.baseUrl}/auth/github?prompt=select_account`
   }
 
   /**
@@ -185,7 +208,7 @@ class ApiClient {
     tools?: string[]
     stacks?: string[]
     sort_by?: string
-  }): Promise<any> {
+  }): Promise<{ data: unknown[] }> {
     const queryParams = new URLSearchParams()
     if (params?.feed) queryParams.append('feed', params.feed)
     if (params?.type) queryParams.append('type', params.type)
@@ -199,12 +222,22 @@ class ApiClient {
     return this.get(`/posts?${queryParams}`)
   }
 
-  async getPost(id: string): Promise<any> {
+  async getPost(id: string): Promise<{ data: unknown }> {
     return this.get(`/posts/${id}`)
   }
 
-  async createPost(data: { content: string; linked_project_id?: string }): Promise<any> {
+  async createPost(data: { 
+    content: string
+    linked_project_id?: string
+    media?: string[]
+    quoted_post_id?: string
+    quoted_project_id?: string
+  }): Promise<{ data: unknown }> {
     return this.post('/posts', { post: data })
+  }
+
+  async deletePost(id: string): Promise<void> {
+    return this.delete(`/posts/${id}`)
   }
 
   // Projects
@@ -215,7 +248,7 @@ class ApiClient {
     tools?: string[]
     stacks?: string[]
     sort_by?: string
-  }): Promise<any> {
+  }): Promise<{ data: unknown[] }> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
@@ -227,55 +260,110 @@ class ApiClient {
     return this.get(`/projects?${queryParams}`)
   }
 
-  async getProject(id: string): Promise<any> {
+  async getProject(id: string): Promise<{ data: unknown }> {
     return this.get(`/projects/${id}`)
   }
 
+  async createProject(data: {
+    title: string
+    description: string
+    images?: string[]
+    tools?: string[]
+    stack?: string[]
+    links?: { live?: string; github?: string }
+    highlights?: string[]
+    prompts?: { title: string; description?: string; code: string }[]
+    timeline?: { date: string; title: string; description?: string }[]
+  }): Promise<{ data: unknown }> {
+    return this.post('/projects', { project: data })
+  }
+
+  async deleteProject(id: string): Promise<void> {
+    return this.delete(`/projects/${id}`)
+  }
+
   // Users
-  async getUser(username: string): Promise<any> {
+  async getUser(username: string): Promise<{ data: unknown }> {
     return this.get(`/users/${username}`)
   }
 
-  async getUserPosts(username: string, params?: { limit?: number; offset?: number }): Promise<any> {
+  async getUserPosts(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     return this.get(`/users/${username}/posts?${queryParams}`)
   }
 
-  async getUserProjects(username: string, params?: { limit?: number; offset?: number }): Promise<any> {
+  async getUserProjects(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     return this.get(`/users/${username}/projects?${queryParams}`)
   }
 
-  async getUserLikes(username: string, params?: { limit?: number; offset?: number }): Promise<any> {
+  async getUserLikes(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     return this.get(`/users/${username}/likes?${queryParams}`)
   }
 
-  async followUser(username: string): Promise<any> {
+  async getUserReposts(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/users/${username}/reposts?${queryParams}`)
+  }
+
+  async followUser(username: string): Promise<{ data: unknown }> {
     return this.post(`/users/${username}/follow`)
   }
 
-  async unfollowUser(username: string): Promise<any> {
+  async unfollowUser(username: string): Promise<{ data: unknown }> {
     return this.delete(`/users/${username}/follow`)
   }
 
+  async getSuggestedUsers(params?: { limit?: number }): Promise<{ data: SuggestedUser[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    return this.get(`/users/suggested?${queryParams}`)
+  }
+
+  async searchUsers(query: string, params?: { limit?: number }): Promise<{ data: SuggestedUser[] }> {
+    const queryParams = new URLSearchParams()
+    queryParams.append('q', query)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    return this.get(`/users/search?${queryParams}`)
+  }
+
   // Likes
-  async toggleLike(type: string, id: string): Promise<any> {
+  async toggleLike(type: string, id: string): Promise<{ success: boolean; liked: boolean }> {
     return this.post('/likes', { type, id })
   }
 
+  // Reposts
+  async toggleRepost(type: string, id: string): Promise<{ success: boolean; reposted: boolean }> {
+    return this.post('/reposts', { type, id })
+  }
+
+  // Bookmarks
+  async toggleBookmark(type: string, id: string): Promise<{ success: boolean; bookmarked: boolean }> {
+    return this.post('/bookmarks', { type, id })
+  }
+
+  async getBookmarks(params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/bookmarks?${queryParams}`)
+  }
+
   // Catalog
-  async getTools(): Promise<any> {
+  async getTools(): Promise<{ data: unknown[] }> {
     return this.get('/tools')
   }
 
-  async getStacks(): Promise<any> {
+  async getStacks(): Promise<{ data: unknown[] }> {
     return this.get('/stacks')
   }
 
@@ -287,12 +375,66 @@ class ApiClient {
     return this.get(`/notifications?${queryParams}`)
   }
 
-  async markNotificationRead(id: string): Promise<any> {
+  async markNotificationRead(id: string): Promise<{ data: unknown }> {
     return this.post(`/notifications/${id}/read`)
   }
 
-  async markAllNotificationsRead(): Promise<any> {
+  async markAllNotificationsRead(): Promise<{ data: unknown }> {
     return this.post('/notifications/read-all')
+  }
+
+  // Messaging
+  async getConversations(params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/conversations?${queryParams}`)
+  }
+
+  async getConversation(id: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/conversations/${id}?${queryParams}`)
+  }
+
+  async createConversation(username: string): Promise<{ data: unknown }> {
+    return this.post('/conversations', { username })
+  }
+
+  async sendMessage(conversationId: string, content: string): Promise<{ data: unknown }> {
+    return this.post(`/conversations/${conversationId}/messages`, { content })
+  }
+
+  async markConversationRead(id: string): Promise<{ data: unknown }> {
+    return this.post(`/conversations/${id}/read`)
+  }
+
+  // Comments
+  async getComments(type: string, id: string): Promise<{ data: unknown[] }> {
+    return this.get(`/comments?type=${type}&id=${id}`)
+  }
+
+  async createComment(data: {
+    commentable_type: string
+    commentable_id: string
+    content: string
+    parent_id?: string
+  }): Promise<{ data: unknown }> {
+    return this.post('/comments', { comment: data })
+  }
+
+  async deleteComment(id: string): Promise<void> {
+    return this.delete(`/comments/${id}`)
+  }
+
+  async reportComment(id: string): Promise<{ success: boolean }> {
+    return this.post('/reports', { type: 'comment', id })
+  }
+
+  // Impressions
+  async recordImpressions(impressions: Array<{ type: string; id: string }>, fingerprint?: string): Promise<{ success: boolean; count: number }> {
+    return this.post('/impressions', { impressions, fingerprint })
   }
 }
 
