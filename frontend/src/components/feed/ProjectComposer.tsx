@@ -39,11 +39,13 @@ import {
   Quote,
   Code,
   List,
-  Link2
+  Link2,
+  Loader2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ProjectPost } from './types'
 import { AIProjectGenerator, type GeneratedProjectData } from '@/components/ai/AIProjectGenerator'
+import { api } from '@/lib/api'
 
 interface ProjectComposerProps {
   onPost: (project: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'>) => void
@@ -74,6 +76,8 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
   // AI Generator state
   const [showAIGenerator, setShowAIGenerator] = useState(false)
   const [aiGeneratedData, setAiGeneratedData] = useState<GeneratedProjectData | null>(null)
+  const [generatingImage, setGeneratingImage] = useState(false)
+  const [imageError, setImageError] = useState<string | null>(null)
   
   // Core fields
   const [title, setTitle] = useState('')
@@ -408,6 +412,34 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
     setShowAIGenerator(true)
   }
 
+  const handleRegenerateImage = async () => {
+    if (!aiGeneratedData) return
+
+    setGeneratingImage(true)
+    setImageError(null)
+
+    try {
+      const response = await api.generateProjectImage({
+        title: title,
+        description: getMarkdownContent(),
+        stack: selectedStack,
+        repo: aiGeneratedData.repo
+      })
+      
+      setImages([response.data.image])
+      setCurrentImageIndex(0)
+    } catch (err) {
+      setImageError(err instanceof Error ? err.message : 'Failed to generate image')
+    } finally {
+      setGeneratingImage(false)
+    }
+  }
+
+  const handleRemoveCoverImage = () => {
+    setImages([])
+    setCurrentImageIndex(0)
+  }
+
   const handleEditManually = () => {
     // Switch from AI preview to manual editing flow
     setFlowPath('manual')
@@ -576,19 +608,70 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
                     </div>
                   </div>
 
+                  {/* Image Error */}
+                  {imageError && (
+                    <div className="flex items-start gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+                      <X className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
+                      <p className="text-destructive flex-1">{imageError}</p>
+                      <button onClick={() => setImageError(null)} className="text-destructive hover:opacity-70">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
                   {/* Preview Content */}
                   <div className="space-y-5 p-5 border border-border rounded-xl bg-background">
                     {/* Cover Image */}
-                    {images.length > 0 && (
-                      <div className="space-y-2">
-                        <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cover</label>
-                        <img 
-                          src={images[0]} 
-                          alt="Project cover" 
-                          className="w-full aspect-video object-cover rounded-lg"
-                        />
-                      </div>
-                    )}
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cover</label>
+                      {images.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="relative group">
+                            <img 
+                              src={images[0]} 
+                              alt="Project cover" 
+                              className="w-full aspect-video object-cover rounded-lg"
+                            />
+                            <button
+                              onClick={handleRemoveCoverImage}
+                              className="absolute top-2 right-2 p-1.5 bg-destructive text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRegenerateImage}
+                            disabled={generatingImage}
+                            className="w-full"
+                          >
+                            {generatingImage ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 mr-2" />
+                            )}
+                            {generatingImage ? 'Regenerating...' : 'Regenerate Image'}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={handleRegenerateImage}
+                          disabled={generatingImage}
+                          className="w-full h-32 border-dashed"
+                        >
+                          {generatingImage ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <div className="flex flex-col items-center gap-2">
+                              <Sparkles className="w-5 h-5" />
+                              <span>Generate AI Cover Image</span>
+                            </div>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
                     {/* Title */}
                     <div className="space-y-1.5">

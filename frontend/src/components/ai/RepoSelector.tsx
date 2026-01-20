@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Search, Star, GitFork, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -32,8 +32,31 @@ interface RepoSelectorProps {
 export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage, setItemsPerPage] = useState(4)
-  const containerRef = useRef<HTMLDivElement>(null)
+  
+  // Calculate items per page based on viewport height (stable, not content-dependent)
+  const itemsPerPage = useMemo(() => {
+    // Dialog max-height is 90vh, account for fixed elements:
+    // - Dialog header: ~60px
+    // - Description text: ~40px
+    // - Search input + margin: ~56px
+    // - Pagination: ~52px
+    // - Footer buttons: ~72px
+    // - Dialog padding/borders: ~48px
+    const fixedHeight = 328
+    
+    // Each repo item is ~110px (accounts for items with 2-line descriptions + gap)
+    const itemHeight = 110
+    
+    // Calculate available height for repo list
+    const dialogMaxHeight = window.innerHeight * 0.9
+    const availableHeight = dialogMaxHeight - fixedHeight
+    
+    // Calculate how many items fit
+    const calculatedItems = Math.floor(availableHeight / itemHeight)
+    
+    // Ensure at least 3 items, max 6 items
+    return Math.max(3, Math.min(6, calculatedItems))
+  }, [])
 
   // Filter repos based on search query
   const filteredRepos = useMemo(() => {
@@ -52,33 +75,6 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
   const paginatedRepos = filteredRepos.slice(startIndex, endIndex)
-
-  // Calculate items per page based on available height
-  useEffect(() => {
-    const calculateItemsPerPage = () => {
-      if (!containerRef.current) return
-      
-      // Get the available height for the repo list
-      const containerHeight = containerRef.current.clientHeight
-      
-      // Each repo item is approximately 96px (88px card + 8px gap)
-      const itemHeight = 96
-      
-      // Calculate how many items can fit
-      const calculatedItems = Math.floor(containerHeight / itemHeight)
-      
-      // Ensure at least 3 items, max 8 items
-      const items = Math.max(3, Math.min(8, calculatedItems))
-      
-      setItemsPerPage(items)
-    }
-    
-    // Calculate on mount and window resize
-    calculateItemsPerPage()
-    window.addEventListener('resize', calculateItemsPerPage)
-    
-    return () => window.removeEventListener('resize', calculateItemsPerPage)
-  }, [])
 
   // Reset to page 1 when search changes
   useEffect(() => {
@@ -140,7 +136,7 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
       </div>
 
       {/* Repository List */}
-      <div ref={containerRef} className="flex-1 space-y-2 min-h-0">
+      <div className="flex-1 space-y-2 min-h-0 overflow-y-auto">
         {paginatedRepos.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground text-sm">
             No repositories match your search.
