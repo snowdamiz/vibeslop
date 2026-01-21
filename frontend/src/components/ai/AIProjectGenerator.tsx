@@ -144,7 +144,7 @@ function GeneratingState({ repoName }: { repoName?: string }) {
 
         {/* Time estimate */}
         <p className="text-xs text-muted-foreground text-center">
-          Usually takes 20-30 seconds
+          Usually takes 1-2 minutes
         </p>
       </div>
     </div>

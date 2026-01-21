@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,7 +10,6 @@ import {
   Heart,
   MessageCircle,
   Repeat2,
-  Share,
   Bookmark,
   ArrowLeft,
   MoreHorizontal,
@@ -21,6 +20,8 @@ import {
   Flag,
   UserMinus,
   Loader2,
+  Eye,
+  Quote,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -91,6 +92,7 @@ const mockPostData = {
 
 export function PostDetail() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const [post, setPost] = useState<typeof mockPostData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -99,6 +101,7 @@ export function PostDetail() {
   const [isReposted, setIsReposted] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
   const [repostCount, setRepostCount] = useState(0)
+  const [impressions, setImpressions] = useState(0)
   const [copiedShare, setCopiedShare] = useState(false)
   const [comments, setComments] = useState<CommentType[]>([])
   const [commentCount, setCommentCount] = useState(0)
@@ -114,11 +117,12 @@ export function PostDetail() {
       
       try {
         const response = await api.getPost(id)
-        const postData = response.data as typeof mockPostData
+        const postData = response.data as typeof mockPostData & { impressions?: number }
         setPost(postData)
         setLikeCount(postData.likes || 0)
         setRepostCount(postData.reposts || 0)
         setCommentCount(postData.comments || 0)
+        setImpressions(postData.impressions || 0)
       } catch (err) {
         console.error('Failed to fetch post:', err)
         setError('Failed to load post')
@@ -248,6 +252,22 @@ export function PostDetail() {
     setRepostCount(isReposted ? repostCount - 1 : repostCount + 1)
   }
 
+  const handleQuote = () => {
+    if (!post) return
+    // Navigate to home with quote data in state
+    navigate('/', {
+      state: {
+        quotePost: {
+          id: post.id,
+          type: 'update' as const,
+          content: post.content,
+          author: post.author,
+          created_at: post.created_at,
+        }
+      }
+    })
+  }
+
   const handleBookmark = async () => {
     try {
       const response = await api.toggleBookmark('post', id!)
@@ -263,6 +283,16 @@ export function PostDetail() {
     setTimeout(() => setCopiedShare(false), 2000)
   }
 
+  const formatCount = (count: number) => {
+    if (count >= 1000000) {
+      return `${(count / 1000000).toFixed(1)}M`
+    }
+    if (count >= 1000) {
+      return `${(count / 1000).toFixed(1)}K`
+    }
+    return count.toString()
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {
@@ -275,7 +305,7 @@ export function PostDetail() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
@@ -353,10 +383,7 @@ export function PostDetail() {
                   key={idx}
                   src={img}
                   alt="Post image"
-                  className={cn(
-                    'w-full object-cover',
-                    post.media.length === 1 ? 'aspect-[16/9]' : 'aspect-square'
-                  )}
+                  className="w-full object-cover aspect-[16/9]"
                 />
               ))}
             </div>
@@ -368,96 +395,109 @@ export function PostDetail() {
           </div>
 
           {/* Action Buttons with Stats */}
-          <div className="flex items-center justify-between pt-3 border-t border-border">
-            {/* Comment */}
-            <button
-              onClick={() => {}}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                <MessageCircle className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-              </div>
-              {commentCount > 0 && (
+          <div className="flex items-center justify-between pt-3 border-t border-border -ml-2">
+            {/* Left Column: Comments, Likes, Views */}
+            <div className="flex items-center gap-1">
+              {/* Comment */}
+              <button
+                onClick={() => {}}
+                className="flex items-center gap-1.5 group"
+              >
+                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                  <MessageCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                </div>
                 <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                  {commentCount}
+                  {commentCount > 0 && commentCount}
                 </span>
-              )}
-            </button>
+              </button>
 
-            {/* Repost */}
-            <button
-              onClick={handleRepost}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
-                <Repeat2
+              {/* Like */}
+              <button
+                onClick={handleLike}
+                className="flex items-center gap-1.5 group"
+              >
+                <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
+                  <Heart
+                    className={cn(
+                      'w-[18px] h-[18px] transition-colors',
+                      isLiked ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
+                    )}
+                  />
+                </div>
+                <span
                   className={cn(
-                    'w-5 h-5 transition-colors',
-                    isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
+                    'text-sm transition-colors',
+                    isLiked ? 'text-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
                   )}
-                />
-              </div>
-              {repostCount > 0 && (
-                <span className={cn(
-                  'text-sm transition-colors',
-                  isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
-                )}>
-                  {repostCount}
+                >
+                  {likeCount > 0 && likeCount}
                 </span>
-              )}
-            </button>
+              </button>
 
-            {/* Like */}
-            <button
-              onClick={handleLike}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
-                <Heart
-                  className={cn(
-                    'w-5 h-5 transition-colors',
-                    isLiked ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
-                  )}
-                />
-              </div>
-              {likeCount > 0 && (
-                <span className={cn(
-                  'text-sm transition-colors',
-                  isLiked ? 'text-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
-                )}>
-                  {likeCount}
+              {/* Views/Impressions */}
+              <div className="flex items-center gap-1.5">
+                <div className="p-2">
+                  <Eye className="w-[18px] h-[18px] text-muted-foreground" />
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {impressions > 0 && formatCount(impressions)}
                 </span>
-              )}
-            </button>
-
-            {/* Bookmark */}
-            <button
-              onClick={handleBookmark}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                <Bookmark
-                  className={cn(
-                    'w-5 h-5 transition-colors',
-                    isBookmarked ? 'text-primary fill-primary' : 'text-muted-foreground group-hover:text-primary'
-                  )}
-                />
               </div>
-            </button>
+            </div>
 
-            {/* Share */}
-            <button
-              onClick={copyShareLink}
-              className="flex items-center gap-1.5 group"
-            >
-              <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                {copiedShare ? (
-                  <Check className="w-5 h-5 text-green-500" />
-                ) : (
-                  <Share className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
-                )}
-              </div>
-            </button>
+            {/* Right Column: Repost, Bookmark */}
+            <div className="flex items-center gap-1">
+              {/* Repost */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    className="flex items-center gap-1.5 group"
+                  >
+                    <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
+                      <Repeat2
+                        className={cn(
+                          'w-[18px] h-[18px] transition-colors',
+                          isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
+                        )}
+                      />
+                    </div>
+                    <span
+                      className={cn(
+                        'text-sm transition-colors',
+                        isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
+                      )}
+                    >
+                      {repostCount > 0 && repostCount}
+                    </span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center">
+                  <DropdownMenuItem onClick={handleRepost}>
+                    <Repeat2 className="w-4 h-4 mr-2" />
+                    {isReposted ? 'Undo repost' : 'Repost'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleQuote}>
+                    <Quote className="w-4 h-4 mr-2" />
+                    Quote
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Bookmark */}
+              <button
+                onClick={handleBookmark}
+                className="group"
+              >
+                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                  <Bookmark
+                    className={cn(
+                      'w-[18px] h-[18px] transition-colors',
+                      isBookmarked ? 'text-primary fill-primary' : 'text-muted-foreground group-hover:text-primary'
+                    )}
+                  />
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -467,13 +507,15 @@ export function PostDetail() {
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
         ) : (
-          <CommentsSection 
-            comments={comments} 
-            onAddComment={handleAddComment}
-            onLikeComment={handleLikeComment}
-            onDeleteComment={handleDeleteComment}
-            onReportComment={handleReportComment}
-          />
+          <div className="px-4">
+            <CommentsSection 
+              comments={comments} 
+              onAddComment={handleAddComment}
+              onLikeComment={handleLikeComment}
+              onDeleteComment={handleDeleteComment}
+              onReportComment={handleReportComment}
+            />
+          </div>
         )}
 
         {/* Share Card - Sticky at bottom on mobile */}

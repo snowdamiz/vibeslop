@@ -256,7 +256,7 @@ export function CommentsSection({
 
       {/* Comments list */}
       <AnimatePresence mode="popLayout">
-        <div className="space-y-3">
+        <div className="border-t border-border">
           {displayComments.map((comment, index) => (
             <motion.div
               key={comment.id}
@@ -265,18 +265,15 @@ export function CommentsSection({
               exit={{ opacity: 0, y: -10 }}
               transition={{ delay: index * 0.05, duration: 0.2 }}
               layout
+              className="py-4 border-b border-border last:border-b-0"
             >
-              <Card className="border-border hover:border-primary/20 transition-colors !py-0 !gap-0">
-                <CardContent className="p-4">
-                  <Comment
-                    comment={comment}
-                    onReply={handleReply}
-                    onLike={handleLike}
-                    onDelete={handleDelete}
-                    onReport={handleReport}
-                  />
-                </CardContent>
-              </Card>
+              <Comment
+                comment={comment}
+                onReply={handleReply}
+                onLike={handleLike}
+                onDelete={handleDelete}
+                onReport={handleReport}
+              />
             </motion.div>
           ))}
         </div>
@@ -284,19 +281,17 @@ export function CommentsSection({
 
       {/* Empty state */}
       {comments.length === 0 && (
-        <Card className="border-border border-dashed !py-0 !gap-0">
-          <CardContent className="p-6 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted mx-auto mb-3 flex items-center justify-center">
-              <Sparkles className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <p className="text-muted-foreground font-medium mb-1">
-              No comments yet
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Be the first to share your thoughts on this project!
-            </p>
-          </CardContent>
-        </Card>
+        <div className="py-8 text-center border-t border-border">
+          <div className="w-12 h-12 rounded-full bg-muted mx-auto mb-3 flex items-center justify-center">
+            <Sparkles className="w-6 h-6 text-muted-foreground" />
+          </div>
+          <p className="text-muted-foreground font-medium mb-1">
+            No comments yet
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Be the first to share your thoughts!
+          </p>
+        </div>
       )}
     </div>
   )

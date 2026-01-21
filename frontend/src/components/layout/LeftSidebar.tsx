@@ -79,9 +79,9 @@ export function LeftSidebar() {
   }
 
   return (
-    <aside className="hidden sm:flex flex-col h-full w-[72px] xl:w-[260px] px-4 py-4 border-r border-border/80 flex-shrink-0">
+    <aside className="hidden sm:flex flex-col h-full w-[72px] xl:w-[260px] px-2 xl:px-3 py-3 border-r border-border/80 flex-shrink-0">
       {/* Logo */}
-      <Link to="/" className="flex items-center gap-1 px-1 pb-1">
+      <Link to="/" className="flex items-center gap-1 pb-1 justify-center xl:justify-start xl:px-1">
         <div className="flex items-center justify-center w-10 h-10">
           <Sparkles className="w-5 h-5 text-primary" />
         </div>
@@ -91,7 +91,7 @@ export function LeftSidebar() {
       </Link>
 
       {/* Navigation */}
-      <nav className="flex-1 mt-2 space-y-1 overflow-y-auto min-h-0">
+      <nav className="flex-1 mt-2 space-y-1 overflow-y-auto min-h-0 flex flex-col items-center xl:items-stretch">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path
           const badge = getBadgeCount(item.badgeKey)
@@ -100,7 +100,9 @@ export function LeftSidebar() {
               key={item.path}
               to={item.path}
               className={cn(
-                'group flex items-center gap-4 px-3 py-3 rounded-xl w-full',
+                'group flex items-center justify-center xl:justify-start gap-4',
+                'w-11 h-11 xl:w-full xl:h-auto xl:px-3 xl:py-3',
+                'rounded-full xl:rounded-xl flex-shrink-0',
                 isActive
                   ? 'bg-primary/10 text-foreground'
                   : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
@@ -135,7 +137,9 @@ export function LeftSidebar() {
           <Link
             to={`/user/${user.username}`}
             className={cn(
-              'group flex items-center gap-4 px-3 py-3 rounded-xl w-full',
+              'group flex items-center justify-center xl:justify-start gap-4',
+              'w-11 h-11 xl:w-full xl:h-auto xl:px-3 xl:py-3',
+              'rounded-full xl:rounded-xl flex-shrink-0',
               location.pathname.startsWith('/user/')
                 ? 'bg-primary/10 text-foreground'
                 : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
@@ -160,9 +164,9 @@ export function LeftSidebar() {
         )}
 
         {/* Post Button */}
-        <div className="pt-4">
+        <div className="pt-4 flex justify-center xl:justify-start">
           <Button
-            className="w-12 h-12 xl:w-full xl:h-auto xl:py-3 rounded-xl font-semibold text-[15px] shadow-sm"
+            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-xl font-semibold text-[15px] shadow-sm flex-shrink-0"
             size="lg"
           >
             <PenSquare className="w-5 h-5 xl:mr-2" />
@@ -173,11 +177,11 @@ export function LeftSidebar() {
 
       {/* User Menu */}
       {user && (
-        <div className="mt-auto -mx-2 -my-2">
+        <div className="mt-auto pt-4 flex justify-center xl:justify-start">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-muted/60 w-full text-left">
-                <Avatar className="w-10 h-10 ring-2 ring-border/50">
+              <button className="flex items-center gap-3 p-0 xl:p-2.5 rounded-full xl:rounded-xl hover:bg-muted/60 xl:w-full text-left flex-shrink-0">
+                <Avatar className="w-10 h-10 ring-2 ring-border/50 flex-shrink-0">
                   <AvatarImage src={user.avatar_url} alt={user.name} />
                   <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
                     {user.initials}

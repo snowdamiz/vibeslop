@@ -30,8 +30,8 @@ defmodule Backend.AI.ProjectGenerator do
   end
 
   @doc """
-  Generates a cover image for a project.
-  Optionally accepts repo_info to search for and incorporate logos.
+  Generates a cover image for a project using Gemini 3 Pro Image Preview.
+  Optionally accepts repo_info to search for and incorporate logos as watermarks.
   """
   def generate_image(project_data, repo_info \\ nil) do
     require Logger
@@ -42,30 +42,26 @@ defmodule Backend.AI.ProjectGenerator do
         Logger.info("Attempting to find logos for #{owner}/#{repo}")
         case Backend.GitHub.Client.find_logos(token, owner, repo) do
           {:ok, [_ | _] = logos} ->
-            Logger.info("Found #{length(logos)} logo(s) - using multimodal generation")
+            Logger.info("Found #{length(logos)} logo(s)")
             logos
           {:ok, []} ->
-            Logger.warning("No logos found in repository - generating without logo")
+            Logger.info("No logos found in repository")
             []
           {:error, reason} ->
-            Logger.error("Logo search failed: #{inspect(reason)} - generating without logo")
+            Logger.warning("Logo search failed: #{inspect(reason)}")
             []
         end
       _ ->
-        Logger.info("No repo info provided - generating without logo")
+        Logger.info("No repo info provided")
         []
     end
 
-    # Generate with or without reference images
-    if reference_images != [] do
-      enhanced_prompt = build_image_prompt_with_logo(project_data)
-      Logger.info("Using logo-based prompt with #{length(reference_images)} reference image(s)")
-      OpenRouter.generate_image_with_references(enhanced_prompt, reference_images)
-    else
-      prompt = build_image_prompt(project_data)
-      Logger.info("Using basic prompt without logo")
-      OpenRouter.generate_image(prompt)
-    end
+    # Build prompt (includes logo instructions if logos were found)
+    prompt = build_image_prompt(project_data, reference_images)
+    Logger.info("Generating image with #{length(reference_images)} reference image(s)")
+
+    # Single unified call - Gemini handles both cases
+    OpenRouter.generate_image(prompt, reference_images: reference_images)
   end
 
   # Private helper functions
@@ -136,20 +132,44 @@ defmodule Backend.AI.ProjectGenerator do
     Generate a JSON response with this exact structure:
     {
       "title": "Catchy project name (max 60 chars, use the actual repo name or make it more appealing)",
-      "description": "Compelling 2-3 sentence markdown summary for social feed (150-250 chars)",
-      "long_description": "Detailed markdown description with paragraphs, explaining what the project does, why it's useful, and key features (200-400 words). Use markdown formatting like **bold**, bullet points, etc.",
+      "description": "Compelling 2-3 sentence summary for social feed (150-250 chars). Focus on WHAT the project does, not HOW it's built.",
+      "long_description": "MUST follow the exact markdown format specified below",
       "highlights": ["3-5 key features or achievements as short phrases"],
       "detected_tools": ["AI tools mentioned like Cursor, Claude, GPT-4, v0, Bolt, Copilot, etc. Only include if clearly mentioned."],
       "detected_stack": ["Main technologies and frameworks used - be specific (e.g., React, TypeScript, Node.js, PostgreSQL)"],
       "suggested_image_prompt": "A detailed prompt for generating a banner image (1-2 sentences, descriptive but not too long)"
     }
 
+    LONG_DESCRIPTION FORMAT - Use this exact markdown structure (replace example content with actual project info):
+
+    Example:
+    ```
+    This app transforms how teams collaborate on documents by providing real-time editing with intelligent suggestions. It eliminates the frustration of version conflicts and scattered feedback.
+
+    ## Why It Exists
+
+    Teams waste hours reconciling document versions and chasing down feedback across email threads. This solves that by bringing everything into one seamless workspace.
+
+    ## Key Features
+
+    - **Real-time Collaboration**: Multiple users can edit simultaneously without conflicts
+    - **Smart Suggestions**: Get contextual recommendations as you write
+    - **Unified Feedback**: All comments and revisions in one place
+
+    ## Who It's For
+
+    Perfect for remote teams, content creators, and anyone tired of document chaos.
+    ```
+
+    IMPORTANT: Do NOT include any brackets like [ ] in your output. Write actual content, not placeholders.
+
     Guidelines:
     - Be enthusiastic but accurate - don't make up features
     - Focus on what makes this project unique
     - The title should be catchy but honest
     - Description should make someone want to learn more
-    - Long description should be well-structured with markdown
+    - IMPORTANT: Do NOT include the title or project name anywhere in the long_description. It is displayed separately.
+    - IMPORTANT: Do NOT include technical specifications in the descriptions. No framework names, library names, commands, or implementation details. The tech stack is captured separately in detected_stack. Focus on WHAT the project does and WHY it's useful, not HOW it's built.
     - Only include tools/stack that are clearly evident
     - For highlights, focus on concrete features, not vague statements
     - The image prompt should capture the essence and theme of the project
@@ -158,71 +178,51 @@ defmodule Backend.AI.ProjectGenerator do
     """
   end
 
-  defp build_image_prompt(project_data) do
+  defp build_image_prompt(project_data, reference_images) do
     title = project_data["title"] || "Software Project"
     description = project_data["description"] || project_data["overview"] || ""
     stack = project_data["stack"] || []
-
-    # Determine theme based on stack
-    theme = determine_theme(stack)
-
-    """
-    Create a modern, professional 16:9 banner image for a software project.
-
-    Project: #{title}
-    Project Overview: #{description}
-    Tech Stack: #{Enum.join(stack, ", ")}
-    Visual Theme: #{theme}
-
-    The main image design should be inspired by the project overview and what the project does.
-    Use the tech stack to inform color choices and stylistic elements, but the core visual concept
-    should represent the project's purpose and functionality.
-
-    Style: Clean, minimalist, tech-focused design with abstract geometric shapes and modern gradients.
-    No text should appear in the image. The image should be suitable for social media sharing.
-    Dimensions: 16:9 aspect ratio (1792x1024 pixels). Professional and modern aesthetic.
-    The design should evoke the feeling of modern software development and innovation.
-    """
-  end
-
-  defp build_image_prompt_with_logo(project_data) do
-    title = project_data["title"] || "Software Project"
-    description = project_data["description"] || project_data["overview"] || ""
-    stack = project_data["stack"] || []
+    has_logo = reference_images != []
 
     # Determine visual theme based on stack
     theme = determine_theme(stack)
 
-    """
-    Create a creative, professional 16:9 banner image for a software project called "#{title}".
+    # Build the base prompt
+    base_prompt = """
+    Create a professional banner image for a software project called "#{title}".
 
-    Project Overview: #{description}
+    PROJECT DESCRIPTION (use this to inspire the visual concept):
+    #{description}
+
     Tech Stack: #{Enum.join(stack, ", ")}
     Visual Theme: #{theme}
 
-    The main image design should be inspired by the project overview and what the project does.
-    Use the tech stack and the attached logo to inform your color palette and design choices.
-
-    I've attached the project's logo. Incorporate it as a subtle, professional watermark in a
-    corner of the image. The logo should be small (about 10-15% of image width) and blend
-    naturally with the design so it doesn't dominate the composition.
-
-    The banner should be an ORIGINAL creative composition featuring:
-    - Dynamic abstract background that represents the project's purpose (based on the overview)
-    - Geometric shapes, flowing gradients, or tech patterns inspired by the project's functionality
-    - Visual elements that evoke #{Enum.take(stack, 2) |> Enum.join(" and ")} development
-    - Color palette complementary to the logo
-    - Modern, innovative, professional aesthetic
-
-    Important:
-    - The main focus should be the creative abstract background that tells the project's story
-    - The logo should be a subtle branding element, NOT the main focus
-    - No additional text in the image
-    - Colors and style should feel cohesive with the logo
-
-    Style: Modern tech banner with abstract art background.
-    Dimensions: 16:9 aspect ratio.
+    DESIGN REQUIREMENTS:
+    - The visual design MUST be inspired by what the project does (read the description above)
+    - Create an abstract, modern composition that represents the project's purpose
+    - Use geometric shapes, flowing gradients, or tech patterns that evoke the project's functionality
+    - Color palette should complement #{if has_logo, do: "the attached logo and ", else: ""}the tech stack theme
+    - Clean, minimalist, professional aesthetic suitable for social media
+    - Do NOT include any text in the image
     """
+
+    # Add logo instructions if logos were found
+    logo_instructions = if has_logo do
+      """
+
+      LOGO WATERMARK:
+      I've attached the project's logo image. You MUST include it as a watermark:
+      - Place a close copy of the logo in the TOP LEFT corner of the image
+      - The logo should be small (approximately 10-15% of the image width)
+      - Keep the logo SOLID and fully opaque (not transparent)
+      - The logo serves as branding - the main focus should be the abstract background design
+      - Match the overall color scheme to complement the logo
+      """
+    else
+      ""
+    end
+
+    base_prompt <> logo_instructions
   end
 
   defp determine_theme(stack) do

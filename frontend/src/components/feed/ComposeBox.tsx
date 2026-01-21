@@ -532,7 +532,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
                 <p className="text-sm font-medium">{user.name}</p>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                    <button className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors focus:outline-none focus-visible:outline-none">
                       <CurrentModeIcon className="w-3 h-3" />
                       {modeConfig[mode].label}
                       <ChevronDown className="w-3 h-3" />

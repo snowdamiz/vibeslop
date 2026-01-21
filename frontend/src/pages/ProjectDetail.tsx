@@ -458,7 +458,7 @@ export function ProjectDetail() {
   }
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen pb-20">
       {/* Background */}
       <div className="absolute inset-0 gradient-bg" />
 
@@ -494,7 +494,7 @@ export function ProjectDetail() {
                 onMouseLeave={() => setIsImageHovered(false)}
                 onClick={() => setIsFullscreen(true)}
               >
-                <div className="aspect-[16/10] relative overflow-hidden">
+                <div className="aspect-[16/9] relative overflow-hidden">
                   <motion.img
                     key={currentImageIndex}
                     src={project.images[currentImageIndex]}
@@ -758,9 +758,27 @@ export function ProjectDetail() {
               )}
 
               {/* Description */}
-              <div className="text-muted-foreground mb-6 leading-relaxed text-lg">
+              <div className="text-muted-foreground mb-6 leading-relaxed text-base">
                 <MarkdownContent content={project.description} />
               </div>
+
+              {/* Key Highlights - only show if there are highlights */}
+              {project.highlights.length > 0 && (
+                <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                    Key Highlights
+                  </h4>
+                  <ul className="grid gap-2">
+                    {project.highlights.map((highlight: string, index: number) => (
+                      <li key={index} className="flex items-center gap-2 text-sm">
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                        <span>{highlight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Links - only show if there are links */}
               {(project.links.live || project.links.github) && (
@@ -785,11 +803,8 @@ export function ProjectDetail() {
               )}
 
               {/* Tabs */}
-              <Tabs defaultValue="about" className="mt-8">
+              <Tabs defaultValue="prompts" className="mt-8">
                 <TabsList className="mb-6 p-1 bg-muted/50 border border-border">
-                  <TabsTrigger value="about" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    About
-                  </TabsTrigger>
                   <TabsTrigger value="prompts" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     <Code2 className="w-4 h-4 mr-1.5" />
                     Prompts
@@ -803,44 +818,6 @@ export function ProjectDetail() {
                     Comments ({project.stats.comments})
                   </TabsTrigger>
                 </TabsList>
-
-                <TabsContent value="about">
-                  <Card className="border-border !py-0 !gap-0">
-                    <CardContent className="p-4">
-                      {/* Key Highlights - only show if there are highlights */}
-                      {project.highlights.length > 0 && (
-                        <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
-                          <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
-                            <Sparkles className="w-4 h-4 text-primary" />
-                            Key Highlights
-                          </h4>
-                          <ul className="grid gap-2">
-                            {project.highlights.map((highlight: string, index: number) => (
-                              <li key={index} className="flex items-center gap-2 text-sm">
-                                <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                                <span>{highlight}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      <h3 className="font-semibold mb-4">About this project</h3>
-                      <div className="prose prose-sm max-w-none text-muted-foreground">
-                        {project.longDescription.split('\n\n').map((paragraph: string, index: number) => (
-                          <p key={index} className="mb-4 last:mb-0 leading-relaxed text-[15px]">
-                            {index === 0 && (
-                              <span className="text-3xl font-semibold text-foreground float-left mr-2 leading-none">
-                                {paragraph.charAt(0)}
-                              </span>
-                            )}
-                            {index === 0 ? paragraph.slice(1) : paragraph}
-                          </p>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
 
                 <TabsContent value="prompts">
                   {project.prompts.length === 0 ? (

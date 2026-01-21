@@ -222,7 +222,7 @@ export function Comment({
                   transition={{ duration: 0.2 }}
                   className="mt-3 overflow-hidden"
                 >
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 p-0.5">
                     <Avatar className="w-6 h-6 flex-shrink-0">
                       <AvatarImage src={user?.avatar_url} alt={user?.name || 'You'} />
                       <AvatarFallback className="text-xs bg-muted">{user?.initials || 'U'}</AvatarFallback>

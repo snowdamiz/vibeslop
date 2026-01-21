@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useLocation } from 'react-router-dom'
 import { Post } from './Post'
 import type { FeedItem } from './types'
 import { ComposeBox } from './ComposeBox'
@@ -197,6 +198,7 @@ export function Feed({
   posts: providedPosts
 }: FeedProps) {
   const { isAuthenticated } = useAuth()
+  const location = useLocation()
   const [activeTab, setActiveTab] = useState<FeedTab>(initialTab)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -209,6 +211,17 @@ export function Feed({
   const [quotedItem, setQuotedItem] = useState<FeedItem | null>(null)
   const [isComposeOpen, setIsComposeOpen] = useState(false)
   const { trackRef } = useImpressionTracker()
+
+  // Handle quote from navigation state (e.g., from PostDetail page)
+  useEffect(() => {
+    const state = location.state as { quotePost?: FeedItem } | null
+    if (state?.quotePost) {
+      setQuotedItem(state.quotePost)
+      setIsComposeOpen(true)
+      // Clear the state to prevent re-triggering on navigation
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
 
   const handleQuote = (item: FeedItem) => {
     setQuotedItem(item)

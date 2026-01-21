@@ -10,7 +10,7 @@ defmodule Backend.AI.OpenRouter do
   Sends a chat completion request to OpenRouter.
 
   Options:
-    - `:model` - Model to use (default: "anthropic/claude-3.5-sonnet")
+    - `:model` - Model to use (default: "x-ai/grok-4.1-fast")
     - `:temperature` - Sampling temperature (default: 0.7)
     - `:max_tokens` - Maximum tokens to generate (optional)
   """
@@ -50,80 +50,41 @@ defmodule Backend.AI.OpenRouter do
   end
 
   @doc """
-  Generates an image using OpenRouter's image generation models.
+  Generates an image using Google Gemini 3 Pro Image Preview (Nano Banana Pro).
 
   Options:
-    - `:model` - Model to use (default: "black-forest-labs/flux.2-pro")
+    - `:model` - Model to use (default: "google/gemini-3-pro-image-preview")
+    - `:reference_images` - Optional list of reference images to incorporate.
+      Each image can be a {base64_content, mime_type} tuple or just a base64 string.
   """
   def generate_image(prompt, opts \\ []) do
     model = Keyword.get(opts, :model, image_model())
+    reference_images = Keyword.get(opts, :reference_images, [])
 
-    # FLUX.2 Pro for image generation via chat completions
-    # Requires modalities parameter for image output
-    messages = [
-      %{
-        role: "user",
-        content: prompt
-      }
-    ]
+    # Build message content - either a simple string or array with images
+    content = if reference_images == [] do
+      # Simple text prompt
+      prompt
+    else
+      # Build content array with text prompt and image references
+      text_content = [%{type: "text", text: prompt}]
 
-    body = %{
-      model: model,
-      messages: messages,
-      # Required for image generation on OpenRouter
-      modalities: ["image", "text"],
-      # 16:9 aspect ratio via image_config
-      image_config: %{
-        aspect_ratio: "16:9"
-      }
-    }
+      image_content = Enum.map(reference_images, fn image_data ->
+        {base64, mime_type} = case image_data do
+          {b64, mime} -> {b64, mime}
+          b64 when is_binary(b64) -> {b64, "image/png"}
+        end
 
-    case Req.post("#{@base_url}/chat/completions",
-      json: body,
-      headers: headers(),
-      receive_timeout: 120_000  # 2 minutes for image generation
-    ) do
-      {:ok, %{status: 200, body: response}} ->
-        extract_image_from_response(response)
-
-      {:ok, %{status: 429, body: body}} ->
-        {:error, "Rate limited by OpenRouter: #{inspect(body)}"}
-
-      {:ok, %{status: status, body: body}} ->
-        {:error, "OpenRouter API returned status #{status}: #{inspect(body)}"}
-
-      {:error, error} ->
-        {:error, "Failed to generate image: #{inspect(error)}"}
-    end
-  end
-
-  @doc """
-  Generates an image with reference images using multimodal models.
-  Supports models like GPT-5 Image that can incorporate reference images.
-
-  Options:
-    - `:model` - Model to use (default: "openai/gpt-5-image-mini")
-  """
-  def generate_image_with_references(prompt, reference_images, opts \\ []) do
-    model = Keyword.get(opts, :model, multimodal_image_model())
-
-    # Build content array with text prompt and image references
-    # reference_images should be a list of {base64_content, mime_type} tuples or just base64 strings
-    content = [%{type: "text", text: prompt}]
-
-    content = content ++ Enum.map(reference_images, fn image_data ->
-      {base64, mime_type} = case image_data do
-        {b64, mime} -> {b64, mime}
-        b64 when is_binary(b64) -> {b64, "image/png"}  # Default fallback
-      end
-
-      %{
-        type: "image_url",
-        image_url: %{
-          url: "data:#{mime_type};base64,#{base64}"
+        %{
+          type: "image_url",
+          image_url: %{
+            url: "data:#{mime_type};base64,#{base64}"
+          }
         }
-      }
-    end)
+      end)
+
+      text_content ++ image_content
+    end
 
     messages = [
       %{
@@ -137,7 +98,7 @@ defmodule Backend.AI.OpenRouter do
       messages: messages,
       # Required for image generation on OpenRouter
       modalities: ["image", "text"],
-      # 16:9 aspect ratio via image_config
+      # 16:9 aspect ratio via image_config (supported by Gemini)
       image_config: %{
         aspect_ratio: "16:9"
       }
@@ -167,7 +128,7 @@ defmodule Backend.AI.OpenRouter do
   Accepts a callback function that will be called for each chunk.
 
   Options:
-    - `:model` - Model to use (default: "anthropic/claude-3.5-sonnet")
+    - `:model` - Model to use (default: "x-ai/grok-4.1-fast")
     - `:temperature` - Sampling temperature (default: 0.7)
     - `:max_tokens` - Maximum tokens to generate (optional)
   """
@@ -239,28 +200,23 @@ defmodule Backend.AI.OpenRouter do
 
   defp default_model do
     Application.get_env(:backend, Backend.AI)[:default_model] ||
-      "anthropic/claude-3.5-sonnet"
+      "x-ai/grok-4.1-fast"
   end
 
   defp image_model do
     Application.get_env(:backend, Backend.AI)[:image_model] ||
-      "black-forest-labs/flux.2-pro"
-  end
-
-  defp multimodal_image_model do
-    Application.get_env(:backend, Backend.AI)[:multimodal_image_model] ||
-      "openai/gpt-5-image-mini"
+      "google/gemini-3-pro-image-preview"
   end
 
   defp extract_image_from_response(response) do
     require Logger
 
-    # FLUX models return images in the message.images array
-    # Format: images[0]["image_url"]["url"] = "data:image/png;base64,..."
+    # Image models return images in various formats
+    # Gemini/FLUX: images array with image_url structure or direct URL
     Logger.debug("Image generation response: #{inspect(response)}")
 
     case response do
-      # OpenRouter FLUX format: images array with nested image_url structure
+      # OpenRouter format: images array with nested image_url structure
       %{"choices" => [%{"message" => %{"images" => [%{"image_url" => %{"url" => url}} | _]}} | _]} ->
         Logger.info("Successfully extracted image URL from nested structure")
         {:ok, url}

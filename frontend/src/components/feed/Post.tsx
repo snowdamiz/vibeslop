@@ -125,7 +125,6 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
 
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
-    e.preventDefault()
     setShowDeleteDialog(true)
   }
 

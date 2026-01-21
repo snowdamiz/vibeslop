@@ -55,10 +55,11 @@ defmodule Backend.Recommendations do
     |> Enum.map(fn result ->
       project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
       %{
-        id: project.id,
         project: project,
-        user: project.user,
-        score: result.final_score
+        likes_count: project.likes_count || 0,
+        comments_count: project.comments_count || 0,
+        reposts_count: project.reposts_count || 0,
+        bookmarks_count: project.bookmarks_count || 0
       }
     end)
 

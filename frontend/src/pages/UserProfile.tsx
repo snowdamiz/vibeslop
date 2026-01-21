@@ -656,6 +656,7 @@ export function UserProfile() {
               key={post.id}
               item={post}
               showBorder={index !== tabContent.length - 1}
+              onDelete={(id) => setTabContent(prev => prev.filter(item => item.id !== id))}
             />
           ))
         ) : (

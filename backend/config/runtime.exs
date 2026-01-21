@@ -46,8 +46,8 @@ end
 if openrouter_api_key = System.get_env("OPENROUTER_API_KEY") do
   config :backend, Backend.AI,
     openrouter_api_key: openrouter_api_key,
-    default_model: "anthropic/claude-3.5-sonnet",
-    image_model: "black-forest-labs/flux.2-pro"
+    default_model: "x-ai/grok-4.1-fast",
+    image_model: "google/gemini-3-pro-image-preview"
 end
 
 # ## Using releases

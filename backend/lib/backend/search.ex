@@ -106,12 +106,23 @@ defmodule Backend.Search do
     if String.trim(query_string) == "" do
       []
     else
-      # Use full-text search with relevance ranking
+      # Use combined full-text search + trigram fuzzy matching with relevance ranking
+      # Trigram similarity threshold: 0.3 (30% similarity)
       query =
         from u in User,
-          where: fragment("? @@ plainto_tsquery('english', ?)", u.search_vector, ^query_string),
+          where: fragment(
+            "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.3",
+            u.search_vector, ^query_string,
+            u.username, ^query_string,
+            u.display_name, ^query_string
+          ),
           order_by: [
-            desc: fragment("ts_rank(?, plainto_tsquery('english', ?))", u.search_vector, ^query_string),
+            desc: fragment(
+              "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+              u.username, ^query_string,
+              u.display_name, ^query_string,
+              u.search_vector, ^query_string
+            ),
             asc: u.username
           ],
           limit: ^limit,
@@ -124,30 +135,7 @@ defmodule Backend.Search do
         query
       end
 
-      results = Repo.all(query)
-
-      # Fallback to ILIKE if no full-text results
-      if results == [] do
-        search_pattern = "%#{query_string}%"
-
-        query =
-          from u in User,
-            where: ilike(u.username, ^search_pattern) or ilike(u.display_name, ^search_pattern),
-            order_by: [asc: u.username],
-            limit: ^limit,
-            offset: ^offset,
-            select: u
-
-        query = if exclude_user_id do
-          from u in query, where: u.id != ^exclude_user_id
-        else
-          query
-        end
-
-        Repo.all(query)
-      else
-        results
-      end
+      Repo.all(query)
     end
   end
 
@@ -177,12 +165,22 @@ defmodule Backend.Search do
         limit: ^limit,
         offset: ^offset
 
-    # Apply full-text search with relevance ranking
+    # Apply full-text search + trigram fuzzy matching with relevance ranking
     query = if query_string != "" do
       from [proj, u] in query,
-        where: fragment("? @@ plainto_tsquery('english', ?)", proj.search_vector, ^query_string),
+        where: fragment(
+          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.25",
+          proj.search_vector, ^query_string,
+          proj.title, ^query_string,
+          proj.description, ^query_string
+        ),
         order_by: [
-          desc: fragment("ts_rank(?, plainto_tsquery('english', ?))", proj.search_vector, ^query_string)
+          desc: fragment(
+            "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
+            proj.title, ^query_string,
+            proj.description, ^query_string,
+            proj.search_vector, ^query_string
+          )
         ]
     else
       query
@@ -283,12 +281,20 @@ defmodule Backend.Search do
         limit: ^limit,
         offset: ^offset
 
-    # Apply full-text search with relevance ranking
+    # Apply full-text search + trigram fuzzy matching with relevance ranking
     query = if query_string != "" do
       from [p] in query,
-        where: fragment("? @@ plainto_tsquery('english', ?)", p.search_vector, ^query_string),
+        where: fragment(
+          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
+          p.search_vector, ^query_string,
+          p.content, ^query_string
+        ),
         order_by: [
-          desc: fragment("ts_rank(?, plainto_tsquery('english', ?))", p.search_vector, ^query_string)
+          desc: fragment(
+            "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+            p.content, ^query_string,
+            p.search_vector, ^query_string
+          )
         ]
     else
       query
@@ -347,18 +353,19 @@ defmodule Backend.Search do
 
   @doc """
   Get quick suggestions for typeahead.
-  Returns matching users and projects.
+  Returns matching users, projects, and posts.
   """
   def suggestions(query_string, opts \\ []) do
     limit = Keyword.get(opts, :limit, 5)
 
     if String.trim(query_string) == "" do
-      %{users: [], projects: []}
+      %{users: [], projects: [], posts: []}
     else
       users = search_users(query_string, limit: limit)
       projects = search_projects_titles(query_string, limit: limit)
+      posts = search_posts_snippets(query_string, limit: limit)
 
-      %{users: users, projects: projects}
+      %{users: users, projects: projects, posts: posts}
     end
   end
 
@@ -366,42 +373,62 @@ defmodule Backend.Search do
   defp search_projects_titles(query_string, opts) do
     limit = Keyword.get(opts, :limit, 5)
 
-    # Try full-text search first
-    results = Repo.all(
+    # Use combined full-text search + trigram fuzzy matching
+    Repo.all(
       from proj in Project,
         join: u in assoc(proj, :user),
-        where: proj.status == "published" and
-               fragment("? @@ plainto_tsquery('english', ?)", proj.search_vector, ^query_string),
+        left_join: imgs in assoc(proj, :images),
+        where: proj.status == "published" and (
+          fragment("? @@ plainto_tsquery('english', ?)", proj.search_vector, ^query_string) or
+          fragment("similarity(?, ?) > 0.3", proj.title, ^query_string) or
+          fragment("similarity(?, ?) > 0.25", proj.description, ^query_string)
+        ),
+        group_by: [proj.id, u.id],
         order_by: [
-          desc: fragment("ts_rank(?, plainto_tsquery('english', ?))", proj.search_vector, ^query_string)
+          desc: fragment(
+            "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
+            proj.title, ^query_string,
+            proj.description, ^query_string,
+            proj.search_vector, ^query_string
+          )
         ],
         limit: ^limit,
         select: %{
           id: proj.id,
           title: proj.title,
+          image_url: fragment("(array_agg(? ORDER BY ? ASC))[1]", imgs.url, imgs.position),
           user: u
         }
     )
+  end
 
-    # Fallback to ILIKE if no results
-    if results == [] do
-      search_pattern = "%#{query_string}%"
+  # Helper to search post content snippets (for quick suggestions)
+  defp search_posts_snippets(query_string, opts) do
+    limit = Keyword.get(opts, :limit, 5)
 
-      Repo.all(
-        from proj in Project,
-          join: u in assoc(proj, :user),
-          where: proj.status == "published" and ilike(proj.title, ^search_pattern),
-          order_by: [desc: proj.published_at],
-          limit: ^limit,
-          select: %{
-            id: proj.id,
-            title: proj.title,
-            user: u
-          }
-      )
-    else
-      results
-    end
+    # Use combined full-text search + trigram fuzzy matching
+    Repo.all(
+      from p in Post,
+        join: u in assoc(p, :user),
+        where: fragment(
+          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
+          p.search_vector, ^query_string,
+          p.content, ^query_string
+        ),
+        order_by: [
+          desc: fragment(
+            "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+            p.content, ^query_string,
+            p.search_vector, ^query_string
+          )
+        ],
+        limit: ^limit,
+        select: %{
+          id: p.id,
+          content: p.content,
+          user: u
+        }
+    )
   end
 
   # Helper function to add engagement status to items

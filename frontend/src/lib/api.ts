@@ -493,7 +493,7 @@ class ApiClient {
     return this.get(`/search?${queryParams}`)
   }
 
-  async searchSuggestions(query: string, limit?: number): Promise<{ data: { users: SuggestedUser[]; projects: Array<{ id: string; title: string; user: { username: string; display_name: string } }> } }> {
+  async searchSuggestions(query: string, limit?: number): Promise<{ data: { users: SuggestedUser[]; projects: Array<{ id: string; title: string; image_url?: string; user: { username: string; display_name: string } }>; posts: Array<{ id: string; content: string; user: { username: string; display_name: string } }> } }> {
     const queryParams = new URLSearchParams()
     queryParams.append('q', query)
     if (limit) queryParams.append('limit', limit.toString())

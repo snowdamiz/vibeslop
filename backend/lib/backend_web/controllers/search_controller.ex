@@ -103,6 +103,7 @@ defmodule BackendWeb.SearchController do
       %{
         id: proj.id,
         title: proj.title,
+        image_url: proj.image_url,
         user: %{
           username: proj.user.username,
           display_name: proj.user.display_name
@@ -110,7 +111,19 @@ defmodule BackendWeb.SearchController do
       }
     end)
 
-    json(conn, %{data: %{users: formatted_users, projects: formatted_projects}})
+    # Format posts for JSON serialization
+    formatted_posts = Enum.map(results.posts, fn post ->
+      %{
+        id: post.id,
+        content: String.slice(post.content || "", 0, 100),
+        user: %{
+          username: post.user.username,
+          display_name: post.user.display_name
+        }
+      }
+    end)
+
+    json(conn, %{data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts}})
   end
 
   def suggestions(conn, _params) do

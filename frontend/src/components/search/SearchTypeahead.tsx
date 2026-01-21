@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Search, Clock, TrendingUp, X, ArrowRight } from 'lucide-react'
+import { Search, Clock, TrendingUp, X, ArrowRight, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type SuggestedUser } from '@/lib/api'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
@@ -18,6 +18,15 @@ interface Suggestion {
   projects: Array<{
     id: string
     title: string
+    image_url?: string
+    user: {
+      username: string
+      display_name: string
+    }
+  }>
+  posts: Array<{
+    id: string
+    content: string
     user: {
       username: string
       display_name: string
@@ -30,7 +39,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
   const { history, addSearch, removeSearch } = useSearchHistory()
   const [query, setQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
-  const [suggestions, setSuggestions] = useState<Suggestion>({ users: [], projects: [] })
+  const [suggestions, setSuggestions] = useState<Suggestion>({ users: [], projects: [], posts: [] })
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -39,7 +48,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
   // Fetch suggestions with debouncing
   const fetchSuggestions = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
-      setSuggestions({ users: [], projects: [] })
+      setSuggestions({ users: [], projects: [], posts: [] })
       return
     }
 
@@ -49,7 +58,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
       setSuggestions(response.data)
     } catch (error) {
       console.error('Failed to fetch suggestions:', error)
-      setSuggestions({ users: [], projects: [] })
+      setSuggestions({ users: [], projects: [], posts: [] })
     } finally {
       setIsLoading(false)
     }
@@ -66,7 +75,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
         fetchSuggestions(query)
       }, 300)
     } else {
-      setSuggestions({ users: [], projects: [] })
+      setSuggestions({ users: [], projects: [], posts: [] })
     }
 
     return () => {
@@ -124,7 +133,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
     }, 200)
   }
 
-  const showDropdown = isFocused && (history.length > 0 || suggestions.users.length > 0 || suggestions.projects.length > 0 || query.trim())
+  const showDropdown = isFocused && (history.length > 0 || suggestions.users.length > 0 || suggestions.projects.length > 0 || suggestions.posts.length > 0 || query.trim())
 
   return (
     <div className={cn('relative', className)}>
@@ -249,11 +258,49 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
                   }}
                   className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
                 >
-                  <TrendingUp className="w-4 h-4 text-primary flex-shrink-0" />
+                  {project.image_url ? (
+                    <img
+                      src={project.image_url}
+                      alt=""
+                      className="w-9 h-9 rounded object-cover flex-shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded bg-muted/50 flex items-center justify-center flex-shrink-0">
+                      <TrendingUp className="w-4 h-4 text-primary" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0 text-left">
                     <div className="font-medium text-sm truncate">{project.title}</div>
                     <div className="text-xs text-muted-foreground truncate">
                       by {project.user.display_name}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Post Suggestions */}
+          {!isLoading && suggestions.posts.length > 0 && (
+            <div className="border-b border-border">
+              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground">
+                Posts
+              </div>
+              {suggestions.posts.map((post) => (
+                <button
+                  key={post.id}
+                  onClick={() => {
+                    navigate(`/post/${post.id}`)
+                    setIsFocused(false)
+                    setQuery('')
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                >
+                  <MessageSquare className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="text-sm truncate line-clamp-2">{post.content}</div>
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      by {post.user.display_name}
                     </div>
                   </div>
                 </button>
@@ -276,7 +323,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
           )}
 
           {/* No results */}
-          {!isLoading && query.trim() && suggestions.users.length === 0 && suggestions.projects.length === 0 && (
+          {!isLoading && query.trim() && suggestions.users.length === 0 && suggestions.projects.length === 0 && suggestions.posts.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No suggestions found
             </div>

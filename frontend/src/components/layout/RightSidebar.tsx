@@ -51,7 +51,7 @@ export function RightSidebar() {
             title: item.title,
             author: item.author?.username || 'unknown',
             likes: item.likes || 0,
-            tag: item.tools && item.tools.length > 0 ? item.tools[0] : 'Project'
+            tag: 'Project'
           }))
           
           setTrendingProjects(formatted)
