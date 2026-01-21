@@ -44,6 +44,7 @@ import { cn } from '@/lib/utils'
 import type { ProjectPost } from './types'
 import { AIProjectGenerator, type GeneratedProjectData } from '@/components/ai/AIProjectGenerator'
 import { api } from '@/lib/api'
+import { useCompose } from '@/context/ComposeContext'
 
 interface ProjectComposerProps {
   onPost: (project: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'>) => void
@@ -67,12 +68,19 @@ type FlowPath = 'selection' | 'ai' | 'manual'
 
 export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
   const { user } = useAuth()
+  const { setIsAIGeneratorOpen } = useCompose()
   const [flowPath, setFlowPath] = useState<FlowPath>('selection')
   const [currentStep, setCurrentStep] = useState(0)
   const [, setEditorState] = useState(0) // Force re-render on editor changes
 
   // AI Generator state
-  const [showAIGenerator, setShowAIGenerator] = useState(false)
+  const [showAIGenerator, setShowAIGeneratorInternal] = useState(false)
+
+  // Wrapper to sync with context
+  const setShowAIGenerator = (open: boolean) => {
+    setShowAIGeneratorInternal(open)
+    setIsAIGeneratorOpen(open)
+  }
   const [aiGeneratedData, setAiGeneratedData] = useState<GeneratedProjectData | null>(null)
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
@@ -586,7 +594,7 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
 
             {/* AI Preview/Approval Step */}
             {flowPath === 'ai' && aiGeneratedData && (
-              <div className="space-y-5">
+              <div className="space-y-5 -mx-8">
                 <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl">
                   <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                     <CheckCircle2 className="w-4 h-4 text-primary" />

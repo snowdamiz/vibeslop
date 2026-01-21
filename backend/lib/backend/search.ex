@@ -256,6 +256,19 @@ defmodule Backend.Search do
 
     results = Repo.all(query)
 
+    # Preload associations needed for JSON serialization
+    project_ids = Enum.map(results, fn %{project: proj} -> proj.id end)
+
+    preloaded_projects =
+      from(p in Project, where: p.id in ^project_ids, preload: [:ai_tools, :tech_stacks, :images])
+      |> Repo.all()
+      |> Map.new(fn p -> {p.id, p} end)
+
+    results =
+      Enum.map(results, fn %{project: proj} = result ->
+        Map.put(result, :project, Map.get(preloaded_projects, proj.id, proj))
+      end)
+
     # Add engagement status if user is authenticated
     if current_user_id do
       add_engagement_status(results, current_user_id, "Project")
@@ -279,7 +292,6 @@ defmodule Backend.Search do
         join: u in assoc(p, :user),
         left_join: l in assoc(p, :likes),
         left_join: c in assoc(p, :comments),
-        left_join: r in assoc(p, :reposts),
         left_join: linked_proj in assoc(p, :linked_project),
         left_join: quoted_post in assoc(p, :quoted_post),
         left_join: quoted_post_user in assoc(quoted_post, :user),
@@ -299,7 +311,7 @@ defmodule Backend.Search do
           user: u,
           likes_count: count(l.id, :distinct),
           comments_count: count(c.id, :distinct),
-          reposts_count: count(r.id, :distinct),
+          reposts_count: p.reposts_count,
           linked_project: linked_proj,
           quoted_post: quoted_post,
           quoted_post_user: quoted_post_user,

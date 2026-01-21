@@ -33,8 +33,57 @@ defmodule BackendWeb.SearchController do
           results = Search.unified_search(query, limit: limit, current_user_id: current_user_id)
           total = length(results.users) + length(results.projects) + length(results.posts)
 
+          # Format results for JSON serialization
+          formatted_users =
+            Enum.map(results.users, fn user ->
+              %{
+                id: user.id,
+                username: user.username,
+                display_name: user.display_name,
+                bio: user.bio,
+                avatar_url: user.avatar_url,
+                is_verified: user.is_verified
+              }
+            end)
+
+          formatted_projects =
+            Enum.map(results.projects, fn %{project: proj, user: user} = data ->
+              %{
+                id: proj.id,
+                title: proj.title,
+                description: truncate_text(proj.description, 200),
+                image: get_first_image(proj),
+                likes: Map.get(data, :likes_count, 0),
+                comments: Map.get(data, :comments_count, 0),
+                author: %{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                  avatar_url: user.avatar_url,
+                  is_verified: user.is_verified
+                }
+              }
+            end)
+
+          formatted_posts =
+            Enum.map(results.posts, fn %{post: post, user: user} = data ->
+              %{
+                id: post.id,
+                content: truncate_text(post.content, 200),
+                likes: Map.get(data, :likes_count, 0),
+                comments: Map.get(data, :comments_count, 0),
+                author: %{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                  avatar_url: user.avatar_url,
+                  is_verified: user.is_verified
+                }
+              }
+            end)
+
           json(conn, %{
-            data: results,
+            data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts},
             meta: %{query: query, total_results: total}
           })
 
@@ -151,4 +200,26 @@ defmodule BackendWeb.SearchController do
 
   defp parse_int(value, _default) when is_integer(value), do: value
   defp parse_int(_, default), do: default
+
+  defp truncate_text(nil, _max_length), do: nil
+
+  defp truncate_text(text, max_length) do
+    if String.length(text) <= max_length do
+      text
+    else
+      text
+      |> String.slice(0, max_length)
+      |> String.trim_trailing()
+      |> Kernel.<>("...")
+    end
+  end
+
+  defp get_first_image(%{images: images}) when is_list(images) and length(images) > 0 do
+    case List.first(images) do
+      %{url: url} -> url
+      _ -> nil
+    end
+  end
+
+  defp get_first_image(_), do: nil
 end

@@ -178,10 +178,18 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
                 </button>
               </div>
               {history.slice(0, 5).map((item) => (
-                <button
+                <div
                   key={item.query}
                   onClick={() => handleSearch(item.query)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors text-left cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleSearch(item.query)
+                    }
+                  }}
                 >
                   <Clock className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                   <span className="flex-1 text-sm truncate">{item.query}</span>
@@ -194,7 +202,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
                   >
                     <X className="w-3 h-3 text-muted-foreground" />
                   </button>
-                </button>
+                </div>
               ))}
             </div>
           )}

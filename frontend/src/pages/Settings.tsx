@@ -140,7 +140,7 @@ export function Settings() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="mx-auto flex items-center gap-4 px-4 h-14">
+        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
           <Link to={`/user/${user.username}`}>
             <Button variant="ghost" size="icon" className="rounded-full">
               <ArrowLeft className="w-5 h-5" />

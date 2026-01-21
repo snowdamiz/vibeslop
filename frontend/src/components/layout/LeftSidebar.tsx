@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { useCompose } from '@/context/ComposeContext'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 
@@ -48,6 +49,7 @@ export function LeftSidebar() {
   const location = useLocation()
   const { user, logout, isAuthenticated } = useAuth()
   const { resolvedTheme, setTheme } = useTheme()
+  const { openCompose } = useCompose()
   const [unreadCounts, setUnreadCounts] = useState<{ notifications: number; messages: number }>({
     notifications: 0,
     messages: 0,
@@ -177,6 +179,7 @@ export function LeftSidebar() {
           <Button
             className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-xl font-semibold text-[15px] shadow-sm flex-shrink-0"
             size="lg"
+            onClick={openCompose}
           >
             <PenSquare className="w-5 h-5 xl:mr-2" />
             <span className="hidden xl:inline">Post</span>

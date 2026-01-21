@@ -44,6 +44,7 @@ import { QuotedPostPreview } from './QuotedPostPreview'
 import { MentionList } from '@/components/ui/mention-list'
 import { useDebouncedSearch } from '@/hooks/useDebouncedSearch'
 import { api } from '@/lib/api'
+import { useCompose } from '@/context/ComposeContext'
 
 type ComposeMode = 'update' | 'project'
 
@@ -63,6 +64,7 @@ interface ComposeBoxProps {
 
 export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOpen: controlledIsOpen, onOpenChange }: ComposeBoxProps) {
   const { user } = useAuth()
+  const { isAIGeneratorOpen } = useCompose()
   const [internalIsOpen, setInternalIsOpen] = useState(false)
 
   // Support both controlled and uncontrolled modes
@@ -484,7 +486,8 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
         <DialogContent
           className={cn(
             "p-0 gap-0 overflow-hidden",
-            mode === 'project' ? "sm:max-w-[700px]" : "sm:max-w-[580px]"
+            mode === 'project' ? "sm:max-w-[700px]" : "sm:max-w-[580px]",
+            isAIGeneratorOpen && "opacity-0 pointer-events-none"
           )}
           onDragOver={mode === 'update' ? handleDragOver : undefined}
           onDragLeave={mode === 'update' ? handleDragLeave : undefined}

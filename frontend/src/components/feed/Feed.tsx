@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Post } from './Post'
 import type { FeedItem } from './types'
-import { ComposeBox } from './ComposeBox'
+import { ComposeTrigger } from './ComposeTrigger'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { useCompose } from '@/context/ComposeContext'
 import { cn } from '@/lib/utils'
 import { Loader2, Sparkles, Users } from 'lucide-react'
 import { api } from '@/lib/api'
@@ -199,6 +200,7 @@ export function Feed({
 }: FeedProps) {
   const { isAuthenticated } = useAuth()
   const location = useLocation()
+  const { openComposeWithQuote, subscribeToNewPosts } = useCompose()
   const [activeTab, setActiveTab] = useState<FeedTab>(initialTab)
   const [isLoading, setIsLoading] = useState(false)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -208,28 +210,29 @@ export function Feed({
   const [hasMore, setHasMore] = useState(false)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_error, setError] = useState<string | null>(null)
-  const [quotedItem, setQuotedItem] = useState<FeedItem | null>(null)
-  const [isComposeOpen, setIsComposeOpen] = useState(false)
   const { trackRef } = useImpressionTracker()
+
+  // Subscribe to new posts from the compose dialog
+  useEffect(() => {
+    const unsubscribe = subscribeToNewPosts((newItem: FeedItem) => {
+      // Prepend new post to the feed
+      setPosts(prev => [newItem, ...prev])
+    })
+    return unsubscribe
+  }, [subscribeToNewPosts])
 
   // Handle quote from navigation state (e.g., from PostDetail page)
   useEffect(() => {
     const state = location.state as { quotePost?: FeedItem } | null
     if (state?.quotePost) {
-      setQuotedItem(state.quotePost)
-      setIsComposeOpen(true)
+      openComposeWithQuote(state.quotePost)
       // Clear the state to prevent re-triggering on navigation
       window.history.replaceState({}, document.title)
     }
-  }, [location.state])
+  }, [location.state, openComposeWithQuote])
 
   const handleQuote = (item: FeedItem) => {
-    setQuotedItem(item)
-    setIsComposeOpen(true)
-  }
-
-  const handleClearQuote = () => {
-    setQuotedItem(null)
+    openComposeWithQuote(item)
   }
 
   // Fetch posts when tab changes
@@ -349,73 +352,7 @@ export function Feed({
 
       {/* Compose Box */}
       {showCompose && isAuthenticated && (
-        <ComposeBox
-          isOpen={isComposeOpen}
-          onOpenChange={setIsComposeOpen}
-          quotedItem={quotedItem}
-          onClearQuote={handleClearQuote}
-          onPost={async (item) => {
-            try {
-              let response;
-
-              if (item.type === 'project') {
-                // Use a more robust check for project properties
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const projectData = item as any
-
-                response = await api.createProject({
-                  title: projectData.title || '',
-                  description: projectData.content || '',
-                  images: projectData.images,
-                  tools: projectData.tools,
-                  stack: projectData.stack,
-                  links: projectData.links,
-                  highlights: projectData.highlights,
-                  timeline: projectData.timeline,
-                })
-              } else {
-                // Call posts API for status updates
-                const updateItem = item as {
-                  type: 'update'
-                  content: string
-                  media?: string[]
-                  quoted_post_id?: string
-                  quoted_project_id?: string
-                }
-                const postData: {
-                  content: string
-                  media?: string[]
-                  quoted_post_id?: string
-                  quoted_project_id?: string
-                } = {
-                  content: updateItem.content,
-                }
-
-                if (updateItem.media && updateItem.media.length > 0) {
-                  postData.media = updateItem.media
-                }
-
-                // Add quoted item references
-                if (updateItem.quoted_post_id) {
-                  postData.quoted_post_id = updateItem.quoted_post_id
-                }
-                if (updateItem.quoted_project_id) {
-                  postData.quoted_project_id = updateItem.quoted_project_id
-                }
-
-                response = await api.createPost(postData)
-              }
-
-              // Optimistically add to feed
-              const newPost = response.data as FeedItem
-              setPosts((prev) => [newPost, ...prev])
-              handleClearQuote()
-            } catch (err) {
-              console.error('Failed to create:', err)
-              // Could show a toast here
-            }
-          }}
-        />
+        <ComposeTrigger />
       )}
 
       {/* Posts Feed */}

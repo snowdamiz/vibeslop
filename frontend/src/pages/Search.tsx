@@ -21,10 +21,10 @@ export function Search() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const { addSearch } = useSearchHistory()
-  
+
   const queryParam = searchParams.get('q') || ''
   const typeParam = (searchParams.get('type') || 'top') as SearchTab
-  
+
   const [query, setQuery] = useState(queryParam)
   const [activeTab, setActiveTab] = useState<SearchTab>(typeParam)
   const [isLoading, setIsLoading] = useState(false)
@@ -49,7 +49,7 @@ export function Search() {
       }
 
       setIsLoading(true)
-      
+
       try {
         const response = await api.search({
           q: queryParam,
@@ -110,7 +110,7 @@ export function Search() {
   return (
     <div className="min-h-screen">
       {/* Search Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
+      <div className="sticky top-4 z-10 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="max-w-[600px] mx-auto px-4">
           <div className="flex items-center gap-3 mb-3">
             <Button
@@ -167,7 +167,7 @@ export function Search() {
       </div>
 
       {/* Results */}
-      <div className="max-w-[600px] mx-auto">
+      <div className="max-w-[600px] mx-auto mt-10">
         {isLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />

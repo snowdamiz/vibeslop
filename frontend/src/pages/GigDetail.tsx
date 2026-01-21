@@ -198,7 +198,7 @@ export function GigDetail() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="mx-auto flex items-center gap-4 px-4 h-14">
+        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
           <Button
             variant="ghost"
             size="icon"
@@ -215,7 +215,7 @@ export function GigDetail() {
       </div>
 
       {/* Gig Info Bar */}
-      <div className="max-w-[600px] mx-auto px-4 py-5">
+      <div className="max-w-[600px] mt-4 mx-auto px-4 py-5">
         {/* Primary Row: Avatar + Title + Status + Actions */}
         <div className="flex items-start gap-4">
           {/* Poster Avatar */}

@@ -261,7 +261,7 @@ export function Notifications() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="mx-auto flex items-center justify-between px-4 h-14">
+        <div className="max-w-[600px] mx-auto flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-3">
             <div>
               <h1 className="font-bold text-lg leading-tight">Notifications</h1>
