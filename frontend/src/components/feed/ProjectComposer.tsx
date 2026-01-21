@@ -369,9 +369,8 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
       setCurrentImageIndex(0)
     }
 
-    // Set tech stack and tools
+    // Set tech stack
     setSelectedStack(projectData.stack || [])
-    setSelectedTools(projectData.tools || [])
 
     // Set links
     setLiveUrl(projectData.links?.live || '')
