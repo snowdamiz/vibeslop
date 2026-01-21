@@ -1,17 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Briefcase, Search, SlidersHorizontal } from 'lucide-react'
+import { Plus, Loader2, Briefcase, Search, SlidersHorizontal, DollarSign, ArrowUpDown, X } from 'lucide-react'
 import { GigCard, GigPostForm, BidCard } from '@/components/gigs'
 import { api, type Gig, type Bid } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -195,24 +189,6 @@ export function Gigs() {
                         className="pl-9 h-10 text-sm bg-muted/30 border-border focus-visible:ring-1 focus-visible:ring-primary/20"
                       />
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-10 text-xs px-3 text-muted-foreground hover:text-foreground">
-                          {sortOptions.find(o => o.value === sortBy)?.label}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        {sortOptions.map((option) => (
-                          <DropdownMenuItem
-                            key={option.value}
-                            onClick={() => setSortBy(option.value)}
-                            className="text-xs"
-                          >
-                            {option.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
                     <Button
                       variant="outline"
                       size="sm"
@@ -320,44 +296,99 @@ export function Gigs() {
 
       {/* Filters Dialog */}
       <Dialog open={showFiltersDialog} onOpenChange={setShowFiltersDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Filter Gigs</DialogTitle>
+        <DialogContent className="sm:max-w-[450px] p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-6 py-4 border-b border-border bg-muted/30">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <SlidersHorizontal className="w-4 h-4 text-primary" />
+              </div>
+              <DialogTitle>Filter Gigs</DialogTitle>
+            </div>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Budget Range (USD)</Label>
+
+          <div className="p-6 space-y-8">
+            {/* Sorting Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-blue-500/10 flex items-center justify-center">
+                  <ArrowUpDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <Label className="text-sm font-semibold">Sort By</Label>
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  placeholder="Min"
-                  value={minBudget}
-                  onChange={(e) => setMinBudget(e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Max"
-                  value={maxBudget}
-                  onChange={(e) => setMaxBudget(e.target.value)}
-                />
+                {sortOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => setSortBy(option.value)}
+                    className={cn(
+                      "flex items-center justify-center px-3 py-2.5 rounded-xl text-xs font-medium border transition-all",
+                      sortBy === option.value
+                        ? "bg-primary/10 border-primary text-primary"
+                        : "bg-background border-border hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="flex gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-                className="flex-1"
-              >
-                Clear All
-              </Button>
-              <Button
-                onClick={() => setShowFiltersDialog(false)}
-                className="flex-1"
-              >
-                Apply Filters
-              </Button>
+            {/* Budget Range Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-md bg-emerald-500/10 flex items-center justify-center">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <Label className="text-sm font-semibold">Budget Range (USD)</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="min-budget" className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Min</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                    <Input
+                      id="min-budget"
+                      type="number"
+                      placeholder="0"
+                      value={minBudget}
+                      onChange={(e) => setMinBudget(e.target.value)}
+                      className="pl-7 h-11 bg-muted/20 border-border focus-visible:ring-primary/20"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="max-budget" className="text-[10px] uppercase tracking-wider text-muted-foreground ml-1">Max</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                    <Input
+                      id="max-budget"
+                      type="number"
+                      placeholder="Any"
+                      value={maxBudget}
+                      onChange={(e) => setMaxBudget(e.target.value)}
+                      className="pl-7 h-11 bg-muted/20 border-border focus-visible:ring-primary/20"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
+          </div>
+
+          <div className="p-4 bg-muted/30 border-t border-border flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleClearFilters}
+              className="flex-1 h-11 rounded-xl font-semibold text-muted-foreground hover:text-foreground border-border"
+            >
+              <X className="w-4 h-4 mr-2" />
+              Clear All
+            </Button>
+            <Button
+              onClick={() => setShowFiltersDialog(false)}
+              className="flex-[1.5] h-11 rounded-xl font-semibold bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-lg shadow-primary/20"
+            >
+              Apply Filters
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
