@@ -77,7 +77,9 @@ defmodule Backend.Repo.Migrations.AddFulltextSearchIndexes do
 
     # Update existing rows to populate search_vector
     execute "UPDATE posts SET search_vector = to_tsvector('english', COALESCE(content, ''))"
+
     execute "UPDATE projects SET search_vector = setweight(to_tsvector('english', COALESCE(title, '')), 'A') || setweight(to_tsvector('english', COALESCE(description, '')), 'B')"
+
     execute "UPDATE users SET search_vector = setweight(to_tsvector('english', COALESCE(username, '')), 'A') || setweight(to_tsvector('english', COALESCE(display_name, '')), 'A') || setweight(to_tsvector('english', COALESCE(bio, '')), 'B')"
   end
 

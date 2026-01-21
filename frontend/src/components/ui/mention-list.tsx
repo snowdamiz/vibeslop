@@ -1,4 +1,4 @@
-import React, {
+import {
   forwardRef,
   useEffect,
   useImperativeHandle,
@@ -10,7 +10,7 @@ import type { SuggestedUser } from '@/lib/api'
 
 export interface MentionListProps {
   items: SuggestedUser[]
-  command: (item: { id: string; label: string }) => void
+  command: (_item: { id: string; label: string }) => void
   isLoading?: boolean
 }
 
@@ -24,8 +24,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
     // Reset selected index when items change
     useEffect(() => {
-      setSelectedIndex(0)
-    }, [items])
+      if (selectedIndex !== 0) {
+        setTimeout(() => setSelectedIndex(0), 0)
+      }
+    }, [items, selectedIndex])
 
     const selectItem = (index: number) => {
       const item = items[index]

@@ -72,12 +72,12 @@ export function Settings() {
     const lowercase = value.toLowerCase()
     setUsername(lowercase)
     setSuccessMessage('')
-    
+
     // Debounce the check
     const timeoutId = setTimeout(() => {
       checkUsernameAvailability(lowercase)
     }, 500)
-    
+
     return () => clearTimeout(timeoutId)
   }
 
@@ -127,7 +127,7 @@ export function Settings() {
     }
   }
 
-  const hasChanges = 
+  const hasChanges =
     displayName !== user?.name ||
     username !== user?.username ||
     bio !== (user?.bio || '')
@@ -140,7 +140,7 @@ export function Settings() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
+        <div className="mx-auto flex items-center gap-4 px-4 h-14">
           <Link to={`/user/${user.username}`}>
             <Button variant="ghost" size="icon" className="rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -160,7 +160,7 @@ export function Settings() {
           <div className="space-y-4">
             <h2 className="text-lg font-semibold">Profile Picture</h2>
             <div className="flex items-center gap-4">
-              <button 
+              <button
                 onClick={() => setShowAvatarDialog(true)}
                 className="relative group cursor-pointer flex-shrink-0"
               >
@@ -185,7 +185,7 @@ export function Settings() {
           {/* Profile Details */}
           <div className="space-y-6">
             <h2 className="text-lg font-semibold">Profile Details</h2>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-semibold flex items-center gap-2">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
@@ -204,7 +204,7 @@ export function Settings() {
               />
               <p className="text-xs text-muted-foreground pl-1">This is how your name will appear across the platform</p>
             </div>
-            
+
             <div className="space-y-2">
               <label className="text-sm font-semibold flex items-center gap-2">
                 <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
@@ -296,8 +296,8 @@ export function Settings() {
       </div>
 
       {/* Avatar Edit Dialog */}
-      <AvatarEditDialog 
-        open={showAvatarDialog} 
+      <AvatarEditDialog
+        open={showAvatarDialog}
         onOpenChange={setShowAvatarDialog}
       />
     </div>

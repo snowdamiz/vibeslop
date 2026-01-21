@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, DragEvent } from 'react'
+import { useState, useCallback, useRef, type DragEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -6,9 +6,9 @@ import { Textarea } from '@/components/ui/textarea'
 import { Avatar } from '@/components/ui/avatar'
 import { useAuth } from '@/context/AuthContext'
 import { api } from '@/lib/api'
-import { 
-  Image as ImageIcon, 
-  X, 
+import {
+  Image as ImageIcon,
+  X,
   Check,
   User,
   AtSign,
@@ -32,7 +32,7 @@ export function Onboarding() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // Form fields
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '')
   const [displayName, setDisplayName] = useState(user?.name || '')
@@ -40,7 +40,7 @@ export function Onboarding() {
   const [bio, setBio] = useState(user?.bio || '')
   const [usernameError, setUsernameError] = useState('')
   const [isCheckingUsername, setIsCheckingUsername] = useState(false)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
 
@@ -65,7 +65,7 @@ export function Onboarding() {
 
   const handleImageUpload = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    
+
     try {
       const file = files[0]
       const base64Image = await fileToBase64(file)
@@ -137,12 +137,12 @@ export function Onboarding() {
   const handleUsernameChange = (value: string) => {
     const lowercase = value.toLowerCase()
     setUsername(lowercase)
-    
+
     // Debounce the check
     const timeoutId = setTimeout(() => {
       checkUsernameAvailability(lowercase)
     }, 500)
-    
+
     return () => clearTimeout(timeoutId)
   }
 
@@ -249,7 +249,7 @@ export function Onboarding() {
 
                 return (
                   <div key={step.id} className="flex items-center">
-                    <div 
+                    <div
                       className={cn(
                         "flex flex-col items-center gap-1.5 relative z-10 transition-all duration-200 min-w-[70px]",
                         isClickable ? "cursor-pointer" : "cursor-default",
@@ -257,12 +257,12 @@ export function Onboarding() {
                       )}
                       onClick={() => isClickable && goToStep(i)}
                     >
-                      <div 
+                      <div
                         className={cn(
                           "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 shadow-md",
-                          isCompleted ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-violet-500/20" : 
-                          isCurrent ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white ring-4 ring-violet-500/20 scale-110 shadow-violet-500/30" : 
-                          "bg-muted text-muted-foreground hover:bg-muted/80"
+                          isCompleted ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-violet-500/20" :
+                            isCurrent ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white ring-4 ring-violet-500/20 scale-110 shadow-violet-500/30" :
+                              "bg-muted text-muted-foreground hover:bg-muted/80"
                         )}
                       >
                         {isCompleted ? <Check className="w-5 h-5" /> : <StepIcon className="w-5 h-5" />}
@@ -274,10 +274,10 @@ export function Onboarding() {
                         {step.label}
                       </span>
                     </div>
-                    
+
                     {i < STEPS.length - 1 && (
                       <div className="relative flex items-center mx-2" style={{ width: '50px' }}>
-                        <div 
+                        <div
                           className={cn(
                             "h-0.5 rounded-full w-full transition-all duration-500",
                             i < currentStep ? "bg-gradient-to-r from-violet-500 to-purple-600" : "bg-muted"
@@ -293,7 +293,7 @@ export function Onboarding() {
 
           {/* Step Content */}
           <div className="p-6 min-h-[380px]">
-            <div 
+            <div
               className="w-full max-w-md mx-auto animate-fade-in-up"
               key={currentStep}
             >
@@ -321,7 +321,7 @@ export function Onboarding() {
                       </div>
                     </div>
 
-                    <div 
+                    <div
                       className={cn(
                         "w-full relative group cursor-pointer transition-all rounded-xl border-2 border-dashed min-h-[140px] flex flex-col items-center justify-center",
                         isDragging ? "border-violet-500 bg-violet-500/5 scale-105" : "border-border hover:border-violet-500/50 hover:bg-muted/50"
@@ -389,7 +389,7 @@ export function Onboarding() {
                       />
                       <p className="text-xs text-muted-foreground pl-1">This is how your name will appear across the platform</p>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-sm font-semibold flex items-center gap-2">
                         <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
@@ -502,9 +502,9 @@ export function Onboarding() {
           {/* Navigation Footer */}
           <div className="relative px-6 py-4 border-t border-border/50 bg-muted/20">
             <div className="flex items-center justify-between">
-              <Button 
-                variant="ghost" 
-                onClick={handleBack} 
+              <Button
+                variant="ghost"
+                onClick={handleBack}
                 disabled={currentStep === 0 || isSubmitting}
                 className="gap-2 hover:bg-muted h-10"
                 size="sm"
@@ -512,11 +512,11 @@ export function Onboarding() {
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </Button>
-              
+
               <div className="flex gap-2.5">
                 {STEPS[currentStep].optional && (
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     onClick={handleSkip}
                     disabled={isSubmitting}
                     className="text-muted-foreground hover:text-foreground hover:bg-muted h-10"
@@ -525,14 +525,14 @@ export function Onboarding() {
                     Skip
                   </Button>
                 )}
-                
+
                 <Button
                   onClick={currentStep === STEPS.length - 1 ? handleComplete : handleNext}
                   disabled={!canProceed() || isSubmitting}
                   className={cn(
                     "gap-2 px-6 h-10 font-semibold shadow-lg transition-all",
-                    currentStep === STEPS.length - 1 
-                      ? "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-violet-500/30 hover:shadow-violet-500/40 hover:scale-105" 
+                    currentStep === STEPS.length - 1
+                      ? "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-violet-500/30 hover:shadow-violet-500/40 hover:scale-105"
                       : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-violet-500/20"
                   )}
                   size="sm"

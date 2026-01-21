@@ -101,7 +101,8 @@ defmodule Backend.Mentions do
   Create mention notifications for a list of specific users.
   Similar to notify_mentioned_users but takes a list of user IDs directly.
   """
-  def notify_users(user_ids, actor_id, target_type, target_id, content_preview) when is_list(user_ids) do
+  def notify_users(user_ids, actor_id, target_type, target_id, content_preview)
+      when is_list(user_ids) do
     # Filter out the actor (no self-notifications)
     user_ids = Enum.reject(user_ids, &(&1 == actor_id))
 

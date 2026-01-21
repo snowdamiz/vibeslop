@@ -17,13 +17,16 @@ defmodule BackendWeb.RepostController do
         case Social.toggle_repost(current_user.id, repostable_type, id) do
           {:ok, :reposted, _repost} ->
             json(conn, %{success: true, reposted: true})
+
           {:ok, :unreposted, _repost} ->
             json(conn, %{success: true, reposted: false})
+
           {:error, changeset} ->
             conn
             |> put_status(:unprocessable_entity)
             |> json(%{error: "Unable to toggle repost", details: translate_errors(changeset)})
         end
+
       :error ->
         conn
         |> put_status(:bad_request)

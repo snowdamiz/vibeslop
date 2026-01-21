@@ -17,7 +17,10 @@ defmodule BackendWeb.UserJSON do
         banner_url: user.banner_url,
         is_verified: user.is_verified,
         joined_at: format_datetime(user.inserted_at),
-        stats: stats
+        stats: stats,
+        developer_score: user.developer_score,
+        developer_score_updated_at: format_datetime(user.developer_score_updated_at),
+        github_stats: user.github_stats
       }
     }
   end
@@ -46,11 +49,12 @@ defmodule BackendWeb.UserJSON do
 
   # Render liked post
   defp render_liked_item(%{post: post, user: user} = item) do
-    media = case post.media do
-      %Ecto.Association.NotLoaded{} -> []
-      nil -> []
-      media_list -> Enum.map(media_list, & &1.url)
-    end
+    media =
+      case post.media do
+        %Ecto.Association.NotLoaded{} -> []
+        nil -> []
+        media_list -> Enum.map(media_list, & &1.url)
+      end
 
     base_data = %{
       id: post.id,

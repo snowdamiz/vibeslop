@@ -27,25 +27,26 @@ defmodule BackendWeb.GitHubController do
       case Client.list_user_repos(user.github_access_token, opts) do
         {:ok, repos} ->
           # Transform repos to include only needed fields
-          simplified_repos = Enum.map(repos, fn repo ->
-            %{
-              id: repo["id"],
-              name: repo["name"],
-              full_name: repo["full_name"],
-              description: repo["description"],
-              owner: %{
-                login: repo["owner"]["login"],
-                avatar_url: repo["owner"]["avatar_url"]
-              },
-              html_url: repo["html_url"],
-              private: repo["private"],
-              stargazers_count: repo["stargazers_count"],
-              language: repo["language"],
-              pushed_at: repo["pushed_at"],
-              created_at: repo["created_at"],
-              updated_at: repo["updated_at"]
-            }
-          end)
+          simplified_repos =
+            Enum.map(repos, fn repo ->
+              %{
+                id: repo["id"],
+                name: repo["name"],
+                full_name: repo["full_name"],
+                description: repo["description"],
+                owner: %{
+                  login: repo["owner"]["login"],
+                  avatar_url: repo["owner"]["avatar_url"]
+                },
+                html_url: repo["html_url"],
+                private: repo["private"],
+                stargazers_count: repo["stargazers_count"],
+                language: repo["language"],
+                pushed_at: repo["pushed_at"],
+                created_at: repo["created_at"],
+                updated_at: repo["updated_at"]
+              }
+            end)
 
           conn
           |> put_status(:ok)
@@ -127,11 +128,13 @@ defmodule BackendWeb.GitHubController do
 
   # Helper function to parse integers with defaults
   defp parse_int(nil, default), do: default
+
   defp parse_int(value, default) when is_binary(value) do
     case Integer.parse(value) do
       {int, _} -> int
       :error -> default
     end
   end
+
   defp parse_int(value, _default) when is_integer(value), do: value
 end

@@ -14,7 +14,10 @@ defmodule Backend.Content.Comment do
     belongs_to :parent, Backend.Content.Comment
 
     has_many :replies, Backend.Content.Comment, foreign_key: :parent_id
-    has_many :likes, Backend.Social.Like, where: [likeable_type: "Comment"], foreign_key: :likeable_id
+
+    has_many :likes, Backend.Social.Like,
+      where: [likeable_type: "Comment"],
+      foreign_key: :likeable_id
 
     timestamps(type: :utc_datetime)
   end

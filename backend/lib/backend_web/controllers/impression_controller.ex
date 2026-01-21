@@ -28,11 +28,12 @@ defmodule BackendWeb.ImpressionController do
       |> put_status(:bad_request)
       |> json(%{success: false, error: "Either authentication or fingerprint is required"})
     else
-      {:ok, count} = Content.record_impressions(impressions,
-        user_id: user_id,
-        fingerprint: fingerprint,
-        ip_address: ip_address
-      )
+      {:ok, count} =
+        Content.record_impressions(impressions,
+          user_id: user_id,
+          fingerprint: fingerprint,
+          ip_address: ip_address
+        )
 
       json(conn, %{success: true, count: count})
     end
@@ -47,7 +48,9 @@ defmodule BackendWeb.ImpressionController do
   defp get_ip_address(conn) do
     # Check for forwarded IP first (if behind proxy)
     case Plug.Conn.get_req_header(conn, "x-forwarded-for") do
-      [ip | _] -> String.split(ip, ",") |> List.first() |> String.trim()
+      [ip | _] ->
+        String.split(ip, ",") |> List.first() |> String.trim()
+
       [] ->
         # Fall back to remote_ip
         case conn.remote_ip do

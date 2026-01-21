@@ -49,7 +49,8 @@ defmodule Backend.Accounts do
         # Update user's GitHub access token
         case update_user(user, %{github_access_token: auth.credentials.token}) do
           {:ok, updated_user} -> {:ok, updated_user}
-          {:error, _} -> {:ok, user}  # Return original user if update fails
+          # Return original user if update fails
+          {:error, _} -> {:ok, user}
         end
     end
   end
@@ -86,7 +87,8 @@ defmodule Backend.Accounts do
     Repo.transaction(fn ->
       with {:ok, user} <- %User{} |> User.github_changeset(user_attrs) |> Repo.insert(),
            oauth_attrs <- Map.put(oauth_attrs, :user_id, user.id),
-           {:ok, _oauth} <- %OAuthAccount{} |> OAuthAccount.changeset(oauth_attrs) |> Repo.insert() do
+           {:ok, _oauth} <-
+             %OAuthAccount{} |> OAuthAccount.changeset(oauth_attrs) |> Repo.insert() do
         user
       else
         {:error, changeset} -> Repo.rollback(changeset)
@@ -96,12 +98,15 @@ defmodule Backend.Accounts do
 
   defp generate_unique_username(base_username) do
     # Remove special characters and make lowercase
-    base = base_username
-    |> String.downcase()
-    |> String.replace(~r/[^a-z0-9_]/, "")
+    base =
+      base_username
+      |> String.downcase()
+      |> String.replace(~r/[^a-z0-9_]/, "")
 
     case get_user_by_username(base) do
-      nil -> base
+      nil ->
+        base
+
       _user ->
         # Add random number if username exists
         random_suffix = :rand.uniform(9999)
@@ -149,11 +154,12 @@ defmodule Backend.Accounts do
   def username_available?(username, exclude_user_id \\ nil) do
     query = from u in User, where: u.username == ^username
 
-    query = if exclude_user_id do
-      from u in query, where: u.id != ^exclude_user_id
-    else
-      query
-    end
+    query =
+      if exclude_user_id do
+        from u in query, where: u.id != ^exclude_user_id
+      else
+        query
+      end
 
     Repo.one(query) == nil
   end
@@ -176,30 +182,34 @@ defmodule Backend.Accounts do
     # Start with base query - get users with their follower counts
     query =
       from u in User,
-        left_join: f in Follow, on: f.following_id == u.id,
+        left_join: f in Follow,
+        on: f.following_id == u.id,
         group_by: u.id,
         order_by: [desc: count(f.id), desc: u.inserted_at],
         limit: ^limit,
         select: u
 
     # Exclude the current user if provided
-    query = if exclude_user_id do
-      from u in query, where: u.id != ^exclude_user_id
-    else
-      query
-    end
+    query =
+      if exclude_user_id do
+        from u in query, where: u.id != ^exclude_user_id
+      else
+        query
+      end
 
     # Exclude users already followed by current user
-    query = if exclude_user_id do
-      from u in query,
-        where: u.id not in subquery(
-          from f in Follow,
-            where: f.follower_id == ^exclude_user_id,
-            select: f.following_id
-        )
-    else
-      query
-    end
+    query =
+      if exclude_user_id do
+        from u in query,
+          where:
+            u.id not in subquery(
+              from f in Follow,
+                where: f.follower_id == ^exclude_user_id,
+                select: f.following_id
+            )
+      else
+        query
+      end
 
     Repo.all(query)
   end
@@ -221,11 +231,12 @@ defmodule Backend.Accounts do
         select: u
 
     # Exclude the current user if provided
-    query = if exclude_user_id do
-      from u in query, where: u.id != ^exclude_user_id
-    else
-      query
-    end
+    query =
+      if exclude_user_id do
+        from u in query, where: u.id != ^exclude_user_id
+      else
+        query
+      end
 
     Repo.all(query)
   end

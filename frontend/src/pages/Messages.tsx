@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ConversationList, ChatThread, NewMessageDialog } from '@/components/messages'
 import type { Conversation, ConversationWithMessages } from '@/components/messages'
@@ -17,48 +17,16 @@ export function Messages() {
   const [newMessageDialogOpen, setNewMessageDialogOpen] = useState(false)
   const [isCreatingConversation, setIsCreatingConversation] = useState(false)
 
-  // Fetch conversations on mount
-  useEffect(() => {
-    fetchConversations()
-  }, [])
-
-  // Handle URL params for auto-starting conversations
-  useEffect(() => {
-    const username = searchParams.get('user')
-    const conversationId = searchParams.get('conversation')
-
-    if (username && !isCreatingConversation) {
-      // Auto-start conversation with a user
-      handleNewConversation(username)
-      // Remove the param after processing
-      searchParams.delete('user')
-      setSearchParams(searchParams)
-    } else if (conversationId && !selectedConversationId) {
-      // Auto-select a conversation
-      setSelectedConversationId(conversationId)
-      // Remove the param after processing
-      searchParams.delete('conversation')
-      setSearchParams(searchParams)
-    }
-  }, [searchParams, isCreatingConversation, selectedConversationId])
-
-  // Fetch messages when conversation is selected
-  useEffect(() => {
-    if (selectedConversationId) {
-      fetchConversationMessages(selectedConversationId)
-    } else {
-      setSelectedConversationData(null)
-    }
-  }, [selectedConversationId])
-
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       const response = await api.getConversations()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conversationsData = response.data as any[]
-      
+
       // Transform API response to match component types
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transformedConversations: Conversation[] = conversationsData.map((conv: any) => ({
         id: conv.id,
         participant: {
@@ -78,7 +46,7 @@ export function Messages() {
         },
         unreadCount: conv.unread_count,
       }))
-      
+
       setConversations(transformedConversations)
     } catch (err) {
       console.error('Failed to fetch conversations:', err)
@@ -86,63 +54,31 @@ export function Messages() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const fetchConversationMessages = async (conversationId: string) => {
-    try {
-      setLoadingMessages(true)
-      const response = await api.getConversation(conversationId)
-      const convData = response.data as any
-
-      const conversation = conversations.find(c => c.id === conversationId)
-      if (!conversation) return
-
-      // Transform messages
-      const transformedMessages = convData.messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        timestamp: msg.timestamp,
-        isFromMe: msg.is_from_me,
-      }))
-
-      const conversationWithMessages: ConversationWithMessages = {
-        ...conversation,
-        messages: transformedMessages,
-      }
-
-      setSelectedConversationData(conversationWithMessages)
-
-      // Mark conversation as read
-      await api.markConversationRead(conversationId)
-      
-      // Update the unread count in the conversations list
-      setConversations(prev => prev.map(c => 
-        c.id === conversationId ? { ...c, unreadCount: 0 } : c
-      ))
-    } catch (err) {
-      console.error('Failed to fetch conversation messages:', err)
-    } finally {
-      setLoadingMessages(false)
-    }
-  }
-
-  const handleRefreshConversations = () => {
+  // Fetch conversations on mount
+  useEffect(() => {
     fetchConversations()
-  }
+  }, [fetchConversations])
 
-  const handleSelectConversation = (id: string) => {
+  const handleRefreshConversations = useCallback(() => {
+    fetchConversations()
+  }, [fetchConversations])
+
+  const handleSelectConversation = useCallback((id: string) => {
     setSelectedConversationId(id)
-  }
+  }, [])
 
-  const handleBack = () => {
+  const handleBack = useCallback(() => {
     setSelectedConversationId(null)
-  }
+  }, [])
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = useCallback(async (content: string) => {
     if (!selectedConversationId) return
 
     try {
       const response = await api.sendMessage(selectedConversationId, content)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newMessage = response.data as any
 
       // Add the new message to the current conversation
@@ -164,17 +100,18 @@ export function Messages() {
     } catch (err) {
       console.error('Failed to send message:', err)
     }
-  }
+  }, [selectedConversationId, handleRefreshConversations])
 
-  const handleNewConversation = async (username: string) => {
+  const handleNewConversation = useCallback(async (username: string) => {
     setIsCreatingConversation(true)
     try {
       const response = await api.createConversation(username)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const conversationData = response.data as any
 
       // Check if conversation already exists in list
       const existingConv = conversations.find(c => c.id === conversationData.id)
-      
+
       if (!existingConv) {
         // Add new conversation to the list
         const newConversation: Conversation = {
@@ -192,7 +129,7 @@ export function Messages() {
           },
           unreadCount: 0,
         }
-        
+
         setConversations(prev => [newConversation, ...prev])
       }
 
@@ -204,7 +141,76 @@ export function Messages() {
     } finally {
       setIsCreatingConversation(false)
     }
-  }
+  }, [conversations])
+
+  const fetchConversationMessages = useCallback(async (conversationId: string) => {
+    try {
+      setLoadingMessages(true)
+      const response = await api.getConversation(conversationId)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const convData = response.data as any
+
+      const conversation = conversations.find(c => c.id === conversationId)
+      if (!conversation) return
+
+      // Transform messages
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const transformedMessages = convData.messages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: msg.timestamp,
+        isFromMe: msg.is_from_me,
+      }))
+
+      const conversationWithMessages: ConversationWithMessages = {
+        ...conversation,
+        messages: transformedMessages,
+      }
+
+      setSelectedConversationData(conversationWithMessages)
+
+      // Mark conversation as read
+      await api.markConversationRead(conversationId)
+
+      // Update the unread count in the conversations list
+      setConversations(prev => prev.map(c =>
+        c.id === conversationId ? { ...c, unreadCount: 0 } : c
+      ))
+    } catch (err) {
+      console.error('Failed to fetch conversation messages:', err)
+    } finally {
+      setLoadingMessages(false)
+    }
+  }, [conversations])
+
+  // Handle URL params for auto-starting conversations
+  useEffect(() => {
+    const username = searchParams.get('user')
+    const conversationId = searchParams.get('conversation')
+
+    if (username && !isCreatingConversation) {
+      // Auto-start conversation with a user
+      handleNewConversation(username)
+      // Remove the param after processing
+      searchParams.delete('user')
+      setSearchParams(searchParams)
+    } else if (conversationId && !selectedConversationId) {
+      // Auto-select a conversation
+      setSelectedConversationId(conversationId)
+      // Remove the param after processing
+      searchParams.delete('conversation')
+      setSearchParams(searchParams)
+    }
+  }, [searchParams, isCreatingConversation, selectedConversationId, handleNewConversation, setSearchParams])
+
+  // Fetch messages when conversation is selected
+  useEffect(() => {
+    if (selectedConversationId) {
+      fetchConversationMessages(selectedConversationId)
+    } else {
+      setSelectedConversationData(null)
+    }
+  }, [selectedConversationId, fetchConversationMessages])
 
   if (loading) {
     return (
@@ -248,38 +254,38 @@ export function Messages() {
           />
         </div>
 
-      {/* Chat Thread - Hidden on mobile when no chat is selected */}
-      <div
-        className={cn(
-          'flex-1 min-w-0',
-          !selectedConversationId ? 'hidden md:flex' : 'flex'
-        )}
-      >
-        {loadingMessages ? (
-          <div className="flex items-center justify-center w-full">
-            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-          </div>
-        ) : selectedConversationData ? (
-          <div className="w-full">
-            <ChatThread
-              conversation={selectedConversationData}
-              onBack={handleBack}
-              onSendMessage={handleSendMessage}
-            />
-          </div>
-        ) : (
-          // Empty state for desktop when no conversation selected
-          <div className="hidden md:flex flex-col items-center justify-center w-full text-center px-4">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Mail className="w-10 h-10 text-muted-foreground" />
+        {/* Chat Thread - Hidden on mobile when no chat is selected */}
+        <div
+          className={cn(
+            'flex-1 min-w-0',
+            !selectedConversationId ? 'hidden md:flex' : 'flex'
+          )}
+        >
+          {loadingMessages ? (
+            <div className="flex items-center justify-center w-full">
+              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-bold mb-2">Select a message</h2>
-            <p className="text-muted-foreground max-w-[280px]">
-              Choose from your existing conversations or start a new one.
-            </p>
-          </div>
-        )}
-      </div>
+          ) : selectedConversationData ? (
+            <div className="w-full">
+              <ChatThread
+                conversation={selectedConversationData}
+                onBack={handleBack}
+                onSendMessage={handleSendMessage}
+              />
+            </div>
+          ) : (
+            // Empty state for desktop when no conversation selected
+            <div className="hidden md:flex flex-col items-center justify-center w-full text-center px-4">
+              <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Mail className="w-10 h-10 text-muted-foreground" />
+              </div>
+              <h2 className="text-xl font-bold mb-2">Select a message</h2>
+              <p className="text-muted-foreground max-w-[280px]">
+                Choose from your existing conversations or start a new one.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* New Message Dialog */}

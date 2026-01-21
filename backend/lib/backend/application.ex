@@ -17,8 +17,8 @@ defmodule Backend.Application do
       Backend.Repo,
       {DNSCluster, query: Application.get_env(:backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Backend.PubSub},
-      # Start a worker by calling: Backend.Worker.start_link(arg)
-      # {Backend.Worker, arg},
+      # Oban for background job processing
+      {Oban, Application.fetch_env!(:backend, Oban)},
       # Start to serve requests, typically the last entry
       BackendWeb.Endpoint
     ]
@@ -26,7 +26,12 @@ defmodule Backend.Application do
     # See https://hexdocs.pm/elixir/Supervisor.html
     # for other strategies and supported options
     opts = [strategy: :one_for_one, name: Backend.Supervisor]
-    Supervisor.start_link(children, opts)
+    result = Supervisor.start_link(children, opts)
+
+    # Schedule initial developer score calculation after startup
+    schedule_initial_score_calculation()
+
+    result
   end
 
   # Tell Phoenix to update the endpoint configuration
@@ -48,5 +53,29 @@ defmodule Backend.Application do
     error ->
       require Logger
       Logger.warning("Auto-migration failed: #{inspect(error)}. Run 'mix ecto.setup' manually.")
+  end
+
+  defp schedule_initial_score_calculation do
+    # Only run in dev and prod, not in test
+    unless Mix.env() == :test do
+      # Schedule developer score calculation 10 seconds after startup
+      # This gives the app time to fully initialize
+      Task.start(fn ->
+        Process.sleep(10_000)
+
+        require Logger
+        Logger.info("Running initial developer score calculation...")
+
+        case Backend.Workers.DeveloperScoreWorker.enqueue_batch() do
+          {:ok, _job} ->
+            Logger.info("Initial developer score calculation job enqueued successfully")
+
+          {:error, reason} ->
+            Logger.warning(
+              "Failed to enqueue initial developer score calculation: #{inspect(reason)}"
+            )
+        end
+      end)
+    end
   end
 end

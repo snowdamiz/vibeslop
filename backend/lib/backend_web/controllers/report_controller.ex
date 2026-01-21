@@ -24,11 +24,14 @@ defmodule BackendWeb.ReportController do
           if Social.has_reported?(current_user.id, reportable_type, id) do
             conn
             |> put_status(:unprocessable_entity)
-            |> json(%{error: "You have already reported this #{String.downcase(reportable_type)}"})
+            |> json(%{
+              error: "You have already reported this #{String.downcase(reportable_type)}"
+            })
           else
             case Social.create_report(current_user.id, reportable_type, id) do
               {:ok, _report} ->
                 json(conn, %{success: true})
+
               {:error, changeset} ->
                 conn
                 |> put_status(:unprocessable_entity)
@@ -40,6 +43,7 @@ defmodule BackendWeb.ReportController do
           |> put_status(:bad_request)
           |> json(%{error: "Invalid reportable type. Must be 'comment', 'post', or 'project'."})
         end
+
       :error ->
         conn
         |> put_status(:bad_request)

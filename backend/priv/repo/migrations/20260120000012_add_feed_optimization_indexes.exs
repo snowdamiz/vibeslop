@@ -10,10 +10,20 @@ defmodule Backend.Repo.Migrations.AddFeedOptimizationIndexes do
 
     # Composite index for engagement-based sorting on posts
     # Used by the "for-you" algorithm to sort by weighted engagement
-    create_if_not_exists index(:posts, [:likes_count, :comments_count, :reposts_count, :bookmarks_count])
+    create_if_not_exists index(:posts, [
+                           :likes_count,
+                           :comments_count,
+                           :reposts_count,
+                           :bookmarks_count
+                         ])
 
     # Composite index for engagement-based sorting on projects
-    create_if_not_exists index(:projects, [:likes_count, :comments_count, :reposts_count, :bookmarks_count])
+    create_if_not_exists index(:projects, [
+                           :likes_count,
+                           :comments_count,
+                           :reposts_count,
+                           :bookmarks_count
+                         ])
 
     # Index for follows lookup - efficiently get followed user IDs
     create_if_not_exists index(:follows, [:follower_id, :following_id])

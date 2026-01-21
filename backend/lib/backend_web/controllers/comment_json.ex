@@ -14,7 +14,13 @@ defmodule BackendWeb.CommentJSON do
   end
 
   # Render a comment with replies (from Content.list_comments)
-  defp data(%{comment: comment, user: user, likes_count: likes_count, replies: replies, is_liked: is_liked}) do
+  defp data(%{
+         comment: comment,
+         user: user,
+         likes_count: likes_count,
+         replies: replies,
+         is_liked: is_liked
+       }) do
     %{
       id: comment.id,
       content: comment.content,

@@ -25,16 +25,17 @@ defmodule Backend.AI.OpenRouter do
     }
 
     # Add max_tokens if specified
-    body = if max_tokens = Keyword.get(opts, :max_tokens) do
-      Map.put(body, :max_tokens, max_tokens)
-    else
-      body
-    end
+    body =
+      if max_tokens = Keyword.get(opts, :max_tokens) do
+        Map.put(body, :max_tokens, max_tokens)
+      else
+        body
+      end
 
     case Req.post("#{@base_url}/chat/completions",
-      json: body,
-      headers: headers()
-    ) do
+           json: body,
+           headers: headers()
+         ) do
       {:ok, %{status: 200, body: response}} ->
         {:ok, response}
 
@@ -62,29 +63,32 @@ defmodule Backend.AI.OpenRouter do
     reference_images = Keyword.get(opts, :reference_images, [])
 
     # Build message content - either a simple string or array with images
-    content = if reference_images == [] do
-      # Simple text prompt
-      prompt
-    else
-      # Build content array with text prompt and image references
-      text_content = [%{type: "text", text: prompt}]
+    content =
+      if reference_images == [] do
+        # Simple text prompt
+        prompt
+      else
+        # Build content array with text prompt and image references
+        text_content = [%{type: "text", text: prompt}]
 
-      image_content = Enum.map(reference_images, fn image_data ->
-        {base64, mime_type} = case image_data do
-          {b64, mime} -> {b64, mime}
-          b64 when is_binary(b64) -> {b64, "image/png"}
-        end
+        image_content =
+          Enum.map(reference_images, fn image_data ->
+            {base64, mime_type} =
+              case image_data do
+                {b64, mime} -> {b64, mime}
+                b64 when is_binary(b64) -> {b64, "image/png"}
+              end
 
-        %{
-          type: "image_url",
-          image_url: %{
-            url: "data:#{mime_type};base64,#{base64}"
-          }
-        }
-      end)
+            %{
+              type: "image_url",
+              image_url: %{
+                url: "data:#{mime_type};base64,#{base64}"
+              }
+            }
+          end)
 
-      text_content ++ image_content
-    end
+        text_content ++ image_content
+      end
 
     messages = [
       %{
@@ -105,10 +109,11 @@ defmodule Backend.AI.OpenRouter do
     }
 
     case Req.post("#{@base_url}/chat/completions",
-      json: body,
-      headers: headers(),
-      receive_timeout: 120_000  # 2 minutes for image generation
-    ) do
+           json: body,
+           headers: headers(),
+           # 2 minutes for image generation
+           receive_timeout: 120_000
+         ) do
       {:ok, %{status: 200, body: response}} ->
         extract_image_from_response(response)
 
@@ -144,11 +149,12 @@ defmodule Backend.AI.OpenRouter do
     }
 
     # Add max_tokens if specified
-    body = if max_tokens = Keyword.get(opts, :max_tokens) do
-      Map.put(body, :max_tokens, max_tokens)
-    else
-      body
-    end
+    body =
+      if max_tokens = Keyword.get(opts, :max_tokens) do
+        Map.put(body, :max_tokens, max_tokens)
+      else
+        body
+      end
 
     # Stream the response and call callback for each chunk
     Req.post("#{@base_url}/chat/completions",
@@ -227,7 +233,8 @@ defmodule Backend.AI.OpenRouter do
         {:ok, url}
 
       # Alternative format: content field with data URL
-      %{"choices" => [%{"message" => %{"content" => content}} | _]} when is_binary(content) and content != "" ->
+      %{"choices" => [%{"message" => %{"content" => content}} | _]}
+      when is_binary(content) and content != "" ->
         if String.starts_with?(content, "data:image") do
           Logger.info("Successfully extracted image from content field")
           {:ok, content}

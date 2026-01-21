@@ -38,7 +38,7 @@ export interface NotificationActor {
 }
 
 export interface NotificationTarget {
-  type: 'Post' | 'Project'
+  type: 'Post' | 'Project' | 'Gig'
   id: string
   title?: string
   preview?: string
@@ -47,6 +47,8 @@ export interface NotificationTarget {
 export interface Notification {
   id: string
   type: 'like' | 'comment' | 'follow' | 'repost' | 'mention'
+  | 'bid_received' | 'bid_accepted' | 'bid_rejected'
+  | 'gig_completed' | 'review_received'
   actor: NotificationActor
   target?: NotificationTarget
   content?: string
@@ -57,6 +59,109 @@ export interface Notification {
 export interface NotificationResponse {
   data: Notification[]
   unread_count: number
+}
+
+export interface UserProfile {
+  id: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  bio?: string
+  developer_score?: number
+  is_verified: boolean
+}
+
+export interface Gig {
+  id: string
+  title: string
+  description: string
+  budget_min?: number
+  budget_max?: number
+  currency: string
+  deadline?: string
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled'
+  bids_count: number
+  views_count: number
+  user: UserProfile
+  hired_bid?: Bid
+  skills: string[]
+  stacks: string[]
+  inserted_at: string
+  updated_at: string
+}
+
+export interface Bid {
+  id: string
+  amount: number
+  currency: string
+  delivery_days: number
+  proposal: string
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn'
+  user: UserProfile
+  gig?: Gig
+  inserted_at: string
+  updated_at: string
+}
+
+export interface GigReview {
+  id: string
+  rating: number
+  content?: string
+  review_type: 'client_to_freelancer' | 'freelancer_to_client'
+  reviewer: UserProfile
+  reviewee: UserProfile
+  gig_id: string
+  inserted_at: string
+}
+
+export interface GigFilters {
+  limit?: number
+  offset?: number
+  search?: string
+  tools?: string[]
+  stacks?: string[]
+  status?: string
+  min_budget?: number
+  max_budget?: number
+  sort_by?: string
+}
+
+export interface CreateGigData {
+  title: string
+  description: string
+  budget_min?: number
+  budget_max?: number
+  currency?: string
+  deadline?: string
+  tools?: string[]
+  stacks?: string[]
+}
+
+export interface UpdateGigData {
+  title?: string
+  description?: string
+  budget_min?: number
+  budget_max?: number
+  currency?: string
+  deadline?: string
+}
+
+export interface PlaceBidData {
+  amount: number
+  currency?: string
+  delivery_days: number
+  proposal: string
+}
+
+export interface UpdateBidData {
+  amount?: number
+  delivery_days?: number
+  proposal?: string
+}
+
+export interface CreateReviewData {
+  rating: number
+  content?: string
 }
 
 interface ApiError {
@@ -263,7 +368,7 @@ class ApiClient {
     return this.get(`/posts/${id}`)
   }
 
-  async createPost(data: { 
+  async createPost(data: {
     content: string
     linked_project_id?: string
     media?: string[]
@@ -309,7 +414,6 @@ class ApiClient {
     stack?: string[]
     links?: { live?: string; github?: string }
     highlights?: string[]
-    prompts?: { title: string; description?: string; code: string }[]
     timeline?: { date: string; title: string; description?: string }[]
   }): Promise<{ data: unknown }> {
     return this.post('/projects', { project: data })
@@ -329,6 +433,13 @@ class ApiClient {
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     return this.get(`/users/${username}/posts?${queryParams}`)
+  }
+
+  async getUserTimeline(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/users/${username}/timeline?${queryParams}`)
   }
 
   async getUserProjects(username: string, params?: { limit?: number; offset?: number }): Promise<{ data: unknown[] }> {
@@ -519,6 +630,7 @@ class ApiClient {
   }
 
   async generateProjectImage(projectData: ProjectImageData): Promise<{ data: { image: string } }> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const body: any = { project: { title: projectData.title, stack: projectData.stack } }
     if (projectData.description) {
       body.project.description = projectData.description
@@ -573,18 +685,18 @@ class ApiClient {
       if (done) break
 
       buffer += decoder.decode(value, { stream: true })
-      
+
       // Parse SSE format: "data: {...}\n\n"
       const lines = buffer.split('\n')
-      
+
       // Keep the last incomplete line in buffer
       buffer = lines.pop() || ''
-      
+
       for (const line of lines) {
         if (line.startsWith('data: ')) {
           const data = line.slice(6).trim()
           if (data === '[DONE]') return
-          
+
           try {
             const parsed = JSON.parse(data)
             if (parsed.error) {
@@ -599,6 +711,150 @@ class ApiClient {
         }
       }
     }
+  }
+
+  /**
+   * Improves gig description content with AI streaming (uses specialized gig prompt)
+   */
+  async improveGig(
+    content: string,
+    onChunk: (text: string) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const token = this.getToken()
+    const response = await fetch(`${this.baseUrl}/ai/improve-gig`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ content }),
+      signal,
+    })
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        error: 'unknown_error',
+        message: 'Failed to improve gig description',
+      }))
+      throw new Error(error.message || `API error: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    if (!reader) {
+      throw new Error('Response body is not readable')
+    }
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+
+      // Parse SSE format: "data: {...}\n\n"
+      const lines = buffer.split('\n')
+
+      // Keep the last incomplete line in buffer
+      buffer = lines.pop() || ''
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim()
+          if (data === '[DONE]') return
+
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+            if (parsed.content) {
+              onChunk(parsed.content)
+            }
+          } catch (e) {
+            console.error('Failed to parse SSE data:', data, e)
+          }
+        }
+      }
+    }
+  }
+
+  // Gigs
+  async getGigs(params?: GigFilters): Promise<{ data: Gig[] }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.search) queryParams.append('search', params.search)
+    if (params?.tools) params.tools.forEach(t => queryParams.append('tools[]', t))
+    if (params?.stacks) params.stacks.forEach(s => queryParams.append('stacks[]', s))
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.min_budget) queryParams.append('min_budget', params.min_budget.toString())
+    if (params?.max_budget) queryParams.append('max_budget', params.max_budget.toString())
+    if (params?.sort_by) queryParams.append('sort_by', params.sort_by)
+
+    return this.get(`/gigs?${queryParams}`)
+  }
+
+  async getGig(id: string): Promise<{ data: Gig }> {
+    return this.get(`/gigs/${id}`)
+  }
+
+  async createGig(data: CreateGigData): Promise<{ data: Gig }> {
+    return this.post('/gigs', { gig: data })
+  }
+
+  async updateGig(id: string, data: UpdateGigData): Promise<{ data: Gig }> {
+    return this.put(`/gigs/${id}`, { gig: data })
+  }
+
+  async cancelGig(id: string): Promise<{ data: Gig }> {
+    return this.post(`/gigs/${id}/cancel`)
+  }
+
+  async hireForGig(gigId: string, bidId: string): Promise<{ data: Gig }> {
+    return this.post(`/gigs/${gigId}/hire`, { bid_id: bidId })
+  }
+
+  async completeGig(id: string): Promise<{ data: Gig }> {
+    return this.post(`/gigs/${id}/complete`)
+  }
+
+  async getGigBids(gigId: string): Promise<{ data: Bid[] }> {
+    return this.get(`/gigs/${gigId}/bids`)
+  }
+
+  async placeBid(gigId: string, data: PlaceBidData): Promise<{ data: Bid }> {
+    return this.post(`/gigs/${gigId}/bids`, { bid: data })
+  }
+
+  async updateBid(gigId: string, bidId: string, data: UpdateBidData): Promise<{ data: Bid }> {
+    return this.put(`/gigs/${gigId}/bids/${bidId}`, { bid: data })
+  }
+
+  async withdrawBid(gigId: string, bidId: string): Promise<void> {
+    return this.delete(`/gigs/${gigId}/bids/${bidId}`)
+  }
+
+  async getGigReviews(gigId: string): Promise<{ data: GigReview[] }> {
+    return this.get(`/gigs/${gigId}/reviews`)
+  }
+
+  async createGigReview(gigId: string, data: CreateReviewData): Promise<{ data: GigReview }> {
+    return this.post(`/gigs/${gigId}/reviews`, { review: data })
+  }
+
+  async getUserReviews(username: string): Promise<{ data: GigReview[] }> {
+    return this.get(`/users/${username}/reviews`)
+  }
+
+  async getMyGigs(): Promise<{ data: Gig[] }> {
+    return this.get('/my/gigs')
+  }
+
+  async getMyBids(): Promise<{ data: Bid[] }> {
+    return this.get('/my/bids')
   }
 }
 

@@ -34,11 +34,12 @@ defmodule BackendWeb.PostJSON do
   defp render_feed_item(%{type: "repost"} = item), do: repost_data(item)
 
   defp data(%{post: post, user: user} = post_data) do
-    media = case post.media do
-      %Ecto.Association.NotLoaded{} -> []
-      nil -> []
-      media_list -> Enum.map(media_list, & &1.url)
-    end
+    media =
+      case post.media do
+        %Ecto.Association.NotLoaded{} -> []
+        nil -> []
+        media_list -> Enum.map(media_list, & &1.url)
+      end
 
     base_data = %{
       id: post.id,
@@ -74,12 +75,13 @@ defmodule BackendWeb.PostJSON do
     user = project.user
 
     # Get first image if available
-    image = case project.images do
-      %Ecto.Association.NotLoaded{} -> nil
-      nil -> nil
-      [] -> nil
-      [first | _] -> first.url
-    end
+    image =
+      case project.images do
+        %Ecto.Association.NotLoaded{} -> nil
+        nil -> nil
+        [] -> nil
+        [first | _] -> first.url
+      end
 
     base_data = %{
       id: project.id,
@@ -117,6 +119,7 @@ defmodule BackendWeb.PostJSON do
   defp format_datetime(other), do: other
 
   defp render_project(nil), do: nil
+
   defp render_project(project) do
     %{
       id: project.id,
@@ -126,12 +129,14 @@ defmodule BackendWeb.PostJSON do
 
   defp render_quoted_post(nil), do: nil
   defp render_quoted_post(%Ecto.Association.NotLoaded{}), do: nil
+
   defp render_quoted_post(post) do
-    media = case post.media do
-      %Ecto.Association.NotLoaded{} -> []
-      nil -> []
-      media_list -> Enum.map(media_list, & &1.url)
-    end
+    media =
+      case post.media do
+        %Ecto.Association.NotLoaded{} -> []
+        nil -> []
+        media_list -> Enum.map(media_list, & &1.url)
+      end
 
     %{
       id: post.id,
@@ -152,13 +157,15 @@ defmodule BackendWeb.PostJSON do
 
   defp render_quoted_project(nil), do: nil
   defp render_quoted_project(%Ecto.Association.NotLoaded{}), do: nil
+
   defp render_quoted_project(project) do
-    image = case project.images do
-      %Ecto.Association.NotLoaded{} -> nil
-      nil -> nil
-      [] -> nil
-      [first | _] -> first.url
-    end
+    image =
+      case project.images do
+        %Ecto.Association.NotLoaded{} -> nil
+        nil -> nil
+        [] -> nil
+        [first | _] -> first.url
+      end
 
     %{
       id: project.id,
@@ -207,13 +214,14 @@ defmodule BackendWeb.PostJSON do
     }
 
     # Get the underlying item data (post or project)
-    base_data = if Map.has_key?(item, :post) do
-      # It's a reposted post
-      data(%{item | type: "post"})
-    else
-      # It's a reposted project
-      project_data(%{item | type: "project"})
-    end
+    base_data =
+      if Map.has_key?(item, :post) do
+        # It's a reposted post
+        data(%{item | type: "post"})
+      else
+        # It's a reposted project
+        project_data(%{item | type: "project"})
+      end
 
     # Store the original item's ID and use repost ID as the main ID
     original_id = base_data.id

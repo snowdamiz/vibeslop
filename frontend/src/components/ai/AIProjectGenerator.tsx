@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from '@/components/ui/dialog'
+import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { RepoSelector, type GitHubRepo } from './RepoSelector'
 import { api } from '@/lib/api'
-import { 
-  Sparkles, 
-  Loader2, 
-  CheckCircle2, 
+import {
+  Sparkles,
+  Loader2,
+  CheckCircle2,
   AlertCircle,
   X,
   FileCode,
@@ -31,7 +33,6 @@ export interface GeneratedProjectData {
   title: string
   description: string
   images?: string[]
-  tools: string[]
   stack: string[]
   links?: {
     live?: string
@@ -59,7 +60,7 @@ function GeneratingState({ repoName }: { repoName?: string }) {
   useEffect(() => {
     const timers: ReturnType<typeof setTimeout>[] = []
     let totalDelay = 0
-    
+
     // Schedule transitions for all steps except the last one
     // The last step stays "in progress" until the API returns
     for (let i = 0; i < GENERATION_STEPS.length - 1; i++) {
@@ -70,7 +71,7 @@ function GeneratingState({ repoName }: { repoName?: string }) {
       }, totalDelay)
       timers.push(timer)
     }
-    
+
     return () => {
       timers.forEach(timer => clearTimeout(timer))
     }
@@ -99,9 +100,9 @@ function GeneratingState({ repoName }: { repoName?: string }) {
             const isCompleted = index < currentStepIndex
             const isActive = index === currentStepIndex
             const isPending = index > currentStepIndex
-            
+
             return (
-              <div 
+              <div
                 key={step.id}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-300",
@@ -164,7 +165,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
     if (open && repos.length === 0) {
       loadRepos()
     }
-  }, [open])
+  }, [open, repos.length])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -180,7 +181,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
   const loadRepos = async () => {
     setLoadingRepos(true)
     setError(null)
-    
+
     try {
       const response = await api.getGitHubRepos({ per_page: 100, sort: 'pushed' })
       setRepos(response.data)
@@ -206,12 +207,11 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
       const [owner, repoName] = selectedRepo.full_name.split('/')
       const response = await api.generateProjectFromRepo(owner, repoName)
       const content = response.data
-      
+
       // Build the project data and immediately pass to onComplete
       const projectData: GeneratedProjectData = {
         title: content.title,
         description: content.long_description,
-        tools: content.tools || [],
         stack: content.stack || [],
         highlights: content.highlights || [],
         links: {
@@ -247,6 +247,11 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
             <Sparkles className="w-5 h-5 text-primary" />
             Generate Project from GitHub
           </DialogTitle>
+          <VisuallyHidden.Root>
+            <DialogDescription>
+              Select a repository from your GitHub account to generate a detailed project post using AI.
+            </DialogDescription>
+          </VisuallyHidden.Root>
         </DialogHeader>
 
         <div className="flex-1 flex flex-col min-h-0 px-1 -mx-1">
@@ -289,10 +294,10 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          
+
           <div className="flex gap-2">
             {step === 'select-repo' && (
-              <Button 
+              <Button
                 onClick={handleGenerate}
                 disabled={!selectedRepo || generating}
               >

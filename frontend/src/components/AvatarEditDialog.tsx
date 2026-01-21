@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, DragEvent } from 'react'
+import { useState, useCallback, useRef, type DragEvent } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -47,7 +47,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
 
   const handleImageUpload = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0) return
-    
+
     try {
       const file = files[0]
       const base64Image = await fileToBase64(file)
@@ -154,7 +154,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
             </div>
           </div>
 
-          <div 
+          <div
             className={cn(
               "w-full relative group cursor-pointer transition-all rounded-xl border-2 border-dashed min-h-[140px] flex flex-col items-center justify-center",
               isDragging ? "border-violet-500 bg-violet-500/5 scale-105" : "border-border hover:border-violet-500/50 hover:bg-muted/50"

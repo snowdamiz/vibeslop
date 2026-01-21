@@ -11,7 +11,12 @@ defmodule BackendWeb.ConversationJSON do
   @doc """
   Renders a single conversation with messages.
   """
-  def show(%{conversation: conversation, messages: messages, other_user: other_user, current_user_id: current_user_id}) do
+  def show(%{
+        conversation: conversation,
+        messages: messages,
+        other_user: other_user,
+        current_user_id: current_user_id
+      }) do
     %{
       data: %{
         id: conversation.id,
@@ -24,7 +29,11 @@ defmodule BackendWeb.ConversationJSON do
   @doc """
   Renders a newly created conversation.
   """
-  def created(%{conversation: conversation, other_user: other_user, current_user_id: _current_user_id}) do
+  def created(%{
+        conversation: conversation,
+        other_user: other_user,
+        current_user_id: _current_user_id
+      }) do
     %{
       data: %{
         id: conversation.id,
@@ -44,19 +53,28 @@ defmodule BackendWeb.ConversationJSON do
 
   # Private functions
 
-  defp conversation_summary(%{conversation: conversation, last_message: last_message, unread_count: unread_count, other_user: other_user}, current_user_id) do
+  defp conversation_summary(
+         %{
+           conversation: conversation,
+           last_message: last_message,
+           unread_count: unread_count,
+           other_user: other_user
+         },
+         current_user_id
+       ) do
     %{
       id: conversation.id,
       participant: render_participant(other_user),
-      last_message: if last_message do
-        %{
-          content: last_message.content,
-          timestamp: format_datetime(last_message.inserted_at),
-          is_from_me: last_message.sender_id == current_user_id
-        }
-      else
-        nil
-      end,
+      last_message:
+        if last_message do
+          %{
+            content: last_message.content,
+            timestamp: format_datetime(last_message.inserted_at),
+            is_from_me: last_message.sender_id == current_user_id
+          }
+        else
+          nil
+        end,
       unread_count: unread_count
     }
   end

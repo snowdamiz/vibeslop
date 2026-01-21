@@ -18,7 +18,7 @@ export function useImpressionTracker() {
   const observerRef = useRef<IntersectionObserver | null>(null)
   const seenItemsRef = useRef<Set<string>>(new Set())
   const queueRef = useRef<ImpressionItem[]>([])
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Function to send impressions to API
   const sendImpressions = useCallback(async () => {
@@ -103,28 +103,51 @@ export function useImpressionTracker() {
   // Send any pending impressions on unmount
   useEffect(() => {
     const sendPendingImpressions = () => {
-      if (queueRef.current.length > 0) {
-        // Use sendBeacon for reliability on page unload
-        const fingerprint = generateFingerprint()
-        const data = JSON.stringify({ 
-          impressions: queueRef.current,
-          fingerprint 
-        })
-        const apiUrl = import.meta.env.VITE_API_URL || '/api'
-        const blob = new Blob([data], { type: 'application/json' })
-        navigator.sendBeacon(`${apiUrl}/impressions`, blob)
+      if (queueRef.current.length === 0) return
+
+      // Use fetch with keepalive for reliability on page unload
+      // This allows us to include Authorization header unlike sendBeacon
+      const fingerprint = generateFingerprint()
+      const token = localStorage.getItem('vibeslop_token')
+      const apiUrl = import.meta.env.VITE_API_URL || '/api'
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+
+      const impressionsToSend = [...queueRef.current]
+      queueRef.current = [] // Clear queue to prevent duplicate sends
+
+      // Use fetch with keepalive instead of sendBeacon to include auth headers
+      fetch(`${apiUrl}/impressions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          impressions: impressionsToSend,
+          fingerprint
+        }),
+        keepalive: true, // Ensures request completes even if page is unloading
+      }).catch((error) => {
+        console.error('Failed to send pending impressions:', error)
+      })
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        sendPendingImpressions()
       }
     }
 
     window.addEventListener('beforeunload', sendPendingImpressions)
-    window.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        sendPendingImpressions()
-      }
-    })
+    window.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       window.removeEventListener('beforeunload', sendPendingImpressions)
+      window.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

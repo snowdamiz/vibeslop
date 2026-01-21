@@ -32,7 +32,7 @@ export function CommentsSection({
   const [newComment, setNewComment] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [isFocused, setIsFocused] = useState(false)
-  
+
   const MAX_CHARS = 500
 
   // Helper to recursively add a reply to the correct comment
@@ -64,8 +64,8 @@ export function CommentsSection({
 
     const comment: CommentType = {
       id: `new-${Date.now()}`,
-      author: { 
-        name: user?.name || 'You', 
+      author: {
+        name: user?.name || 'You',
         initials: user?.initials || 'U',
         username: user?.username,
         avatar_url: user?.avatar_url
@@ -83,8 +83,8 @@ export function CommentsSection({
   const handleReply = (parentId: string, content: string) => {
     const reply: CommentType = {
       id: `reply-${Date.now()}`,
-      author: { 
-        name: user?.name || 'You', 
+      author: {
+        name: user?.name || 'You',
         initials: user?.initials || 'U',
         username: user?.username,
         avatar_url: user?.avatar_url
@@ -141,7 +141,7 @@ export function CommentsSection({
   }
 
   const totalComments = countAllComments(comments)
-  
+
   // Sort comments
   const sortedComments = [...comments].sort((a, b) => {
     if (sortBy === 'top') {
@@ -153,9 +153,9 @@ export function CommentsSection({
     }
     return 0 // newest - reverse original order would be applied during display
   })
-  
+
   const displayComments = sortBy === 'newest' ? [...sortedComments].reverse() : sortedComments
-  
+
   const charCount = newComment.length
   const isOverLimit = charCount > MAX_CHARS
 
@@ -255,33 +255,35 @@ export function CommentsSection({
       )}
 
       {/* Comments list */}
-      <AnimatePresence mode="popLayout">
-        <div className="border-t border-border">
-          {displayComments.map((comment, index) => (
-            <motion.div
-              key={comment.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ delay: index * 0.05, duration: 0.2 }}
-              layout
-              className="py-4 border-b border-border last:border-b-0"
-            >
-              <Comment
-                comment={comment}
-                onReply={handleReply}
-                onLike={handleLike}
-                onDelete={handleDelete}
-                onReport={handleReport}
-              />
-            </motion.div>
-          ))}
-        </div>
-      </AnimatePresence>
+      {displayComments.length > 0 && (
+        <AnimatePresence mode="popLayout">
+          <div className="border-t border-border">
+            {displayComments.map((comment, index) => (
+              <motion.div
+                key={comment.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ delay: index * 0.05, duration: 0.2 }}
+                layout
+                className="py-4 border-b border-border last:border-b-0"
+              >
+                <Comment
+                  comment={comment}
+                  onReply={handleReply}
+                  onLike={handleLike}
+                  onDelete={handleDelete}
+                  onReport={handleReport}
+                />
+              </motion.div>
+            ))}
+          </div>
+        </AnimatePresence>
+      )}
 
       {/* Empty state */}
       {comments.length === 0 && (
-        <div className="py-8 text-center border-t border-border">
+        <div className="py-8 text-center">
           <div className="w-12 h-12 rounded-full bg-muted mx-auto mb-3 flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-muted-foreground" />
           </div>

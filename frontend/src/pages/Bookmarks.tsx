@@ -22,6 +22,7 @@ type BookmarkTab = 'all' | 'posts' | 'projects'
 
 // Transform backend response to FeedItem format
 // Backend returns already-transformed data via UserJSON.render_liked_item
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function transformBackendItem(item: any): FeedItem | null {
   // Backend already returns transformed data with type, content, author, etc.
   if (item.type === 'update') {
@@ -42,6 +43,7 @@ function transformBackendItem(item: any): FeedItem | null {
       liked: item.liked,
       bookmarked: true, // It's in bookmarks, so it's bookmarked
       reposted: item.reposted,
+      impressions: item.impressions || 0,
     }
   } else if (item.type === 'project') {
     return {
@@ -64,6 +66,7 @@ function transformBackendItem(item: any): FeedItem | null {
       liked: item.liked,
       bookmarked: true, // It's in bookmarks, so it's bookmarked
       reposted: item.reposted,
+      impressions: item.impressions || 0,
     }
   }
   return null
@@ -133,12 +136,14 @@ export function Bookmarks() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center justify-between px-4 h-14">
-          <div>
-            <h1 className="font-bold text-lg leading-tight">Bookmarks</h1>
-            <p className="text-xs text-muted-foreground">
-              {filteredBookmarks.length} {filteredBookmarks.length === 1 ? 'item' : 'items'}
-            </p>
+        <div className="mx-auto flex items-center justify-between px-4 h-14">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="font-bold text-lg leading-tight">Bookmarks</h1>
+              <p className="text-xs text-muted-foreground">
+                {filteredBookmarks.length} {filteredBookmarks.length === 1 ? 'item' : 'items'}
+              </p>
+            </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

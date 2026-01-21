@@ -19,8 +19,14 @@ defmodule Backend.Content.Post do
     belongs_to :quoted_post, Backend.Content.Post
     belongs_to :quoted_project, Backend.Content.Project
 
-    has_many :likes, Backend.Social.Like, where: [likeable_type: "Post"], foreign_key: :likeable_id
-    has_many :comments, Backend.Content.Comment, where: [commentable_type: "Post"], foreign_key: :commentable_id
+    has_many :likes, Backend.Social.Like,
+      where: [likeable_type: "Post"],
+      foreign_key: :likeable_id
+
+    has_many :comments, Backend.Content.Comment,
+      where: [commentable_type: "Post"],
+      foreign_key: :commentable_id
+
     has_many :media, Backend.Content.PostMedia
 
     timestamps(type: :utc_datetime)
@@ -46,6 +52,7 @@ defmodule Backend.Content.Post do
     changeset = changeset(post, attrs)
 
     content = get_field(changeset, :content)
+
     if (is_nil(content) or content == "") and not has_media? do
       add_error(changeset, :content, "either content or media must be present")
     else

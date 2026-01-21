@@ -15,27 +15,29 @@ defmodule BackendWeb.ProjectController do
     sort_by = Map.get(params, "sort_by", "recent")
 
     # Get current user for engagement status
-    current_user_id = case conn.assigns[:current_user] do
-      %{id: uid} -> uid
-      _ -> nil
-    end
+    current_user_id =
+      case conn.assigns[:current_user] do
+        %{id: uid} -> uid
+        _ -> nil
+      end
 
     # Use sophisticated trending algorithm if sort_by=trending
-    projects = if sort_by == "trending" do
-      Recommendations.trending_projects(
-        limit: limit,
-        current_user_id: current_user_id
-      )
-    else
-      Content.list_projects(
-        limit: limit,
-        offset: offset,
-        search: search,
-        tools: tools,
-        stacks: stacks,
-        sort_by: sort_by
-      )
-    end
+    projects =
+      if sort_by == "trending" do
+        Recommendations.trending_projects(
+          limit: limit,
+          current_user_id: current_user_id
+        )
+      else
+        Content.list_projects(
+          limit: limit,
+          offset: offset,
+          search: search,
+          tools: tools,
+          stacks: stacks,
+          sort_by: sort_by
+        )
+      end
 
     render(conn, :index, projects: projects)
   end
@@ -47,31 +49,35 @@ defmodule BackendWeb.ProjectController do
         case Content.get_project!(id) do
           {:ok, project_data} ->
             # Add engagement status if user is authenticated
-            current_user_id = case conn.assigns[:current_user] do
-              %{id: uid} -> uid
-              _ -> nil
-            end
+            current_user_id =
+              case conn.assigns[:current_user] do
+                %{id: uid} -> uid
+                _ -> nil
+              end
 
-            project_data = if current_user_id do
-              liked = Backend.Social.has_liked?(current_user_id, "Project", id)
-              bookmarked = Backend.Social.has_bookmarked?(current_user_id, "Project", id)
+            project_data =
+              if current_user_id do
+                liked = Backend.Social.has_liked?(current_user_id, "Project", id)
+                bookmarked = Backend.Social.has_bookmarked?(current_user_id, "Project", id)
 
-              project_data
-              |> Map.put(:liked, liked)
-              |> Map.put(:bookmarked, bookmarked)
-            else
-              project_data
-              |> Map.put(:liked, false)
-              |> Map.put(:bookmarked, false)
-            end
+                project_data
+                |> Map.put(:liked, liked)
+                |> Map.put(:bookmarked, bookmarked)
+              else
+                project_data
+                |> Map.put(:liked, false)
+                |> Map.put(:bookmarked, false)
+              end
 
             render(conn, :show, project: project_data)
+
           {:error, :not_found} ->
             conn
             |> put_status(:not_found)
             |> put_view(json: BackendWeb.ErrorJSON)
             |> render(:"404")
         end
+
       :error ->
         # Invalid UUID format - return 404
         conn

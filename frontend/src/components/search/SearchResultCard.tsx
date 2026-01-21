@@ -103,7 +103,7 @@ interface PostResultProps {
 
 export function PostResultCard({ post }: PostResultProps) {
   const authorInitials = post.author?.initials || 'U'
-  
+
   return (
     <Link
       to={`/post/${post.id}`}
@@ -111,8 +111,8 @@ export function PostResultCard({ post }: PostResultProps) {
     >
       <div className="flex gap-3">
         <Avatar className="w-10 h-10 ring-2 ring-background flex-shrink-0">
-          {post.author?.avatar && (
-            <AvatarImage src={post.author.avatar} alt={post.author.name} />
+          {post.author?.avatar_url && (
+            <AvatarImage src={post.author.avatar_url} alt={post.author.name} />
           )}
           <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
             {authorInitials}

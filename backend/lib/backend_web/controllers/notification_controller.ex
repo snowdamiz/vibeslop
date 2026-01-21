@@ -28,6 +28,7 @@ defmodule BackendWeb.NotificationController do
     case Social.mark_as_read(id, current_user.id) do
       {:ok, notification} ->
         render(conn, :show, notification: notification)
+
       {:error, :not_found} ->
         conn
         |> put_status(:not_found)

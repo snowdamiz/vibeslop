@@ -27,7 +27,10 @@ defmodule BackendWeb.ConversationController do
     limit = String.to_integer(Map.get(params, "limit", "50"))
     offset = String.to_integer(Map.get(params, "offset", "0"))
 
-    case Messaging.get_conversation_with_messages(id, current_user.id, limit: limit, offset: offset) do
+    case Messaging.get_conversation_with_messages(id, current_user.id,
+           limit: limit,
+           offset: offset
+         ) do
       {:ok, data} ->
         render(conn, :show,
           conversation: data.conversation,
@@ -65,11 +68,12 @@ defmodule BackendWeb.ConversationController do
         else
           case Messaging.get_or_create_conversation(current_user.id, other_user.id) do
             {:ok, conversation} ->
-              other_user_data = if conversation.user_one_id == current_user.id do
-                conversation.user_two
-              else
-                conversation.user_one
-              end
+              other_user_data =
+                if conversation.user_one_id == current_user.id do
+                  conversation.user_two
+                else
+                  conversation.user_one
+                end
 
               render(conn, :created,
                 conversation: conversation,

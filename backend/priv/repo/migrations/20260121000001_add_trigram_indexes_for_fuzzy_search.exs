@@ -7,9 +7,13 @@ defmodule Backend.Repo.Migrations.AddTrigramIndexesForFuzzySearch do
 
     # Add trigram GIN indexes for fuzzy search on text columns
     execute "CREATE INDEX users_username_trgm_idx ON users USING GIN (username gin_trgm_ops)"
+
     execute "CREATE INDEX users_display_name_trgm_idx ON users USING GIN (display_name gin_trgm_ops)"
+
     execute "CREATE INDEX projects_title_trgm_idx ON projects USING GIN (title gin_trgm_ops)"
+
     execute "CREATE INDEX projects_description_trgm_idx ON projects USING GIN (description gin_trgm_ops)"
+
     execute "CREATE INDEX posts_content_trgm_idx ON posts USING GIN (content gin_trgm_ops)"
   end
 

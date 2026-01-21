@@ -1,7 +1,6 @@
-import { useState, useCallback, useRef, DragEvent, ClipboardEvent } from 'react'
+import { useState, useCallback, useRef, type DragEvent, type ClipboardEvent } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
@@ -18,18 +17,16 @@ import { useAuth } from '@/context/AuthContext'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import Link from '@tiptap/extension-link'
 import Mention from '@tiptap/extension-mention'
 import { ReactRenderer } from '@tiptap/react'
 import tippy from 'tippy.js'
 import type { Instance as TippyInstance } from 'tippy.js'
-import { 
-  Image, 
-  Code2, 
-  Sparkles, 
-  Layers, 
-  MessageSquare, 
-  X, 
+import {
+  Image,
+  Sparkles,
+  Layers,
+  MessageSquare,
+  X,
   ChevronDown,
   Bold,
   Italic,
@@ -64,23 +61,17 @@ interface ComposeBoxProps {
   onOpenChange?: (open: boolean) => void
 }
 
-// Common AI tools for quick selection
-const AI_TOOLS = ['Cursor', 'Claude', 'GPT-4', 'v0', 'Bolt', 'Copilot', 'Replit AI']
-
 export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOpen: controlledIsOpen, onOpenChange }: ComposeBoxProps) {
   const { user } = useAuth()
   const [internalIsOpen, setInternalIsOpen] = useState(false)
-  
+
   // Support both controlled and uncontrolled modes
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen
   const setIsOpen = onOpenChange || setInternalIsOpen
   const [mode, setMode] = useState<ComposeMode>('update')
-  
-  // Project-specific fields
+
   const [projectTitle, setProjectTitle] = useState('')
   const [selectedTools, setSelectedTools] = useState<string[]>([])
-  const [customTool, setCustomTool] = useState('')
-  const [showToolPicker, setShowToolPicker] = useState(false)
   const [, setEditorState] = useState(0) // Force re-render on editor changes
 
   // Image upload state
@@ -93,8 +84,8 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
   const [ghostWords, setGhostWords] = useState<string[]>([])
   const [improvedText, setImprovedText] = useState('')
 
-  const defaultPlaceholder = mode === 'update' 
-    ? "What's on your mind?" 
+  const defaultPlaceholder = mode === 'update'
+    ? "What's on your mind?"
     : "Describe your project..."
 
   // Debounced user search for mentions
@@ -107,12 +98,12 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
         heading: {
           levels: [2, 3],
         },
+        link: {
+          openOnClick: false,
+        },
       }),
       Placeholder.configure({
         placeholder: placeholder || defaultPlaceholder,
-      }),
-      Link.configure({
-        openOnClick: false,
       }),
       Mention.configure({
         HTMLAttributes: {
@@ -292,11 +283,11 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
   // Get markdown content from editor
   const getMarkdownContent = useCallback(() => {
     if (!editor) return ''
-    
+
     const html = editor.getHTML()
     // Convert HTML back to markdown-like format for storage
     // This is a simple conversion - for complex needs, use a proper converter
-    let markdown = html
+    const markdown = html
       .replace(/<h2>(.*?)<\/h2>/g, '## $1\n')
       .replace(/<h3>(.*?)<\/h3>/g, '### $1\n')
       .replace(/<strong>(.*?)<\/strong>/g, '**$1**')
@@ -314,7 +305,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
       .replace(/<a href="(.*?)".*?>(.*?)<\/a>/g, '[$2]($1)')
       .replace(/\n+/g, '\n')
       .trim()
-    
+
     return markdown
   }, [editor])
 
@@ -322,8 +313,6 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
     editor?.commands.clearContent()
     setProjectTitle('')
     setSelectedTools([])
-    setCustomTool('')
-    setShowToolPicker(false)
     setMode('update')
     setAttachedImage(null)
     setIsDragging(false)
@@ -341,16 +330,17 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
     const content = getMarkdownContent()
     // Allow posting with just an image (no text required)
     if (!content.trim() && !attachedImage) return
-    
+
     if (mode === 'project') {
       if (!projectTitle.trim()) return
-      
+
       const projectPost: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> = {
         type: 'project',
         title: projectTitle.trim(),
         content: content.trim(),
         tools: selectedTools.length > 0 ? selectedTools : undefined,
         image: attachedImage || undefined,
+        impressions: 0,
       }
       onPost?.(projectPost)
     } else {
@@ -361,8 +351,9 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
         type: 'update',
         content: content.trim(),
         media: attachedImage ? [attachedImage] : undefined,
+        impressions: 0,
       }
-      
+
       // Add quoted item reference if present
       if (quotedItem) {
         if (quotedItem.type === 'update') {
@@ -371,60 +362,45 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
           statusUpdate.quoted_project_id = quotedItem.id
         }
       }
-      
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       onPost?.(statusUpdate as any)
     }
-    
+
     resetForm()
     setIsOpen(false)
   }
 
-  const toggleTool = (tool: string) => {
-    setSelectedTools(prev => 
-      prev.includes(tool) 
-        ? prev.filter(t => t !== tool)
-        : [...prev, tool]
-    )
-  }
 
-  const addCustomTool = () => {
-    if (customTool.trim() && !selectedTools.includes(customTool.trim())) {
-      setSelectedTools(prev => [...prev, customTool.trim()])
-      setCustomTool('')
-    }
-  }
 
-  const removeTool = (tool: string) => {
-    setSelectedTools(prev => prev.filter(t => t !== tool))
-  }
 
   const handleAIImprove = useCallback(async () => {
     if (!editor || isImproving) return
-    
+
     const content = getMarkdownContent()
     const words = content.trim().split(/\s+/).filter(w => w.length > 0)
-    
+
     if (words.length < 5) return
-    
+
     // Store original content for error recovery
     const originalContent = content
-    
+
     // Set up ghost text state
     setGhostWords(words)
     setImprovedText('')
     setIsImproving(true)
     editor.setEditable(false)
-    
+
     // Accumulate raw text (not split into words to preserve formatting)
     let accumulatedText = ''
-    
+
     try {
       await api.improvePost(content, (chunk) => {
         // Accumulate raw text chunks directly (preserves formatting)
         accumulatedText += chunk
         setImprovedText(accumulatedText)
       })
-      
+
       // Transfer final content to editor
       editor.commands.setContent(accumulatedText.trim())
     } catch (error) {
@@ -445,8 +421,8 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
   const charCount = content.length
   const wordCount = content.trim().split(/\s+/).filter(w => w.length > 0).length
   const canUseAI = wordCount >= 5 && mode === 'update'
-  
-  const canPost = mode === 'update' 
+
+  const canPost = mode === 'update'
     ? content.trim().length > 0 || attachedImage !== null || quotedItem !== null
     : (content.trim().length > 0 || attachedImage !== null) && projectTitle.trim().length > 0
 
@@ -469,7 +445,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
   return (
     <>
       {/* Compact Trigger */}
-      <div 
+      <div
         className="border-b border-border cursor-pointer transition-colors hover:bg-muted/20"
         onClick={() => setIsOpen(true)}
       >
@@ -505,7 +481,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
 
       {/* Compose Dialog */}
       <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-        <DialogContent 
+        <DialogContent
           className={cn(
             "p-0 gap-0 overflow-hidden",
             mode === 'project' ? "sm:max-w-[700px]" : "sm:max-w-[580px]"
@@ -518,7 +494,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
           <DialogHeader className="sr-only">
             <DialogTitle>Create a post</DialogTitle>
           </DialogHeader>
-          
+
           {/* Header with post type selector */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-border">
             <div className="flex items-center gap-3">
@@ -539,7 +515,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="w-56">
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => setMode('update')}
                       className="flex items-start gap-3 p-3"
                     >
@@ -549,7 +525,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
                         <p className="text-xs text-muted-foreground">Share a quick thought or update</p>
                       </div>
                     </DropdownMenuItem>
-                    <DropdownMenuItem 
+                    <DropdownMenuItem
                       onClick={() => setMode('project')}
                       className="flex items-start gap-3 p-3"
                     >
@@ -564,7 +540,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
               </div>
             </div>
           </div>
-          
+
           {/* Project Composer (replaces regular compose UI when in project mode) */}
           {mode === 'project' ? (
             <ProjectComposer
@@ -578,229 +554,229 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
           ) : (
             <>
 
-          {/* Drag overlay */}
-          {isDragging && (
-            <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center">
-              <div className="text-center">
-                <Image className="w-12 h-12 mx-auto text-primary mb-2" />
-                <p className="text-primary font-medium">Drop image here</p>
-              </div>
-            </div>
-          )}
+              {/* Drag overlay */}
+              {isDragging && (
+                <div className="absolute inset-0 bg-primary/10 border-2 border-dashed border-primary rounded-lg z-50 flex items-center justify-center">
+                  <div className="text-center">
+                    <Image className="w-12 h-12 mx-auto text-primary mb-2" />
+                    <p className="text-primary font-medium">Drop image here</p>
+                  </div>
+                </div>
+              )}
 
-          {/* Content Area */}
-          <div className="px-4 pt-3 pb-2" onPaste={handlePaste}>
-            {/* Rich Text Editor or Ghost Text View */}
-            {isImproving ? (
-              <div className="min-h-[120px] text-[15px] prose prose-sm dark:prose-invert max-w-none py-2">
-                {(() => {
-                  // Calculate how many words have been streamed in
-                  const improvedWordCount = improvedText.trim() 
-                    ? improvedText.trim().split(/\s+/).filter(w => w).length 
-                    : 0
-                  const remainingGhostWords = ghostWords.slice(improvedWordCount)
-                  
-                  return (
-                    <>
-                      {/* AI-generated text - normal styling */}
-                      <span>{improvedText}</span>
-                      {/* Remaining ghost words - faded */}
-                      {remainingGhostWords.length > 0 && (
+              {/* Content Area */}
+              <div className="px-4 pt-3 pb-2" onPaste={handlePaste}>
+                {/* Rich Text Editor or Ghost Text View */}
+                {isImproving ? (
+                  <div className="min-h-[120px] text-[15px] prose prose-sm dark:prose-invert max-w-none py-2">
+                    {(() => {
+                      // Calculate how many words have been streamed in
+                      const improvedWordCount = improvedText.trim()
+                        ? improvedText.trim().split(/\s+/).filter(w => w).length
+                        : 0
+                      const remainingGhostWords = ghostWords.slice(improvedWordCount)
+
+                      return (
                         <>
-                          {improvedText && !improvedText.endsWith(' ') && ' '}
-                          <span className="text-muted-foreground/30 select-none">
-                            {remainingGhostWords.join(' ')}
-                          </span>
+                          {/* AI-generated text - normal styling */}
+                          <span>{improvedText}</span>
+                          {/* Remaining ghost words - faded */}
+                          {remainingGhostWords.length > 0 && (
+                            <>
+                              {improvedText && !improvedText.endsWith(' ') && ' '}
+                              <span className="text-muted-foreground/30 select-none">
+                                {remainingGhostWords.join(' ')}
+                              </span>
+                            </>
+                          )}
                         </>
-                      )}
-                    </>
-                  )
-                })()}
-              </div>
-            ) : (
-              <EditorContent 
-                editor={editor} 
-                className="[&_.tiptap]:min-h-[120px] [&_.tiptap]:focus:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
-              />
-            )}
-
-            {/* Attached Image Preview - Always at the bottom */}
-            {attachedImage && (
-              <div className="mt-3 relative group">
-                <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
-                  <img
-                    src={attachedImage}
-                    alt="Attached image"
-                    className="w-full max-h-[300px] object-contain"
+                      )
+                    })()}
+                  </div>
+                ) : (
+                  <EditorContent
+                    editor={editor}
+                    className="[&_.tiptap]:min-h-[120px] [&_.tiptap]:focus:outline-none [&_.tiptap_p.is-editor-empty:first-child::before]:text-muted-foreground [&_.tiptap_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_.tiptap_p.is-editor-empty:first-child::before]:float-left [&_.tiptap_p.is-editor-empty:first-child::before]:pointer-events-none [&_.tiptap_p.is-editor-empty:first-child::before]:h-0"
                   />
-                  <button
-                    onClick={removeAttachedImage}
-                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
-                    title="Remove image"
+                )}
+
+                {/* Attached Image Preview - Always at the bottom */}
+                {attachedImage && (
+                  <div className="mt-3 relative group">
+                    <div className="relative rounded-lg overflow-hidden border border-border bg-muted/30">
+                      <img
+                        src={attachedImage}
+                        alt="Attached image"
+                        className="w-full max-h-[300px] object-contain"
+                      />
+                      <button
+                        onClick={removeAttachedImage}
+                        className="absolute top-2 right-2 p-1.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Remove image"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Quoted Item Preview */}
+                {quotedItem && (
+                  <div className="mt-3 relative">
+                    <QuotedPostPreview item={quotedItem} />
+                    <button
+                      onClick={onClearQuote}
+                      className="absolute top-2 right-2 p-1 rounded-full bg-background/80 border border-border hover:bg-muted transition-colors"
+                      title="Remove quote"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Formatting Toolbar */}
+              <div className="px-4 py-2 border-t border-border/50 bg-muted/30">
+                <div className="flex items-center gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('bold') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleBold().run()}
+                    title="Bold (Ctrl+B)"
                   >
-                    <X className="w-4 h-4" />
-                  </button>
+                    <Bold className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('italic') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleItalic().run()}
+                    title="Italic (Ctrl+I)"
+                  >
+                    <Italic className="w-4 h-4" />
+                  </Button>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('heading') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                    title="Heading"
+                  >
+                    <Heading2 className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('blockquote') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                    title="Quote"
+                  >
+                    <Quote className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('code') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleCode().run()}
+                    title="Inline Code"
+                  >
+                    <Code className="w-4 h-4" />
+                  </Button>
+                  <div className="w-px h-4 bg-border mx-1" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('bulletList') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                    title="List"
+                  >
+                    <List className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 rounded hover:bg-muted",
+                      editor?.isActive('link') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
+                    )}
+                    onClick={addLink}
+                    title="Link"
+                  >
+                    <Link2 className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-            )}
-            
-            {/* Quoted Item Preview */}
-            {quotedItem && (
-              <div className="mt-3 relative">
-                <QuotedPostPreview item={quotedItem} />
-                <button
-                  onClick={onClearQuote}
-                  className="absolute top-2 right-2 p-1 rounded-full bg-background/80 border border-border hover:bg-muted transition-colors"
-                  title="Remove quote"
-                >
-                  <X className="w-3 h-3" />
-                </button>
+
+              {/* Action Bar */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-background">
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-9 h-9 rounded-full hover:bg-primary/10",
+                      attachedImage ? "text-primary bg-primary/10" : "text-primary"
+                    )}
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Add image"
+                  >
+                    <Image className="w-5 h-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="w-9 h-9 rounded-full text-primary hover:bg-primary/10"
+                    onClick={handleAIImprove}
+                    disabled={!canUseAI || isImproving}
+                    title={canUseAI ? "Improve with AI" : "Write at least 5 words to use AI"}
+                  >
+                    {isImproving ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {charCount > 0 && (
+                    <span className={cn(
+                      "text-xs",
+                      charCount > 500 ? "text-destructive" : "text-muted-foreground"
+                    )}>
+                      {charCount}
+                    </span>
+                  )}
+                  <Button
+                    onClick={handlePost}
+                    disabled={!canPost}
+                    className="rounded-full px-5"
+                  >
+                    Post
+                  </Button>
+                </div>
               </div>
-            )}
-          </div>
-
-          {/* Formatting Toolbar */}
-          <div className="px-4 py-2 border-t border-border/50 bg-muted/30">
-            <div className="flex items-center gap-0.5">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('bold') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleBold().run()}
-                title="Bold (Ctrl+B)"
-              >
-                <Bold className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('italic') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleItalic().run()}
-                title="Italic (Ctrl+I)"
-              >
-                <Italic className="w-4 h-4" />
-              </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('heading') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                title="Heading"
-              >
-                <Heading2 className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('blockquote') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleBlockquote().run()}
-                title="Quote"
-              >
-                <Quote className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('code') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleCode().run()}
-                title="Inline Code"
-              >
-                <Code className="w-4 h-4" />
-              </Button>
-              <div className="w-px h-4 bg-border mx-1" />
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('bulletList') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                title="List"
-              >
-                <List className="w-4 h-4" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-8 h-8 rounded hover:bg-muted",
-                  editor?.isActive('link') ? "text-primary bg-primary/10" : "text-muted-foreground hover:text-foreground"
-                )}
-                onClick={addLink}
-                title="Link"
-              >
-                <Link2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Action Bar */}
-          <div className="flex items-center justify-between px-4 py-3 border-t border-border bg-background">
-            <div className="flex items-center gap-1">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={cn(
-                  "w-9 h-9 rounded-full hover:bg-primary/10",
-                  attachedImage ? "text-primary bg-primary/10" : "text-primary"
-                )}
-                onClick={() => fileInputRef.current?.click()}
-                title="Add image"
-              >
-                <Image className="w-5 h-5" />
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="w-9 h-9 rounded-full text-primary hover:bg-primary/10"
-                onClick={handleAIImprove}
-                disabled={!canUseAI || isImproving}
-                title={canUseAI ? "Improve with AI" : "Write at least 5 words to use AI"}
-              >
-                {isImproving ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Sparkles className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {charCount > 0 && (
-                <span className={cn(
-                  "text-xs",
-                  charCount > 500 ? "text-destructive" : "text-muted-foreground"
-                )}>
-                  {charCount}
-                </span>
-              )}
-              <Button
-                onClick={handlePost}
-                disabled={!canPost}
-                className="rounded-full px-5"
-              >
-                Post
-              </Button>
-            </div>
-          </div>
-          </>
+            </>
           )}
         </DialogContent>
       </Dialog>

@@ -191,9 +191,9 @@ interface FeedProps {
   posts?: FeedItem[]
 }
 
-export function Feed({ 
-  showCompose = true, 
-  showTabs = true, 
+export function Feed({
+  showCompose = true,
+  showTabs = true,
   initialTab = 'for-you',
   posts: providedPosts
 }: FeedProps) {
@@ -246,13 +246,13 @@ export function Feed({
       setError(null)
       setNextCursor(null)
       setHasMore(false)
-      
+
       try {
         const response = await api.getPosts({
           feed: activeTab,
           limit: 20
         })
-        
+
         setPosts((response.data as FeedItem[]) || [])
         setNextCursor(response.next_cursor || null)
         setHasMore(response.has_more || false)
@@ -274,16 +274,16 @@ export function Feed({
   // Load more posts using cursor pagination
   const handleLoadMore = useCallback(async () => {
     if (!nextCursor || isLoadingMore) return
-    
+
     setIsLoadingMore(true)
-    
+
     try {
       const response = await api.getPosts({
         feed: activeTab,
         limit: 20,
         cursor: nextCursor
       })
-      
+
       const newPosts = (response.data as FeedItem[]) || []
       setPosts(prev => [...prev, ...newPosts])
       setNextCursor(response.next_cursor || null)
@@ -349,7 +349,7 @@ export function Feed({
 
       {/* Compose Box */}
       {showCompose && isAuthenticated && (
-        <ComposeBox 
+        <ComposeBox
           isOpen={isComposeOpen}
           onOpenChange={setIsComposeOpen}
           quotedItem={quotedItem}
@@ -357,43 +357,32 @@ export function Feed({
           onPost={async (item) => {
             try {
               let response;
-              
+
               if (item.type === 'project') {
-                // Call project API for projects
-                const projectItem = item as { 
-                  type: 'project'; 
-                  title: string;
-                  content: string;
-                  images?: string[];
-                  tools?: string[];
-                  stack?: string[];
-                  links?: { live?: string; github?: string };
-                  highlights?: string[];
-                  prompts?: { title: string; description?: string; code: string }[];
-                  timeline?: { date: string; title: string; description?: string }[];
-                }
-                
+                // Use a more robust check for project properties
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const projectData = item as any
+
                 response = await api.createProject({
-                  title: projectItem.title,
-                  description: projectItem.content,
-                  images: projectItem.images,
-                  tools: projectItem.tools,
-                  stack: projectItem.stack,
-                  links: projectItem.links,
-                  highlights: projectItem.highlights,
-                  prompts: projectItem.prompts,
-                  timeline: projectItem.timeline,
+                  title: projectData.title || '',
+                  description: projectData.content || '',
+                  images: projectData.images,
+                  tools: projectData.tools,
+                  stack: projectData.stack,
+                  links: projectData.links,
+                  highlights: projectData.highlights,
+                  timeline: projectData.timeline,
                 })
               } else {
                 // Call posts API for status updates
-                const updateItem = item as { 
+                const updateItem = item as {
                   type: 'update'
                   content: string
                   media?: string[]
                   quoted_post_id?: string
                   quoted_project_id?: string
                 }
-                const postData: { 
+                const postData: {
                   content: string
                   media?: string[]
                   quoted_post_id?: string
@@ -401,11 +390,11 @@ export function Feed({
                 } = {
                   content: updateItem.content,
                 }
-                
+
                 if (updateItem.media && updateItem.media.length > 0) {
                   postData.media = updateItem.media
                 }
-                
+
                 // Add quoted item references
                 if (updateItem.quoted_post_id) {
                   postData.quoted_post_id = updateItem.quoted_post_id
@@ -413,10 +402,10 @@ export function Feed({
                 if (updateItem.quoted_project_id) {
                   postData.quoted_project_id = updateItem.quoted_project_id
                 }
-                
+
                 response = await api.createPost(postData)
               }
-              
+
               // Optimistically add to feed
               const newPost = response.data as FeedItem
               setPosts((prev) => [newPost, ...prev])
@@ -462,7 +451,7 @@ export function Feed({
                 {activeTab === 'following' ? 'No posts from people you follow' : 'No posts yet'}
               </h3>
               <p className="text-muted-foreground mb-4">
-                {activeTab === 'following' 
+                {activeTab === 'following'
                   ? 'Follow some creators to see their posts here'
                   : 'Be the first to share something!'
                 }
@@ -476,8 +465,8 @@ export function Feed({
       {filteredPosts.length > 0 && hasMore && (
         <div className="py-8 text-center border-t border-border">
           <div className="max-w-[600px] mx-auto px-4">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="rounded-full"
               onClick={handleLoadMore}
               disabled={isLoadingMore}

@@ -19,6 +19,9 @@ defmodule Backend.Accounts.User do
     field :is_verified, :boolean, default: false
     field :has_onboarded, :boolean, default: false
     field :github_access_token, :string
+    field :developer_score, :integer, default: 0
+    field :developer_score_updated_at, :utc_datetime
+    field :github_stats, :map
 
     has_many :oauth_accounts, Backend.Accounts.OAuthAccount
     has_many :posts, Backend.Content.Post
@@ -90,8 +93,19 @@ defmodule Backend.Accounts.User do
     ])
     |> validate_required([:username, :display_name])
     |> validate_length(:username, min: 2, max: 30)
-    |> validate_format(:username, ~r/^[a-z0-9_]+$/, message: "can only contain lowercase letters, numbers, and underscores")
+    |> validate_format(:username, ~r/^[a-z0-9_]+$/,
+      message: "can only contain lowercase letters, numbers, and underscores"
+    )
     |> unique_constraint(:username)
     |> put_change(:has_onboarded, true)
+  end
+
+  @doc """
+  Changeset for updating developer score from background job
+  """
+  def developer_score_changeset(user, attrs) do
+    user
+    |> cast(attrs, [:developer_score, :developer_score_updated_at, :github_stats])
+    |> validate_number(:developer_score, greater_than_or_equal_to: 0)
   end
 end

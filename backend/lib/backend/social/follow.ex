@@ -18,7 +18,10 @@ defmodule Backend.Social.Follow do
     |> cast(attrs, [:follower_id, :following_id])
     |> validate_required([:follower_id, :following_id])
     |> unique_constraint([:follower_id, :following_id])
-    |> check_constraint(:follower_id, name: :cannot_follow_self, message: "cannot follow yourself")
+    |> check_constraint(:follower_id,
+      name: :cannot_follow_self,
+      message: "cannot follow yourself"
+    )
     |> foreign_key_constraint(:follower_id)
     |> foreign_key_constraint(:following_id)
   end

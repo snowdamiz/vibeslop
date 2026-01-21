@@ -21,6 +21,7 @@ defmodule Backend.Metrics do
       "Project" ->
         # For impressions on projects, use view_count instead
         field = if counter_field == :impression_count, do: :view_count, else: counter_field
+
         from(p in Project, where: p.id == ^content_id)
         |> Repo.update_all(inc: [{field, 1}])
 
@@ -84,13 +85,13 @@ defmodule Backend.Metrics do
     """
 
     case Repo.query(sql, [
-      id_binary,
-      content_type,
-      content_id_binary,
-      hour_bucket,
-      increment_by,
-      DateTime.utc_now()
-    ]) do
+           id_binary,
+           content_type,
+           content_id_binary,
+           hour_bucket,
+           increment_by,
+           DateTime.utc_now()
+         ]) do
       {:ok, _result} -> {:ok, :recorded}
       {:error, reason} -> {:error, reason}
     end
@@ -154,9 +155,10 @@ defmodule Backend.Metrics do
     # Get recent engagement (last N hours)
     recent_query =
       from e in EngagementHourly,
-        where: e.content_type == ^content_type and
-               e.content_id == ^content_id and
-               e.hour_bucket >= ^recent_cutoff,
+        where:
+          e.content_type == ^content_type and
+            e.content_id == ^content_id and
+            e.hour_bucket >= ^recent_cutoff,
         select: %{
           total: sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.impressions)
         }
@@ -164,10 +166,11 @@ defmodule Backend.Metrics do
     # Get older engagement (between comparison_hours and recent_hours ago)
     older_query =
       from e in EngagementHourly,
-        where: e.content_type == ^content_type and
-               e.content_id == ^content_id and
-               e.hour_bucket >= ^older_cutoff and
-               e.hour_bucket < ^recent_cutoff,
+        where:
+          e.content_type == ^content_type and
+            e.content_id == ^content_id and
+            e.hour_bucket >= ^older_cutoff and
+            e.hour_bucket < ^recent_cutoff,
         select: %{
           total: sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.impressions)
         }
@@ -181,7 +184,13 @@ defmodule Backend.Metrics do
     %{
       recent_engagement: recent_engagement,
       older_engagement: older_engagement,
-      velocity: calculate_velocity_ratio(recent_engagement, older_engagement, recent_hours, comparison_hours - recent_hours)
+      velocity:
+        calculate_velocity_ratio(
+          recent_engagement,
+          older_engagement,
+          recent_hours,
+          comparison_hours - recent_hours
+        )
     }
   end
 
@@ -217,22 +226,24 @@ defmodule Backend.Metrics do
         select: %{
           post_id: e.content_id,
           total_engagement: sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.impressions),
-          recent_engagement: fragment(
-            "SUM(CASE WHEN ? >= ? THEN ? + ? + ? + ? ELSE 0 END)",
-            e.hour_bucket,
-            ^recent_cutoff,
-            e.likes,
-            e.comments,
-            e.reposts,
-            e.impressions
-          )
+          recent_engagement:
+            fragment(
+              "SUM(CASE WHEN ? >= ? THEN ? + ? + ? + ? ELSE 0 END)",
+              e.hour_bucket,
+              ^recent_cutoff,
+              e.likes,
+              e.comments,
+              e.reposts,
+              e.impressions
+            )
         },
         order_by: [
-          desc: fragment(
-            "? * ?",
-            sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.impressions),
-            ^velocity_weight
-          )
+          desc:
+            fragment(
+              "? * ?",
+              sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.impressions),
+              ^velocity_weight
+            )
         ],
         limit: ^limit
 

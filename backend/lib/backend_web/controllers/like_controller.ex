@@ -17,13 +17,16 @@ defmodule BackendWeb.LikeController do
         case Social.toggle_like(current_user.id, likeable_type, id) do
           {:ok, :liked, _like} ->
             json(conn, %{success: true, liked: true})
+
           {:ok, :unliked, _like} ->
             json(conn, %{success: true, liked: false})
+
           {:error, changeset} ->
             conn
             |> put_status(:unprocessable_entity)
             |> json(%{error: "Unable to toggle like", details: translate_errors(changeset)})
         end
+
       :error ->
         conn
         |> put_status(:bad_request)

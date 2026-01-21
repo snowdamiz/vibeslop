@@ -16,10 +16,11 @@ defmodule BackendWeb.SearchController do
     offset = parse_int(Map.get(params, "offset", "0"), 0)
 
     # Get current user if authenticated (from optional auth plug)
-    current_user_id = case conn.assigns[:current_user] do
-      nil -> nil
-      user -> user.id
-    end
+    current_user_id =
+      case conn.assigns[:current_user] do
+        nil -> nil
+        user -> user.id
+      end
 
     if String.trim(query) == "" do
       json(conn, %{
@@ -47,11 +48,13 @@ defmodule BackendWeb.SearchController do
 
         "projects" ->
           parsed = Search.parse_query(query)
-          projects = Search.search_projects(parsed,
-            limit: limit,
-            offset: offset,
-            current_user_id: current_user_id
-          )
+
+          projects =
+            Search.search_projects(parsed,
+              limit: limit,
+              offset: offset,
+              current_user_id: current_user_id
+            )
 
           conn
           |> put_view(json: BackendWeb.ProjectJSON)
@@ -59,11 +62,13 @@ defmodule BackendWeb.SearchController do
 
         "posts" ->
           parsed = Search.parse_query(query)
-          posts = Search.search_posts(parsed,
-            limit: limit,
-            offset: offset,
-            current_user_id: current_user_id
-          )
+
+          posts =
+            Search.search_posts(parsed,
+              limit: limit,
+              offset: offset,
+              current_user_id: current_user_id
+            )
 
           conn
           |> put_view(json: BackendWeb.PostJSON)
@@ -87,43 +92,48 @@ defmodule BackendWeb.SearchController do
     results = Search.suggestions(query, limit: limit)
 
     # Format users for JSON serialization
-    formatted_users = Enum.map(results.users, fn user ->
-      %{
-        id: user.id,
-        username: user.username,
-        display_name: user.display_name,
-        bio: user.bio,
-        avatar_url: user.avatar_url,
-        is_verified: user.is_verified
-      }
-    end)
+    formatted_users =
+      Enum.map(results.users, fn user ->
+        %{
+          id: user.id,
+          username: user.username,
+          display_name: user.display_name,
+          bio: user.bio,
+          avatar_url: user.avatar_url,
+          is_verified: user.is_verified
+        }
+      end)
 
     # Format projects for JSON serialization
-    formatted_projects = Enum.map(results.projects, fn proj ->
-      %{
-        id: proj.id,
-        title: proj.title,
-        image_url: proj.image_url,
-        user: %{
-          username: proj.user.username,
-          display_name: proj.user.display_name
+    formatted_projects =
+      Enum.map(results.projects, fn proj ->
+        %{
+          id: proj.id,
+          title: proj.title,
+          image_url: proj.image_url,
+          user: %{
+            username: proj.user.username,
+            display_name: proj.user.display_name
+          }
         }
-      }
-    end)
+      end)
 
     # Format posts for JSON serialization
-    formatted_posts = Enum.map(results.posts, fn post ->
-      %{
-        id: post.id,
-        content: String.slice(post.content || "", 0, 100),
-        user: %{
-          username: post.user.username,
-          display_name: post.user.display_name
+    formatted_posts =
+      Enum.map(results.posts, fn post ->
+        %{
+          id: post.id,
+          content: String.slice(post.content || "", 0, 100),
+          user: %{
+            username: post.user.username,
+            display_name: post.user.display_name
+          }
         }
-      }
-    end)
+      end)
 
-    json(conn, %{data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts}})
+    json(conn, %{
+      data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts}
+    })
   end
 
   def suggestions(conn, _params) do
@@ -138,6 +148,7 @@ defmodule BackendWeb.SearchController do
       :error -> default
     end
   end
+
   defp parse_int(value, _default) when is_integer(value), do: value
   defp parse_int(_, default), do: default
 end

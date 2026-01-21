@@ -37,24 +37,29 @@ defmodule Backend.AI.ProjectGenerator do
     require Logger
 
     # If repo info provided, try to find logos
-    reference_images = case repo_info do
-      %{access_token: token, owner: owner, repo: repo} ->
-        Logger.info("Attempting to find logos for #{owner}/#{repo}")
-        case Backend.GitHub.Client.find_logos(token, owner, repo) do
-          {:ok, [_ | _] = logos} ->
-            Logger.info("Found #{length(logos)} logo(s)")
-            logos
-          {:ok, []} ->
-            Logger.info("No logos found in repository")
-            []
-          {:error, reason} ->
-            Logger.warning("Logo search failed: #{inspect(reason)}")
-            []
-        end
-      _ ->
-        Logger.info("No repo info provided")
-        []
-    end
+    reference_images =
+      case repo_info do
+        %{access_token: token, owner: owner, repo: repo} ->
+          Logger.info("Attempting to find logos for #{owner}/#{repo}")
+
+          case Backend.GitHub.Client.find_logos(token, owner, repo) do
+            {:ok, [_ | _] = logos} ->
+              Logger.info("Found #{length(logos)} logo(s)")
+              logos
+
+            {:ok, []} ->
+              Logger.info("No logos found in repository")
+              []
+
+            {:error, reason} ->
+              Logger.warning("Logo search failed: #{inspect(reason)}")
+              []
+          end
+
+        _ ->
+          Logger.info("No repo info provided")
+          []
+      end
 
     # Build prompt (includes logo instructions if logos were found)
     prompt = build_image_prompt(project_data, reference_images)
@@ -85,35 +90,37 @@ defmodule Backend.AI.ProjectGenerator do
     readme = repo_details.readme
 
     # Format languages as a readable string
-    language_breakdown = if map_size(languages) > 0 do
-      total_bytes = Enum.reduce(languages, 0, fn {_, bytes}, acc -> acc + bytes end)
+    language_breakdown =
+      if map_size(languages) > 0 do
+        total_bytes = Enum.reduce(languages, 0, fn {_, bytes}, acc -> acc + bytes end)
 
-      languages
-      |> Enum.sort_by(fn {_, bytes} -> bytes end, :desc)
-      |> Enum.take(5)
-      |> Enum.map(fn {lang, bytes} ->
-        percentage = Float.round(bytes / total_bytes * 100, 1)
-        "#{lang} (#{percentage}%)"
-      end)
-      |> Enum.join(", ")
-    else
-      repo["language"] || "Not specified"
-    end
+        languages
+        |> Enum.sort_by(fn {_, bytes} -> bytes end, :desc)
+        |> Enum.take(5)
+        |> Enum.map(fn {lang, bytes} ->
+          percentage = Float.round(bytes / total_bytes * 100, 1)
+          "#{lang} (#{percentage}%)"
+        end)
+        |> Enum.join(", ")
+      else
+        repo["language"] || "Not specified"
+      end
 
     # Truncate README to avoid token limits
-    readme_content = if readme do
-      readme
-      |> String.slice(0, 3000)
-      |> then(fn content ->
-        if String.length(readme) > 3000 do
-          content <> "\n\n[README truncated for length]"
-        else
-          content
-        end
-      end)
-    else
-      "No README available"
-    end
+    readme_content =
+      if readme do
+        readme
+        |> String.slice(0, 3000)
+        |> then(fn content ->
+          if String.length(readme) > 3000 do
+            content <> "\n\n[README truncated for length]"
+          else
+            content
+          end
+        end)
+      else
+        "No README available"
+      end
 
     """
     Analyze this GitHub repository and create a project showcase post.
@@ -135,7 +142,6 @@ defmodule Backend.AI.ProjectGenerator do
       "description": "Compelling 2-3 sentence summary for social feed (150-250 chars). Focus on WHAT the project does, not HOW it's built.",
       "long_description": "MUST follow the exact markdown format specified below",
       "highlights": ["3-5 key features or achievements as short phrases"],
-      "detected_tools": ["AI tools mentioned like Cursor, Claude, GPT-4, v0, Bolt, Copilot, etc. Only include if clearly mentioned."],
       "detected_stack": ["Main technologies and frameworks used - be specific (e.g., React, TypeScript, Node.js, PostgreSQL)"],
       "suggested_image_prompt": "A detailed prompt for generating a banner image (1-2 sentences, descriptive but not too long)"
     }
@@ -207,20 +213,21 @@ defmodule Backend.AI.ProjectGenerator do
     """
 
     # Add logo instructions if logos were found
-    logo_instructions = if has_logo do
-      """
+    logo_instructions =
+      if has_logo do
+        """
 
-      LOGO WATERMARK:
-      I've attached the project's logo image. You MUST include it as a watermark:
-      - Place a close copy of the logo in the TOP LEFT corner of the image
-      - The logo should be small (approximately 10-15% of the image width)
-      - Keep the logo SOLID and fully opaque (not transparent)
-      - The logo serves as branding - the main focus should be the abstract background design
-      - Match the overall color scheme to complement the logo
-      """
-    else
-      ""
-    end
+        LOGO WATERMARK:
+        I've attached the project's logo image. You MUST include it as a watermark:
+        - Place a close copy of the logo in the TOP LEFT corner of the image
+        - The logo should be small (approximately 10-15% of the image width)
+        - Keep the logo SOLID and fully opaque (not transparent)
+        - The logo serves as branding - the main focus should be the abstract background design
+        - Match the overall color scheme to complement the logo
+        """
+      else
+        ""
+      end
 
     base_prompt <> logo_instructions
   end
@@ -232,7 +239,10 @@ defmodule Backend.AI.ProjectGenerator do
       Enum.any?(stack_lower, &String.contains?(&1, ["react", "vue", "angular", "frontend"])) ->
         "frontend development with blue and purple gradients"
 
-      Enum.any?(stack_lower, &String.contains?(&1, ["node", "express", "django", "backend", "api"])) ->
+      Enum.any?(
+        stack_lower,
+        &String.contains?(&1, ["node", "express", "django", "backend", "api"])
+      ) ->
         "backend development with green and teal gradients"
 
       Enum.any?(stack_lower, &String.contains?(&1, ["ai", "ml", "machine learning", "neural"])) ->
@@ -251,20 +261,23 @@ defmodule Backend.AI.ProjectGenerator do
 
   defp parse_response(text) do
     # Clean up the text - remove markdown code blocks if present
-    cleaned = text
-    |> String.trim()
-    |> String.replace(~r/^```json\s*/m, "")
-    |> String.replace(~r/^```\s*/m, "")
-    |> String.replace(~r/```$/m, "")
-    |> String.trim()
+    cleaned =
+      text
+      |> String.trim()
+      |> String.replace(~r/^```json\s*/m, "")
+      |> String.replace(~r/^```\s*/m, "")
+      |> String.replace(~r/```$/m, "")
+      |> String.trim()
 
     case Jason.decode(cleaned) do
       {:ok, data} ->
         # Validate required fields
         required_fields = ["title", "description", "long_description"]
-        missing_fields = Enum.filter(required_fields, fn field ->
-          is_nil(data[field]) || data[field] == ""
-        end)
+
+        missing_fields =
+          Enum.filter(required_fields, fn field ->
+            is_nil(data[field]) || data[field] == ""
+          end)
 
         if missing_fields != [] do
           {:error, "Missing required fields: #{Enum.join(missing_fields, ", ")}"}
@@ -283,7 +296,6 @@ defmodule Backend.AI.ProjectGenerator do
       description: data["description"],
       long_description: data["long_description"],
       highlights: data["highlights"] || [],
-      tools: data["detected_tools"] || [],
       stack: data["detected_stack"] || [],
       suggested_image_prompt: data["suggested_image_prompt"]
     }

@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   Moon,
   Sun,
+  Briefcase,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -39,6 +40,7 @@ const navItems: NavItem[] = [
   { icon: Home, label: 'Home', path: '/' },
   { icon: Bell, label: 'Notifications', path: '/notifications', badgeKey: 'notifications' },
   { icon: Mail, label: 'Messages', path: '/messages', badgeKey: 'messages' },
+  { icon: Briefcase, label: 'Gigs', path: '/gigs' },
   { icon: Bookmark, label: 'Bookmarks', path: '/bookmarks' },
 ]
 
@@ -62,10 +64,17 @@ export function LeftSidebar() {
   }, [isAuthenticated])
 
   useEffect(() => {
-    fetchUnreadCounts()
+    // Wrap in a microtask or timeout to avoid synchronous setState warning
+    const timer = setTimeout(() => {
+      fetchUnreadCounts()
+    }, 0)
+
     // Refresh counts every 30 seconds
     const interval = setInterval(fetchUnreadCounts, 30000)
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
   }, [fetchUnreadCounts])
 
   const toggleTheme = () => {
@@ -109,11 +118,11 @@ export function LeftSidebar() {
               )}
             >
               <div className="relative flex items-center justify-center w-6 h-6">
-                <item.icon 
+                <item.icon
                   className={cn(
                     'w-[22px] h-[22px]',
                     isActive && 'text-primary'
-                  )} 
+                  )}
                   strokeWidth={isActive ? 2.5 : 2}
                 />
                 {badge && (
@@ -146,11 +155,11 @@ export function LeftSidebar() {
             )}
           >
             <div className="flex items-center justify-center w-6 h-6">
-              <User 
+              <User
                 className={cn(
                   'w-[22px] h-[22px]',
                   location.pathname.startsWith('/user/') && 'text-primary'
-                )} 
+                )}
                 strokeWidth={location.pathname.startsWith('/user/') ? 2.5 : 2}
               />
             </div>

@@ -9,27 +9,21 @@ export interface SearchHistoryItem {
 }
 
 export function useSearchHistory() {
-  const [history, setHistory] = useState<SearchHistoryItem[]>([])
-  const historyRef = useRef<SearchHistoryItem[]>([])
+  const [history, setHistory] = useState<SearchHistoryItem[]>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      return stored ? JSON.parse(stored) : []
+    } catch (error) {
+      console.error('Failed to load search history:', error)
+      return []
+    }
+  })
+  const historyRef = useRef<SearchHistoryItem[]>(history)
 
   // Keep ref in sync with state
   useEffect(() => {
     historyRef.current = history
   }, [history])
-
-  // Load history from localStorage on mount
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const parsed = JSON.parse(stored) as SearchHistoryItem[]
-        setHistory(parsed)
-        historyRef.current = parsed
-      }
-    } catch (error) {
-      console.error('Failed to load search history:', error)
-    }
-  }, [])
 
   // Save history to localStorage
   const saveToStorage = useCallback((newHistory: SearchHistoryItem[]) => {

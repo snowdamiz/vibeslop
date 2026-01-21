@@ -34,28 +34,13 @@ import {
   Rocket,
   Linkedin,
   BadgeCheck,
-  ChevronDown,
-  ChevronUp,
   Loader2,
 } from 'lucide-react'
 
 // Animation variants
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1 },
-  },
-}
-
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.4, ease: 'easeOut' as const },
-  },
-}
+// Animation variants - unused, could be removed in cleanup
+// const containerVariants = ...
+// const itemVariants = ...
 
 // API project types
 interface ApiProject {
@@ -74,7 +59,6 @@ interface ApiProject {
   created_at: string
   images: Array<{ id: string; url: string; alt_text?: string }>
   highlights: Array<{ id: string; content: string }>
-  prompts: Array<{ id: string; title: string; description: string; code: string }>
   timeline: Array<{ id: string; date: string; title: string; description: string }>
   ai_tools: Array<{ id: string; name: string; slug: string }>
   tech_stack: Array<{ id: string; name: string; slug: string; category?: string }>
@@ -109,7 +93,6 @@ interface NormalizedProject {
     following?: number
     projects?: number
   }
-  aiTools: string[]
   techStack: string[]
   links: {
     live?: string
@@ -121,7 +104,6 @@ interface NormalizedProject {
     views: number
   }
   created_at: string
-  prompts: Array<{ title: string; description: string; code: string }>
   timeline: Array<{ date: string; title: string; description: string }>
   comments: Array<{
     id: string
@@ -171,7 +153,6 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
       color: 'from-violet-500 to-purple-600',
       verified: apiProject.author.is_verified || false,
     },
-    aiTools: apiProject.ai_tools?.map(t => t.name) || [],
     techStack: apiProject.tech_stack?.map(t => t.name) || [],
     links: {
       live: apiProject.live_url,
@@ -183,11 +164,6 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
       views: apiProject.view_count || 0,
     },
     created_at: apiProject.created_at,
-    prompts: apiProject.prompts?.map(p => ({
-      title: p.title,
-      description: p.description,
-      code: p.code,
-    })) || [],
     timeline: apiProject.timeline?.map(t => ({
       date: t.date,
       title: t.title,
@@ -202,32 +178,32 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
 // Animated counter component
 function AnimatedCounter({ value, duration = 1000 }: { value: number; duration?: number }) {
   const [count, setCount] = useState(0)
-  
+
   useEffect(() => {
     let startTime: number
     const startValue = 0
-    
+
     const animate = (currentTime: number) => {
       if (!startTime) startTime = currentTime
       const progress = Math.min((currentTime - startTime) / duration, 1)
       setCount(Math.floor(progress * (value - startValue) + startValue))
       if (progress < 1) requestAnimationFrame(animate)
     }
-    
+
     requestAnimationFrame(animate)
   }, [value, duration])
-  
+
   return <span>{count.toLocaleString()}</span>
 }
 
 // Stat item component
-function StatItem({ 
-  icon: Icon, 
-  value, 
-  label, 
+function StatItem({
+  icon: Icon,
+  value,
+  label,
   animated = false,
-  onClick 
-}: { 
+  onClick
+}: {
   icon: React.ElementType
   value: number
   label: string
@@ -235,7 +211,7 @@ function StatItem({
   onClick?: () => void
 }) {
   return (
-    <button 
+    <button
       onClick={onClick}
       className={cn(
         "flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors",
@@ -260,11 +236,9 @@ export function ProjectDetail() {
   const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [likeCount, setLikeCount] = useState(0)
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isImageHovered, setIsImageHovered] = useState(false)
   const [copiedShare, setCopiedShare] = useState(false)
-  const [expandedPrompts, setExpandedPrompts] = useState<number[]>([])
   const [comments, setComments] = useState<NormalizedProject['comments']>([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
 
@@ -275,7 +249,7 @@ export function ProjectDetail() {
     const fetchProject = async () => {
       setIsLoading(true)
       setError(null)
-      
+
       try {
         const response = await api.getProject(id)
         const apiData = response.data as ApiProject
@@ -358,22 +332,10 @@ export function ProjectDetail() {
     setCurrentImageIndex((prev) => (prev - 1 + project.images.length) % project.images.length)
   }
 
-  const copyPrompt = (index: number, code: string) => {
-    navigator.clipboard.writeText(code)
-    setCopiedIndex(index)
-    setTimeout(() => setCopiedIndex(null), 2000)
-  }
-
   const copyShareLink = () => {
     navigator.clipboard.writeText(window.location.href)
     setCopiedShare(true)
     setTimeout(() => setCopiedShare(false), 2000)
-  }
-
-  const togglePromptExpanded = (index: number) => {
-    setExpandedPrompts(prev => 
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-    )
   }
 
   // Handle adding a comment
@@ -389,7 +351,7 @@ export function ProjectDetail() {
       })
 
       const newComment = response.data as NormalizedProject['comments'][0]
-      
+
       if (parentId) {
         // If it's a reply, we need to update the nested structure
         // For now, just refetch all comments to keep it simple
@@ -488,7 +450,7 @@ export function ProjectDetail() {
               className="mb-8"
             >
               {/* Main Image */}
-              <div 
+              <div
                 className="relative rounded-2xl overflow-hidden bg-muted group cursor-pointer"
                 onMouseEnter={() => setIsImageHovered(true)}
                 onMouseLeave={() => setIsImageHovered(false)}
@@ -550,8 +512,8 @@ export function ProjectDetail() {
                         onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index) }}
                         className={cn(
                           "w-2.5 h-2.5 rounded-full transition-all",
-                          index === currentImageIndex 
-                            ? 'bg-white scale-110 shadow-lg' 
+                          index === currentImageIndex
+                            ? 'bg-white scale-110 shadow-lg'
                             : 'bg-white/50 hover:bg-white/75'
                         )}
                       />
@@ -627,15 +589,15 @@ export function ProjectDetail() {
                         onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i) }}
                         className={cn(
                           "w-16 h-12 rounded-md overflow-hidden ring-2 transition-all",
-                          i === currentImageIndex 
-                            ? "ring-white" 
+                          i === currentImageIndex
+                            ? "ring-white"
                             : "ring-transparent opacity-50 hover:opacity-100"
                         )}
                       >
-                        <img 
-                          src={img} 
+                        <img
+                          src={img}
                           alt={`Thumbnail ${i + 1}`}
-                          className="w-full h-full object-cover" 
+                          className="w-full h-full object-cover"
                         />
                       </button>
                     ))}
@@ -803,12 +765,8 @@ export function ProjectDetail() {
               )}
 
               {/* Tabs */}
-              <Tabs defaultValue="prompts" className="mt-8">
+              <Tabs defaultValue="timeline" className="mt-8">
                 <TabsList className="mb-6 p-1 bg-muted/50 border border-border">
-                  <TabsTrigger value="prompts" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                    <Code2 className="w-4 h-4 mr-1.5" />
-                    Prompts
-                  </TabsTrigger>
                   <TabsTrigger value="timeline" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     <Clock className="w-4 h-4 mr-1.5" />
                     Timeline
@@ -819,119 +777,6 @@ export function ProjectDetail() {
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="prompts">
-                  {project.prompts.length === 0 ? (
-                    <Card className="border-border !py-0 !gap-0">
-                      <CardContent className="p-8 text-center text-muted-foreground">
-                        <Code2 className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        <p>No prompts shared for this project yet.</p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                  <motion.div
-                    className="space-y-4"
-                    variants={containerVariants}
-                    initial="hidden"
-                    animate="visible"
-                  >
-                    {project.prompts.map((prompt: { title: string; description: string; code: string }, index: number) => {
-                      const isExpanded = expandedPrompts.includes(index)
-                      const isLongPrompt = prompt.code.split('\n').length > 10
-                      
-                      return (
-                        <motion.div key={index} variants={itemVariants}>
-                          <Card className="border-border overflow-hidden !py-0 !gap-0">
-                            <CardContent className="p-0">
-                              {/* Header */}
-                              <div className="flex items-start justify-between p-4 border-b border-border">
-                                <div className="flex items-start gap-3">
-                                  <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                    <Code2 className="w-5 h-5 text-primary" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-semibold">{prompt.title}</h4>
-                                    <p className="text-sm text-muted-foreground mt-0.5">{prompt.description}</p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="secondary" className="text-xs font-medium">
-                                    {prompt.code.split('\n').length} lines
-                                  </Badge>
-                                  <Button
-                                    variant={copiedIndex === index ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => copyPrompt(index, prompt.code)}
-                                    className={cn(
-                                      "transition-all gap-2",
-                                      copiedIndex === index && "bg-green-500 hover:bg-green-600"
-                                    )}
-                                  >
-                                    {copiedIndex === index ? (
-                                      <>
-                                        <Check className="w-4 h-4" />
-                                        Copied!
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Copy className="w-4 h-4" />
-                                        Copy
-                                      </>
-                                    )}
-                                  </Button>
-                                </div>
-                              </div>
-
-                              {/* Prompt content */}
-                              <div className="relative">
-                                <div 
-                                  className={cn(
-                                    "overflow-hidden transition-all duration-300",
-                                    isLongPrompt && !isExpanded && "max-h-[240px]"
-                                  )}
-                                >
-                                  <div className="p-4 bg-muted/30">
-                                    <p className="text-sm leading-relaxed whitespace-pre-wrap text-foreground/90">
-                                      {prompt.code}
-                                    </p>
-                                  </div>
-                                </div>
-                                
-                                {/* Gradient fade for collapsed long prompts */}
-                                {isLongPrompt && !isExpanded && (
-                                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-muted/80 to-transparent pointer-events-none" />
-                                )}
-
-                                {/* Expand/Collapse button */}
-                                {isLongPrompt && (
-                                  <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => togglePromptExpanded(index)}
-                                    className="absolute bottom-3 left-1/2 -translate-x-1/2 shadow-sm"
-                                  >
-                                    {isExpanded ? (
-                                      <>
-                                        <ChevronUp className="w-4 h-4 mr-1.5" />
-                                        Show less
-                                      </>
-                                    ) : (
-                                      <>
-                                        <ChevronDown className="w-4 h-4 mr-1.5" />
-                                        Show more
-                                      </>
-                                    )}
-                                  </Button>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      )
-                    })}
-                  </motion.div>
-                  )}
-                </TabsContent>
-
                 <TabsContent value="timeline">
                   {project.timeline.length === 0 ? (
                     <Card className="border-border !py-0 !gap-0">
@@ -941,49 +786,49 @@ export function ProjectDetail() {
                       </CardContent>
                     </Card>
                   ) : (
-                  <Card className="border-border !py-0 !gap-0">
-                    <CardContent className="p-5">
-                      <h3 className="font-semibold mb-6 flex items-center gap-2">
-                        <Clock className="w-5 h-5 text-primary" />
-                        Build Journey
-                      </h3>
-                      <div className="relative">
-                        {/* Timeline line */}
-                        <div className="absolute left-[15px] top-3 bottom-3 w-px bg-primary/20" />
-                        
-                        <div className="space-y-6">
-                          {project.timeline.map((item: { date: string; title: string; description: string }, index: number) => {
-                            const icons = [Lightbulb, Code2, Users, Rocket]
-                            const Icon = icons[index % icons.length]
-                            
-                            return (
-                              <motion.div
-                                key={index}
-                                className="relative pl-10"
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: index * 0.1 }}
-                              >
-                                {/* Timeline dot */}
-                                <div className="absolute left-0 top-1 w-[31px] h-[31px] rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
-                                  <Icon className="w-3.5 h-3.5 text-primary" />
-                                </div>
-                                
-                                <div className="pt-0.5">
-                                  <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
-                                    <Calendar className="w-3 h-3" />
-                                    {item.date}
+                    <Card className="border-border !py-0 !gap-0">
+                      <CardContent className="p-5">
+                        <h3 className="font-semibold mb-6 flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-primary" />
+                          Build Journey
+                        </h3>
+                        <div className="relative">
+                          {/* Timeline line */}
+                          <div className="absolute left-[15px] top-3 bottom-3 w-px bg-primary/20" />
+
+                          <div className="space-y-6">
+                            {project.timeline.map((item: { date: string; title: string; description: string }, index: number) => {
+                              const icons = [Lightbulb, Code2, Users, Rocket]
+                              const Icon = icons[index % icons.length]
+
+                              return (
+                                <motion.div
+                                  key={index}
+                                  className="relative pl-10"
+                                  initial={{ opacity: 0, x: -20 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: index * 0.1 }}
+                                >
+                                  {/* Timeline dot */}
+                                  <div className="absolute left-0 top-1 w-[31px] h-[31px] rounded-full bg-primary/10 border-2 border-primary/30 flex items-center justify-center">
+                                    <Icon className="w-3.5 h-3.5 text-primary" />
                                   </div>
-                                  <h4 className="font-medium text-sm">{item.title}</h4>
-                                  <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
-                                </div>
-                              </motion.div>
-                            )
-                          })}
+
+                                  <div className="pt-0.5">
+                                    <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1.5">
+                                      <Calendar className="w-3 h-3" />
+                                      {item.date}
+                                    </div>
+                                    <h4 className="font-medium text-sm">{item.title}</h4>
+                                    <p className="text-sm text-muted-foreground mt-0.5">{item.description}</p>
+                                  </div>
+                                </motion.div>
+                              )
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      </CardContent>
+                    </Card>
                   )}
                 </TabsContent>
 
@@ -993,8 +838,8 @@ export function ProjectDetail() {
                       <Loader2 className="w-6 h-6 animate-spin text-primary" />
                     </div>
                   ) : (
-                    <CommentsSection 
-                      comments={comments} 
+                    <CommentsSection
+                      comments={comments}
                       onAddComment={handleAddComment}
                       onLikeComment={handleLikeComment}
                       onDeleteComment={handleDeleteComment}
@@ -1074,8 +919,8 @@ export function ProjectDetail() {
               </Card>
             </motion.div>
 
-            {/* Built With - only show if there are tools or stack */}
-            {(project.aiTools.length > 0 || project.techStack.length > 0) && (
+            {/* Built With - only show if there's a tech stack */}
+            {project.techStack.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1084,46 +929,20 @@ export function ProjectDetail() {
                 <Card className="border-border !py-0 !gap-0">
                   <CardContent className="p-4">
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-primary" />
-                      Built With
+                      <Code2 className="w-4 h-4 text-primary" />
+                      Technologies
                     </h3>
-                    
-                    {/* AI Tools */}
-                    {project.aiTools.length > 0 && (
-                      <div className="mb-4 p-2.5 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">AI Tools</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {project.aiTools.map((tool: string) => (
-                            <Badge 
-                              key={tool}
-                              variant="default" 
-                              className="bg-primary/15 text-primary font-medium text-xs"
-                            >
-                              <Sparkles className="w-3 h-3 mr-1" />
-                              {tool}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Tech Stack */}
-                    {project.techStack.length > 0 && (
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase tracking-wide mb-2 font-medium">Tech Stack</p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {project.techStack.map((tech: string) => (
-                            <Badge 
-                              key={tech}
-                              variant="outline" 
-                              className="text-xs"
-                            >
-                              {tech}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {project.techStack.map((tech: string) => (
+                        <Badge
+                          key={tech}
+                          variant="outline"
+                          className="text-xs"
+                        >
+                          {tech}
+                        </Badge>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -1139,7 +958,7 @@ export function ProjectDetail() {
                 <CardContent className="p-4">
                   <h3 className="font-semibold mb-3">Share this project</h3>
                   <div className="grid grid-cols-3 gap-3">
-                    <a 
+                    <a
                       href={`https://twitter.com/intent/tweet?text=Check out this amazing project: ${project.title}&url=${encodeURIComponent(window.location.href)}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1151,7 +970,7 @@ export function ProjectDetail() {
                         <span className="text-[10px]">X</span>
                       </Button>
                     </a>
-                    <a 
+                    <a
                       href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(window.location.href)}`}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -1161,9 +980,9 @@ export function ProjectDetail() {
                         <span className="text-[10px]">LinkedIn</span>
                       </Button>
                     </a>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className={cn(
                         "w-full h-auto py-3 flex flex-col gap-1.5 transition-all",
                         copiedShare ? "bg-green-500/10 border-green-500/30 text-green-600" : "hover:bg-muted"
@@ -1189,8 +1008,8 @@ export function ProjectDetail() {
                   <CardContent className="p-4">
                     <div className="flex items-baseline justify-between gap-2 mb-4">
                       <h3 className="font-semibold text-sm">More from {project.author.name}</h3>
-                      <Link 
-                        to={`/user/${project.author.username}`} 
+                      <Link
+                        to={`/user/${project.author.username}`}
                         className="text-xs text-primary hover:underline shrink-0"
                       >
                         View all

@@ -47,7 +47,8 @@ defmodule BackendWeb.AuthController do
       |> put_status(:service_unavailable)
       |> json(%{
         error: "oauth_not_configured",
-        message: "OAuth provider 'github' is not properly configured. Please check server environment variables.",
+        message:
+          "OAuth provider 'github' is not properly configured. Please check server environment variables.",
         hint: "Ensure GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET are set"
       })
     end

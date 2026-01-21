@@ -6,7 +6,6 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Search, Loader2, CheckCircle2 } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { SuggestedUser } from '@/lib/api'
-import { cn } from '@/lib/utils'
 
 interface NewMessageDialogProps {
   open: boolean

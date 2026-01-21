@@ -59,12 +59,14 @@ defmodule Backend.Feed do
       |> limit(^(limit + 1))
       |> Repo.all()
       |> Enum.map(fn result ->
-        post = Repo.preload(result.post, [
-          :user,
-          :media,
-          quoted_post: [:user, :media],
-          quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-        ])
+        post =
+          Repo.preload(result.post, [
+            :user,
+            :media,
+            quoted_post: [:user, :media],
+            quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+          ])
+
         %{
           id: post.id,
           type: "post",
@@ -83,6 +85,7 @@ defmodule Backend.Feed do
       |> Repo.all()
       |> Enum.map(fn result ->
         project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
+
         %{
           id: project.id,
           type: "project",
@@ -94,9 +97,10 @@ defmodule Backend.Feed do
       end)
 
     # Combine and sort by score
-    all_items = (posts ++ projects)
-    |> Enum.sort_by(& &1.score, :desc)
-    |> Enum.take(limit + 1)
+    all_items =
+      (posts ++ projects)
+      |> Enum.sort_by(& &1.score, :desc)
+      |> Enum.take(limit + 1)
 
     # Apply diversification to avoid too many posts from same user
     diversified_items = diversify_feed(all_items, limit)
@@ -144,11 +148,13 @@ defmodule Backend.Feed do
         |> limit(^(limit + 1))
         |> Repo.all()
         |> Enum.map(fn result ->
-          post = Repo.preload(result.post, [
-            :media,
-            quoted_post: [:user, :media],
-            quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-          ])
+          post =
+            Repo.preload(result.post, [
+              :media,
+              quoted_post: [:user, :media],
+              quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+            ])
+
           %{result | post: post}
         end)
 
@@ -178,9 +184,10 @@ defmodule Backend.Feed do
       reposts = get_following_reposts(followed_ids, cursor, limit)
 
       # Combine and sort by date
-      all_items = (posts ++ projects ++ reposts)
-      |> Enum.sort_by(& &1.sort_date, {:desc, DateTime})
-      |> Enum.take(limit + 1)
+      all_items =
+        (posts ++ projects ++ reposts)
+        |> Enum.sort_by(& &1.sort_date, {:desc, DateTime})
+        |> Enum.take(limit + 1)
 
       paginate_results(all_items, limit, current_user_id, :following)
     end
@@ -200,31 +207,37 @@ defmodule Backend.Feed do
       select: %{
         post: p,
         user: u,
-        score: fragment("""
-          (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
-           COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
-          POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
-        """,
-          p.likes_count,
-          p.comments_count,
-          p.reposts_count,
-          p.bookmarks_count,
-          p.quotes_count,
-          p.inserted_at
-        )
+        score:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count,
+            p.inserted_at
+          )
       },
-      order_by: [desc: fragment("""
-        (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
-         COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
-        POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
-      """,
-        p.likes_count,
-        p.comments_count,
-        p.reposts_count,
-        p.bookmarks_count,
-        p.quotes_count,
-        p.inserted_at
-      )]
+      order_by: [
+        desc:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count,
+            p.inserted_at
+          )
+      ]
     )
   end
 
@@ -238,31 +251,37 @@ defmodule Backend.Feed do
       select: %{
         project: proj,
         user: u,
-        score: fragment("""
-          (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
-           COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
-          POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
-        """,
-          proj.likes_count,
-          proj.comments_count,
-          proj.reposts_count,
-          proj.bookmarks_count,
-          proj.quotes_count,
-          proj.published_at
-        )
+        score:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.published_at
+          )
       },
-      order_by: [desc: fragment("""
-        (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
-         COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
-        POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
-      """,
-        proj.likes_count,
-        proj.comments_count,
-        proj.reposts_count,
-        proj.bookmarks_count,
-        proj.quotes_count,
-        proj.published_at
-      )]
+      order_by: [
+        desc:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.published_at
+          )
+      ]
     )
   end
 
@@ -275,41 +294,45 @@ defmodule Backend.Feed do
   end
 
   defp get_following_reposts(followed_ids, cursor, limit) do
-    query = from(r in Repost,
-      join: ru in assoc(r, :user),
-      where: r.user_id in ^followed_ids,
-      select: %{
-        id: r.id,
-        type: "repost",
-        repostable_type: r.repostable_type,
-        repostable_id: r.repostable_id,
-        reposter: ru,
-        sort_date: r.inserted_at
-      },
-      order_by: [desc: r.inserted_at]
-    )
-    |> apply_following_cursor_filter(cursor)
-    |> limit(^(limit + 1))
+    query =
+      from(r in Repost,
+        join: ru in assoc(r, :user),
+        where: r.user_id in ^followed_ids,
+        select: %{
+          id: r.id,
+          type: "repost",
+          repostable_type: r.repostable_type,
+          repostable_id: r.repostable_id,
+          reposter: ru,
+          sort_date: r.inserted_at
+        },
+        order_by: [desc: r.inserted_at]
+      )
+      |> apply_following_cursor_filter(cursor)
+      |> limit(^(limit + 1))
 
     Repo.all(query)
     |> Enum.map(fn repost ->
       load_reposted_item(repost)
     end)
-    |> Enum.filter(& &1 != nil)
+    |> Enum.filter(&(&1 != nil))
   end
 
   defp load_reposted_item(repost) do
     case repost.repostable_type do
       "Post" ->
         case Repo.get(Post, repost.repostable_id) do
-          nil -> nil
+          nil ->
+            nil
+
           post ->
-            post = Repo.preload(post, [
-              :user,
-              :media,
-              quoted_post: [:user, :media],
-              quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-            ])
+            post =
+              Repo.preload(post, [
+                :user,
+                :media,
+                quoted_post: [:user, :media],
+                quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+              ])
 
             %{
               id: repost.id,
@@ -323,7 +346,9 @@ defmodule Backend.Feed do
 
       "Project" ->
         case Repo.get(Project, repost.repostable_id) do
-          nil -> nil
+          nil ->
+            nil
+
           project ->
             project = Repo.preload(project, [:user, :ai_tools, :tech_stacks, :images])
 
@@ -337,7 +362,8 @@ defmodule Backend.Feed do
             }
         end
 
-      _ -> nil
+      _ ->
+        nil
     end
   end
 
@@ -346,21 +372,25 @@ defmodule Backend.Feed do
   # ============================================================================
 
   defp apply_cursor_filter(query, nil), do: query
+
   defp apply_cursor_filter(query, cursor) do
     case decode_score_cursor(cursor) do
       {:ok, score, _id} ->
         # Filter by score less than cursor score (for descending order)
         from(q in query, having: fragment("? < ?", fragment("score"), ^score))
+
       _ ->
         query
     end
   end
 
   defp apply_following_cursor_filter(query, nil), do: query
+
   defp apply_following_cursor_filter(query, cursor) do
     case decode_timestamp_cursor(cursor) do
       {:ok, timestamp, _id} ->
         from([p] in query, where: p.inserted_at < ^timestamp)
+
       _ ->
         query
     end
@@ -416,16 +446,17 @@ defmodule Backend.Feed do
 
   defp diversify_feed(items, limit) do
     # Limit to max 3 consecutive posts from the same user
-    {diversified, _} = Enum.reduce(items, {[], %{}}, fn item, {acc, user_counts} ->
-      user_id = item.user.id
-      count = Map.get(user_counts, user_id, 0)
+    {diversified, _} =
+      Enum.reduce(items, {[], %{}}, fn item, {acc, user_counts} ->
+        user_id = item.user.id
+        count = Map.get(user_counts, user_id, 0)
 
-      if count < 3 and length(acc) < limit do
-        {acc ++ [item], Map.put(user_counts, user_id, count + 1)}
-      else
-        {acc, user_counts}
-      end
-    end)
+        if count < 3 and length(acc) < limit do
+          {acc ++ [item], Map.put(user_counts, user_id, count + 1)}
+        else
+          {acc, user_counts}
+        end
+      end)
 
     diversified
   end
@@ -438,22 +469,25 @@ defmodule Backend.Feed do
     items_with_counts = add_engagement_counts(items)
 
     # Add engagement status if user is authenticated
-    items_with_status = if current_user_id do
-      add_engagement_status(items_with_counts, current_user_id)
-    else
-      items_with_counts
-    end
+    items_with_status =
+      if current_user_id do
+        add_engagement_status(items_with_counts, current_user_id)
+      else
+        items_with_counts
+      end
 
     # Generate next cursor
-    next_cursor = if has_more and length(items) > 0 do
-      last = List.last(items)
-      case feed_type do
-        :following -> encode_timestamp_cursor(last.sort_date, last.id)
-        :for_you -> encode_score_cursor(last.score || 0.0, last.id)
+    next_cursor =
+      if has_more and length(items) > 0 do
+        last = List.last(items)
+
+        case feed_type do
+          :following -> encode_timestamp_cursor(last.sort_date, last.id)
+          :for_you -> encode_score_cursor(last.score || 0.0, last.id)
+        end
+      else
+        nil
       end
-    else
-      nil
-    end
 
     %{
       items: items_with_status,
@@ -481,8 +515,10 @@ defmodule Backend.Feed do
     cond do
       Map.has_key?(item, :post) and item.post != nil ->
         Map.get(item.post, field, 0)
+
       Map.has_key?(item, :project) and item.project != nil ->
         Map.get(item.project, field, 0)
+
       true ->
         0
     end
@@ -505,8 +541,12 @@ defmodule Backend.Feed do
 
   defp get_item_type_and_id(item) do
     case item.type do
-      "post" -> {"Post", item.post.id}
-      "project" -> {"Project", item.project.id}
+      "post" ->
+        {"Post", item.post.id}
+
+      "project" ->
+        {"Project", item.project.id}
+
       "repost" ->
         if Map.has_key?(item, :post) and item.post != nil do
           {"Post", item.post.id}
@@ -535,23 +575,27 @@ defmodule Backend.Feed do
   Useful for debugging and testing.
   """
   def calculate_score(item) do
-    {likes, comments, reposts, bookmarks, quotes, inserted_at} = case item do
-      %Post{} = post ->
-        {post.likes_count || 0, post.comments_count || 0, post.reposts_count || 0,
-         post.bookmarks_count || 0, post.quotes_count || 0, post.inserted_at}
-      %Project{} = project ->
-        {project.likes_count || 0, project.comments_count || 0, project.reposts_count || 0,
-         project.bookmarks_count || 0, project.quotes_count || 0, project.published_at || project.inserted_at}
-      _ ->
-        {0, 0, 0, 0, 0, DateTime.utc_now()}
-    end
+    {likes, comments, reposts, bookmarks, quotes, inserted_at} =
+      case item do
+        %Post{} = post ->
+          {post.likes_count || 0, post.comments_count || 0, post.reposts_count || 0,
+           post.bookmarks_count || 0, post.quotes_count || 0, post.inserted_at}
+
+        %Project{} = project ->
+          {project.likes_count || 0, project.comments_count || 0, project.reposts_count || 0,
+           project.bookmarks_count || 0, project.quotes_count || 0,
+           project.published_at || project.inserted_at}
+
+        _ ->
+          {0, 0, 0, 0, 0, DateTime.utc_now()}
+      end
 
     weighted_engagement =
       likes * @engagement_weights.likes +
-      comments * @engagement_weights.comments +
-      reposts * @engagement_weights.reposts +
-      bookmarks * @engagement_weights.bookmarks +
-      quotes * @engagement_weights.quotes
+        comments * @engagement_weights.comments +
+        reposts * @engagement_weights.reposts +
+        bookmarks * @engagement_weights.bookmarks +
+        quotes * @engagement_weights.quotes
 
     age_hours = DateTime.diff(DateTime.utc_now(), inserted_at, :hour)
 

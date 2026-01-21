@@ -41,9 +41,12 @@ defmodule BackendWeb.NotificationJSON do
   end
 
   defp render_target(nil, _), do: nil
+
   defp render_target("Post", target_id) do
     case Repo.get(Backend.Content.Post, target_id) do
-      nil -> nil
+      nil ->
+        nil
+
       post ->
         %{
           type: "Post",
@@ -53,9 +56,12 @@ defmodule BackendWeb.NotificationJSON do
         }
     end
   end
+
   defp render_target("Project", target_id) do
     case Repo.get(Backend.Content.Project, target_id) do
-      nil -> nil
+      nil ->
+        nil
+
       project ->
         %{
           type: "Project",
@@ -65,6 +71,7 @@ defmodule BackendWeb.NotificationJSON do
         }
     end
   end
+
   defp render_target(_, _), do: nil
 
   defp get_initials(name) do

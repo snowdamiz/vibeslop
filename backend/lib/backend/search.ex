@@ -32,22 +32,24 @@ defmodule Backend.Search do
     until_match = Regex.run(~r/until:([\d-]+)/, query_string)
 
     # Extract quoted phrases
-    quoted_phrases = Regex.scan(~r/"([^"]+)"/, query_string) |> Enum.map(fn [_, phrase] -> phrase end)
+    quoted_phrases =
+      Regex.scan(~r/"([^"]+)"/, query_string) |> Enum.map(fn [_, phrase] -> phrase end)
 
     # Extract excluded terms
     excluded_terms = Regex.scan(~r/-(\w+)/, query_string) |> Enum.map(fn [_, term] -> term end)
 
     # Clean query by removing operators
-    clean_query = query_string
-    |> String.replace(~r/from:\w+/, "")
-    |> String.replace(~r/has:\w+/, "")
-    |> String.replace(~r/tool:\w+/, "")
-    |> String.replace(~r/stack:\w+/, "")
-    |> String.replace(~r/since:[\d-]+/, "")
-    |> String.replace(~r/until:[\d-]+/, "")
-    |> String.replace(~r/"[^"]+"/, "")
-    |> String.replace(~r/-\w+/, "")
-    |> String.trim()
+    clean_query =
+      query_string
+      |> String.replace(~r/from:\w+/, "")
+      |> String.replace(~r/has:\w+/, "")
+      |> String.replace(~r/tool:\w+/, "")
+      |> String.replace(~r/stack:\w+/, "")
+      |> String.replace(~r/since:[\d-]+/, "")
+      |> String.replace(~r/until:[\d-]+/, "")
+      |> String.replace(~r/"[^"]+"/, "")
+      |> String.replace(~r/-\w+/, "")
+      |> String.trim()
 
     %{
       query: clean_query,
@@ -110,30 +112,39 @@ defmodule Backend.Search do
       # Trigram similarity threshold: 0.3 (30% similarity)
       query =
         from u in User,
-          where: fragment(
-            "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.3",
-            u.search_vector, ^query_string,
-            u.username, ^query_string,
-            u.display_name, ^query_string
-          ),
-          order_by: [
-            desc: fragment(
-              "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
-              u.username, ^query_string,
-              u.display_name, ^query_string,
-              u.search_vector, ^query_string
+          where:
+            fragment(
+              "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.3",
+              u.search_vector,
+              ^query_string,
+              u.username,
+              ^query_string,
+              u.display_name,
+              ^query_string
             ),
+          order_by: [
+            desc:
+              fragment(
+                "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+                u.username,
+                ^query_string,
+                u.display_name,
+                ^query_string,
+                u.search_vector,
+                ^query_string
+              ),
             asc: u.username
           ],
           limit: ^limit,
           offset: ^offset,
           select: u
 
-      query = if exclude_user_id do
-        from u in query, where: u.id != ^exclude_user_id
-      else
-        query
-      end
+      query =
+        if exclude_user_id do
+          from u in query, where: u.id != ^exclude_user_id
+        else
+          query
+        end
 
       Repo.all(query)
     end
@@ -166,68 +177,82 @@ defmodule Backend.Search do
         offset: ^offset
 
     # Apply full-text search + trigram fuzzy matching with relevance ranking
-    query = if query_string != "" do
-      from [proj, u] in query,
-        where: fragment(
-          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.25",
-          proj.search_vector, ^query_string,
-          proj.title, ^query_string,
-          proj.description, ^query_string
-        ),
-        order_by: [
-          desc: fragment(
-            "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
-            proj.title, ^query_string,
-            proj.description, ^query_string,
-            proj.search_vector, ^query_string
-          )
-        ]
-    else
-      query
-    end
+    query =
+      if query_string != "" do
+        from [proj, u] in query,
+          where:
+            fragment(
+              "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3 OR similarity(?, ?) > 0.25",
+              proj.search_vector,
+              ^query_string,
+              proj.title,
+              ^query_string,
+              proj.description,
+              ^query_string
+            ),
+          order_by: [
+            desc:
+              fragment(
+                "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
+                proj.title,
+                ^query_string,
+                proj.description,
+                ^query_string,
+                proj.search_vector,
+                ^query_string
+              )
+          ]
+      else
+        query
+      end
 
     # Apply from_user filter
-    query = if parsed.from_user do
-      from [proj, u] in query,
-        where: u.username == ^parsed.from_user
-    else
-      query
-    end
+    query =
+      if parsed.from_user do
+        from [proj, u] in query,
+          where: u.username == ^parsed.from_user
+      else
+        query
+      end
 
     # Apply tools filter
-    query = if parsed.tools != [] do
-      from [proj, u] in query,
-        join: tools_rel in assoc(proj, :ai_tools),
-        where: tools_rel.slug in ^parsed.tools
-    else
-      query
-    end
+    query =
+      if parsed.tools != [] do
+        from [proj, u] in query,
+          join: tools_rel in assoc(proj, :ai_tools),
+          where: tools_rel.slug in ^parsed.tools
+      else
+        query
+      end
 
     # Apply stacks filter
-    query = if parsed.stacks != [] do
-      from [proj, u] in query,
-        join: stacks_rel in assoc(proj, :tech_stacks),
-        where: stacks_rel.slug in ^parsed.stacks
-    else
-      query
-    end
+    query =
+      if parsed.stacks != [] do
+        from [proj, u] in query,
+          join: stacks_rel in assoc(proj, :tech_stacks),
+          where: stacks_rel.slug in ^parsed.stacks
+      else
+        query
+      end
 
     # Apply date filters
-    query = if parsed.since do
-      from [proj] in query,
-        where: proj.published_at >= ^parsed.since
-    else
-      query
-    end
+    query =
+      if parsed.since do
+        from [proj] in query,
+          where: proj.published_at >= ^parsed.since
+      else
+        query
+      end
 
-    query = if parsed.until do
-      from [proj] in query,
-        where: proj.published_at <= ^parsed.until
-    else
-      # Fallback order when no search query
-      from [proj, u] in query,
-        order_by: [desc: proj.published_at]
-    end
+    query =
+      if parsed.until do
+        from [proj] in query,
+          where: proj.published_at <= ^parsed.until
+      else
+        # Fallback order when no search query
+        from [proj, u] in query,
+          order_by: [desc: proj.published_at]
+      end
 
     results = Repo.all(query)
 
@@ -261,10 +286,13 @@ defmodule Backend.Search do
         left_join: quoted_proj in assoc(p, :quoted_project),
         left_join: quoted_proj_user in assoc(quoted_proj, :user),
         group_by: [
-          p.id, u.id,
+          p.id,
+          u.id,
           linked_proj.id,
-          quoted_post.id, quoted_post_user.id,
-          quoted_proj.id, quoted_proj_user.id
+          quoted_post.id,
+          quoted_post_user.id,
+          quoted_proj.id,
+          quoted_proj_user.id
         ],
         select: %{
           post: p,
@@ -282,64 +310,76 @@ defmodule Backend.Search do
         offset: ^offset
 
     # Apply full-text search + trigram fuzzy matching with relevance ranking
-    query = if query_string != "" do
-      from [p] in query,
-        where: fragment(
-          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
-          p.search_vector, ^query_string,
-          p.content, ^query_string
-        ),
-        order_by: [
-          desc: fragment(
-            "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
-            p.content, ^query_string,
-            p.search_vector, ^query_string
-          )
-        ]
-    else
-      query
-    end
+    query =
+      if query_string != "" do
+        from [p] in query,
+          where:
+            fragment(
+              "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
+              p.search_vector,
+              ^query_string,
+              p.content,
+              ^query_string
+            ),
+          order_by: [
+            desc:
+              fragment(
+                "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+                p.content,
+                ^query_string,
+                p.search_vector,
+                ^query_string
+              )
+          ]
+      else
+        query
+      end
 
     # Apply from_user filter
-    query = if parsed.from_user do
-      from [p, u] in query,
-        where: u.username == ^parsed.from_user
-    else
-      query
-    end
+    query =
+      if parsed.from_user do
+        from [p, u] in query,
+          where: u.username == ^parsed.from_user
+      else
+        query
+      end
 
     # Apply has:media filter
-    query = if "media" in parsed.has do
-      from [p] in query,
-        where: fragment("? IS NOT NULL AND array_length(?, 1) > 0", p.media, p.media)
-    else
-      query
-    end
+    query =
+      if "media" in parsed.has do
+        from [p] in query,
+          where: fragment("? IS NOT NULL AND array_length(?, 1) > 0", p.media, p.media)
+      else
+        query
+      end
 
     # Apply has:project filter
-    query = if "project" in parsed.has do
-      from [p] in query,
-        where: not is_nil(p.linked_project_id)
-    else
-      query
-    end
+    query =
+      if "project" in parsed.has do
+        from [p] in query,
+          where: not is_nil(p.linked_project_id)
+      else
+        query
+      end
 
     # Apply date filters
-    query = if parsed.since do
-      from [p] in query,
-        where: p.inserted_at >= ^parsed.since
-    else
-      query
-    end
+    query =
+      if parsed.since do
+        from [p] in query,
+          where: p.inserted_at >= ^parsed.since
+      else
+        query
+      end
 
-    query = if parsed.until do
-      from [p] in query,
-        where: p.inserted_at <= ^parsed.until
-    else
-      # Fallback order when no search query
-      from [p] in query,
-        order_by: [desc: p.inserted_at]
-    end
+    query =
+      if parsed.until do
+        from [p] in query,
+          where: p.inserted_at <= ^parsed.until
+      else
+        # Fallback order when no search query
+        from [p] in query,
+          order_by: [desc: p.inserted_at]
+      end
 
     results = Repo.all(query)
 
@@ -378,19 +418,23 @@ defmodule Backend.Search do
       from proj in Project,
         join: u in assoc(proj, :user),
         left_join: imgs in assoc(proj, :images),
-        where: proj.status == "published" and (
-          fragment("? @@ plainto_tsquery('english', ?)", proj.search_vector, ^query_string) or
-          fragment("similarity(?, ?) > 0.3", proj.title, ^query_string) or
-          fragment("similarity(?, ?) > 0.25", proj.description, ^query_string)
-        ),
+        where:
+          proj.status == "published" and
+            (fragment("? @@ plainto_tsquery('english', ?)", proj.search_vector, ^query_string) or
+               fragment("similarity(?, ?) > 0.3", proj.title, ^query_string) or
+               fragment("similarity(?, ?) > 0.25", proj.description, ^query_string)),
         group_by: [proj.id, u.id],
         order_by: [
-          desc: fragment(
-            "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
-            proj.title, ^query_string,
-            proj.description, ^query_string,
-            proj.search_vector, ^query_string
-          )
+          desc:
+            fragment(
+              "GREATEST(similarity(?, ?), similarity(?, ?) * 0.8, ts_rank(?, plainto_tsquery('english', ?)))",
+              proj.title,
+              ^query_string,
+              proj.description,
+              ^query_string,
+              proj.search_vector,
+              ^query_string
+            )
         ],
         limit: ^limit,
         select: %{
@@ -410,17 +454,23 @@ defmodule Backend.Search do
     Repo.all(
       from p in Post,
         join: u in assoc(p, :user),
-        where: fragment(
-          "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
-          p.search_vector, ^query_string,
-          p.content, ^query_string
-        ),
+        where:
+          fragment(
+            "? @@ plainto_tsquery('english', ?) OR similarity(?, ?) > 0.3",
+            p.search_vector,
+            ^query_string,
+            p.content,
+            ^query_string
+          ),
         order_by: [
-          desc: fragment(
-            "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
-            p.content, ^query_string,
-            p.search_vector, ^query_string
-          )
+          desc:
+            fragment(
+              "GREATEST(similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+              p.content,
+              ^query_string,
+              p.search_vector,
+              ^query_string
+            )
         ],
         limit: ^limit,
         select: %{
@@ -434,10 +484,11 @@ defmodule Backend.Search do
   # Helper function to add engagement status to items
   defp add_engagement_status(items, user_id, item_type) do
     Enum.map(items, fn item ->
-      item_id = case item_type do
-        "Post" -> item.post.id
-        "Project" -> item.project.id
-      end
+      item_id =
+        case item_type do
+          "Post" -> item.post.id
+          "Project" -> item.project.id
+        end
 
       item
       |> Map.put(:liked, Backend.Social.has_liked?(user_id, item_type, item_id))

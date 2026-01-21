@@ -70,24 +70,26 @@ defmodule BackendWeb.ProjectJSON do
       liked: Map.get(project_data, :liked, false),
       bookmarked: Map.get(project_data, :bookmarked, false),
       created_at: format_datetime(project.published_at || project.inserted_at),
-      images: Enum.map(project.images || [], fn img ->
-        %{id: img.id, url: img.url, alt_text: img.alt_text}
-      end),
-      highlights: Enum.map(project.highlights || [], fn h ->
-        %{id: h.id, content: h.content}
-      end),
-      prompts: Enum.map(project.prompts || [], fn p ->
-        %{id: p.id, title: p.title, description: p.description, code: p.code}
-      end),
-      timeline: Enum.map(project.timeline_entries || [], fn t ->
-        %{id: t.id, date: t.occurred_at, title: t.title, description: t.description}
-      end),
-      ai_tools: Enum.map(project.ai_tools || [], fn t ->
-        %{id: t.id, name: t.name, slug: t.slug}
-      end),
-      tech_stack: Enum.map(project.tech_stacks || [], fn t ->
-        %{id: t.id, name: t.name, slug: t.slug, category: t.category}
-      end),
+      images:
+        Enum.map(project.images || [], fn img ->
+          %{id: img.id, url: img.url, alt_text: img.alt_text}
+        end),
+      highlights:
+        Enum.map(project.highlights || [], fn h ->
+          %{id: h.id, content: h.content}
+        end),
+      timeline:
+        Enum.map(project.timeline_entries || [], fn t ->
+          %{id: t.id, date: t.occurred_at, title: t.title, description: t.description}
+        end),
+      ai_tools:
+        Enum.map(project.ai_tools || [], fn t ->
+          %{id: t.id, name: t.name, slug: t.slug}
+        end),
+      tech_stack:
+        Enum.map(project.tech_stacks || [], fn t ->
+          %{id: t.id, name: t.name, slug: t.slug, category: t.category}
+        end),
       author: %{
         id: user.id,
         name: user.display_name,
@@ -118,6 +120,7 @@ defmodule BackendWeb.ProjectJSON do
   end
 
   defp truncate_text(nil, _max_length), do: nil
+
   defp truncate_text(text, max_length) do
     if String.length(text) <= max_length do
       text

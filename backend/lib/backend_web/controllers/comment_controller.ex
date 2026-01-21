@@ -19,10 +19,11 @@ defmodule BackendWeb.CommentController do
         # Validate type
         if commentable_type in ["Post", "Project"] do
           # Get current user ID if authenticated (optional auth)
-          current_user_id = case conn.assigns[:current_user] do
-            %{id: id} -> id
-            _ -> nil
-          end
+          current_user_id =
+            case conn.assigns[:current_user] do
+              %{id: id} -> id
+              _ -> nil
+            end
 
           comments = Content.list_comments(commentable_type, id, current_user_id: current_user_id)
           render(conn, :index, comments: comments)
@@ -31,6 +32,7 @@ defmodule BackendWeb.CommentController do
           |> put_status(:bad_request)
           |> json(%{error: "Invalid commentable type. Must be 'post' or 'project'."})
         end
+
       :error ->
         conn
         |> put_status(:bad_request)
@@ -61,6 +63,7 @@ defmodule BackendWeb.CommentController do
         conn
         |> put_status(:created)
         |> render(:show, comment: comment)
+
       {:error, changeset} ->
         conn
         |> put_status(:unprocessable_entity)

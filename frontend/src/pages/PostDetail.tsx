@@ -114,7 +114,7 @@ export function PostDetail() {
     const fetchPost = async () => {
       setIsLoading(true)
       setError(null)
-      
+
       try {
         const response = await api.getPost(id)
         const postData = response.data as typeof mockPostData & { impressions?: number }
@@ -308,7 +308,7 @@ export function PostDetail() {
     <div className="min-h-screen pb-20">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
+        <div className="mx-auto flex items-center gap-4 px-4 h-14">
           <Link to="/">
             <Button variant="ghost" size="icon" className="rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -400,7 +400,7 @@ export function PostDetail() {
             <div className="flex items-center gap-1">
               {/* Comment */}
               <button
-                onClick={() => {}}
+                onClick={() => { }}
                 className="flex items-center gap-1.5 group"
               >
                 <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
@@ -508,8 +508,8 @@ export function PostDetail() {
           </div>
         ) : (
           <div className="px-4">
-            <CommentsSection 
-              comments={comments} 
+            <CommentsSection
+              comments={comments}
               onAddComment={handleAddComment}
               onLikeComment={handleLikeComment}
               onDeleteComment={handleDeleteComment}

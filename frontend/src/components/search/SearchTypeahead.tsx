@@ -43,7 +43,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
-  const debounceTimerRef = useRef<NodeJS.Timeout>()
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   // Fetch suggestions with debouncing
   const fetchSuggestions = useCallback(async (searchQuery: string) => {
@@ -64,26 +64,32 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
     }
   }, [])
 
-  // Debounce search queries
-  useEffect(() => {
+  // Handle input change with debouncing
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    setQuery(value)
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
     }
 
-    if (query.trim()) {
+    if (value.trim()) {
       debounceTimerRef.current = setTimeout(() => {
-        fetchSuggestions(query)
+        fetchSuggestions(value)
       }, 300)
     } else {
       setSuggestions({ users: [], projects: [], posts: [] })
     }
+  }
 
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
       }
     }
-  }, [query, fetchSuggestions])
+  }, [])
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -145,7 +151,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
           type="text"
           placeholder="Search..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={handleInputChange}
           onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           onKeyDown={handleKeyDown}

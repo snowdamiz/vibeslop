@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Search, Star, GitFork, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, Star, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export interface GitHubRepo {
@@ -32,7 +32,7 @@ interface RepoSelectorProps {
 export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  
+
   // Calculate items per page based on viewport height (stable, not content-dependent)
   const itemsPerPage = useMemo(() => {
     // Dialog max-height is 90vh, account for fixed elements:
@@ -43,17 +43,17 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
     // - Footer buttons: ~72px
     // - Dialog padding/borders: ~48px
     const fixedHeight = 328
-    
+
     // Each repo item is ~110px (accounts for items with 2-line descriptions + gap)
     const itemHeight = 110
-    
+
     // Calculate available height for repo list
     const dialogMaxHeight = window.innerHeight * 0.9
     const availableHeight = dialogMaxHeight - fixedHeight
-    
+
     // Calculate how many items fit
     const calculatedItems = Math.floor(availableHeight / itemHeight)
-    
+
     // Ensure at least 3 items, max 6 items
     return Math.max(3, Math.min(6, calculatedItems))
   }, [])
@@ -76,10 +76,6 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
   const endIndex = startIndex + itemsPerPage
   const paginatedRepos = filteredRepos.slice(startIndex, endIndex)
 
-  // Reset to page 1 when search changes
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -130,7 +126,10 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
         <Input
           placeholder="Search repositories..."
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => {
+            setSearchQuery(e.target.value)
+            setCurrentPage(1)
+          }}
           className="pl-9"
         />
       </div>
@@ -166,13 +165,13 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
                       </span>
                     )}
                   </div>
-                  
+
                   {repo.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
                       {repo.description}
                     </p>
                   )}
-                  
+
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">
                     {repo.language && (
                       <span className="flex items-center gap-1">

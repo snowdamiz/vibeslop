@@ -17,46 +17,53 @@ defmodule BackendWeb.PostController do
     sort_by = Map.get(params, "sort_by", "recent")
 
     # Get current user if authenticated (from optional auth plug)
-    current_user_id = case conn.assigns[:current_user] do
-      nil -> nil
-      user -> user.id
-    end
+    current_user_id =
+      case conn.assigns[:current_user] do
+        nil -> nil
+        user -> user.id
+      end
 
     case Map.get(params, "type") do
       "explore" ->
         # Legacy explore endpoint - still uses offset pagination
         offset = parse_int(Map.get(params, "offset", "0"), 0)
-        posts = Content.list_explore_posts(
-          limit: limit,
-          offset: offset,
-          search: search,
-          tools: tools,
-          stacks: stacks,
-          sort_by: sort_by
-        )
+
+        posts =
+          Content.list_explore_posts(
+            limit: limit,
+            offset: offset,
+            search: search,
+            tools: tools,
+            stacks: stacks,
+            sort_by: sort_by
+          )
+
         render(conn, :index, posts: posts)
+
       _ ->
         # Use new Feed module with cursor pagination
-        feed_result = case feed_type do
-          "following" ->
-            if current_user_id do
-              Feed.following_feed(current_user_id,
+        feed_result =
+          case feed_type do
+            "following" ->
+              if current_user_id do
+                Feed.following_feed(current_user_id,
+                  limit: limit,
+                  cursor: cursor,
+                  current_user_id: current_user_id
+                )
+              else
+                # Unauthenticated users get empty following feed
+                %{items: [], next_cursor: nil, has_more: false}
+              end
+
+            _ ->
+              # "for-you" algorithmic feed
+              Feed.for_you_feed(
                 limit: limit,
                 cursor: cursor,
                 current_user_id: current_user_id
               )
-            else
-              # Unauthenticated users get empty following feed
-              %{items: [], next_cursor: nil, has_more: false}
-            end
-          _ ->
-            # "for-you" algorithmic feed
-            Feed.for_you_feed(
-              limit: limit,
-              cursor: cursor,
-              current_user_id: current_user_id
-            )
-        end
+          end
 
         render(conn, :index_unified, feed_result: feed_result)
     end
@@ -68,6 +75,7 @@ defmodule BackendWeb.PostController do
       :error -> default
     end
   end
+
   defp parse_int(value, _default) when is_integer(value), do: value
   defp parse_int(_, default), do: default
 
@@ -76,13 +84,16 @@ defmodule BackendWeb.PostController do
     case Ecto.UUID.cast(id) do
       {:ok, _uuid} ->
         case Content.get_post!(id) do
-          {:ok, post} -> render(conn, :show, post: post)
+          {:ok, post} ->
+            render(conn, :show, post: post)
+
           {:error, :not_found} ->
             conn
             |> put_status(:not_found)
             |> put_view(json: BackendWeb.ErrorJSON)
             |> render(:"404")
         end
+
       :error ->
         # Invalid UUID format - return 404
         conn

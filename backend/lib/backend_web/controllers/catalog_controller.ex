@@ -9,14 +9,15 @@ defmodule BackendWeb.CatalogController do
     tools = Catalog.list_ai_tools()
 
     json(conn, %{
-      data: Enum.map(tools, fn tool ->
-        %{
-          id: tool.id,
-          name: tool.name,
-          slug: tool.slug,
-          icon_url: tool.icon_url
-        }
-      end)
+      data:
+        Enum.map(tools, fn tool ->
+          %{
+            id: tool.id,
+            name: tool.name,
+            slug: tool.slug,
+            icon_url: tool.icon_url
+          }
+        end)
     })
   end
 
@@ -24,14 +25,15 @@ defmodule BackendWeb.CatalogController do
     stacks = Catalog.list_tech_stacks()
 
     json(conn, %{
-      data: Enum.map(stacks, fn stack ->
-        %{
-          id: stack.id,
-          name: stack.name,
-          slug: stack.slug,
-          category: stack.category
-        }
-      end)
+      data:
+        Enum.map(stacks, fn stack ->
+          %{
+            id: stack.id,
+            name: stack.name,
+            slug: stack.slug,
+            category: stack.category
+          }
+        end)
     })
   end
 end

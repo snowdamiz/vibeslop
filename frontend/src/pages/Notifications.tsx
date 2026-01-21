@@ -20,6 +20,11 @@ import {
   Settings,
   CheckCheck,
   Loader2,
+  DollarSign,
+  CheckCircle,
+  XCircle,
+  Trophy,
+  Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type Notification } from '@/lib/api'
@@ -39,6 +44,16 @@ const getNotificationIcon = (type: Notification['type']) => {
       return { icon: Repeat2, color: 'text-green-500', bg: 'bg-green-500/10' }
     case 'mention':
       return { icon: AtSign, color: 'text-primary', bg: 'bg-primary/10' }
+    case 'bid_received':
+      return { icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
+    case 'bid_accepted':
+      return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' }
+    case 'bid_rejected':
+      return { icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-500/10' }
+    case 'gig_completed':
+      return { icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-500/10' }
+    case 'review_received':
+      return { icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/10' }
   }
 }
 
@@ -60,6 +75,16 @@ const getNotificationText = (notification: Notification) => {
         : 'reposted your post'
     case 'mention':
       return 'mentioned you in a post'
+    case 'bid_received':
+      return 'placed a bid on your gig'
+    case 'bid_accepted':
+      return 'hired you for a gig'
+    case 'bid_rejected':
+      return 'The gig you bid on was filled'
+    case 'gig_completed':
+      return 'marked your gig as complete'
+    case 'review_received':
+      return 'left you a review'
   }
 }
 
@@ -68,6 +93,9 @@ const getNotificationLink = (notification: Notification) => {
     return `/user/${notification.actor.username}`
   }
   if (notification.target) {
+    if (notification.target.type === 'Gig') {
+      return `/gigs/${notification.target.id}`
+    }
     return notification.target.type === 'Project'
       ? `/project/${notification.target.id}`
       : `/post/${notification.target.id}`
@@ -79,16 +107,16 @@ const formatTimeAgo = (dateString: string) => {
   const date = new Date(dateString)
   const now = new Date()
   const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60))
-  
+
   if (diffInMinutes < 1) return 'now'
   if (diffInMinutes < 60) return `${diffInMinutes}m`
-  
+
   const diffInHours = Math.floor(diffInMinutes / 60)
   if (diffInHours < 24) return `${diffInHours}h`
-  
+
   const diffInDays = Math.floor(diffInHours / 24)
   if (diffInDays < 7) return `${diffInDays}d`
-  
+
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
@@ -233,12 +261,14 @@ export function Notifications() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center justify-between px-4 h-14">
-          <div>
-            <h1 className="font-bold text-lg leading-tight">Notifications</h1>
-            {unreadCount > 0 && (
-              <p className="text-xs text-muted-foreground">{unreadCount} unread</p>
-            )}
+        <div className="mx-auto flex items-center justify-between px-4 h-14">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="font-bold text-lg leading-tight">Notifications</h1>
+              <p className="text-xs text-muted-foreground">
+                {unreadCount} {unreadCount === 1 ? 'unread' : 'unread'}
+              </p>
+            </div>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

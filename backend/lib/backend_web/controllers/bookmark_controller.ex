@@ -17,13 +17,16 @@ defmodule BackendWeb.BookmarkController do
         case Social.toggle_bookmark(current_user.id, bookmarkable_type, id) do
           {:ok, :bookmarked, _bookmark} ->
             json(conn, %{success: true, bookmarked: true})
+
           {:ok, :unbookmarked, _bookmark} ->
             json(conn, %{success: true, bookmarked: false})
+
           {:error, changeset} ->
             conn
             |> put_status(:unprocessable_entity)
             |> json(%{error: "Unable to toggle bookmark", details: translate_errors(changeset)})
         end
+
       :error ->
         conn
         |> put_status(:bad_request)
@@ -39,29 +42,31 @@ defmodule BackendWeb.BookmarkController do
     bookmarks = Social.list_user_bookmarks(current_user.id, limit: limit, offset: offset)
 
     # Convert bookmarks to feed format with actual counts
-    items = Enum.map(bookmarks, fn %{type: type, item: item} ->
-      likes_count = Social.get_likes_count(type, item.id)
-      reposts_count = Social.get_reposts_count(type, item.id)
-      comments_count = get_comments_count(type, item.id)
+    items =
+      Enum.map(bookmarks, fn %{type: type, item: item} ->
+        likes_count = Social.get_likes_count(type, item.id)
+        reposts_count = Social.get_reposts_count(type, item.id)
+        comments_count = get_comments_count(type, item.id)
 
-      case type do
-        "Post" ->
-          %{
-            post: item,
-            user: item.user,
-            likes_count: likes_count,
-            comments_count: comments_count,
-            reposts_count: reposts_count
-          }
-        "Project" ->
-          %{
-            project: item,
-            likes_count: likes_count,
-            comments_count: comments_count,
-            reposts_count: reposts_count
-          }
-      end
-    end)
+        case type do
+          "Post" ->
+            %{
+              post: item,
+              user: item.user,
+              likes_count: likes_count,
+              comments_count: comments_count,
+              reposts_count: reposts_count
+            }
+
+          "Project" ->
+            %{
+              project: item,
+              likes_count: likes_count,
+              comments_count: comments_count,
+              reposts_count: reposts_count
+            }
+        end
+      end)
 
     conn
     |> put_view(json: BackendWeb.UserJSON)

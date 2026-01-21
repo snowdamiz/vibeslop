@@ -50,6 +50,19 @@ config :ueberauth, Ueberauth,
 config :hammer,
   backend: {Hammer.Backend.ETS, [expiry_ms: 60_000 * 60 * 2, cleanup_interval_ms: 60_000 * 10]}
 
+# Configure Oban for background job processing
+config :backend, Oban,
+  repo: Backend.Repo,
+  plugins: [
+    Oban.Plugins.Pruner,
+    {Oban.Plugins.Cron,
+     crontab: [
+       # Run developer score calculation daily at 3 AM UTC
+       {"0 3 * * *", Backend.Workers.DeveloperScoreWorker}
+     ]}
+  ],
+  queues: [default: 10, developer_scores: 2]
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

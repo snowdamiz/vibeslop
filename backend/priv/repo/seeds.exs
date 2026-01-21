@@ -163,7 +163,8 @@ defmodule Seeds do
         email: "sarah@example.com",
         username: "sarahc",
         display_name: "Sarah Chen",
-        bio: "Full-stack developer passionate about developer tools. Building things that make developers' lives easier.",
+        bio:
+          "Full-stack developer passionate about developer tools. Building things that make developers' lives easier.",
         location: "San Francisco, CA",
         github_username: "sarahc",
         is_verified: true
@@ -238,8 +239,10 @@ defmodule Seeds do
         id: generate_uuid(),
         user_id: sarah_id,
         title: "AI-Powered Code Review Dashboard",
-        description: "A real-time dashboard that uses Claude to analyze pull requests and provide actionable feedback.",
-        long_description: "This project started as a weekend experiment and evolved into a full-featured code review tool. The dashboard connects to your GitHub repositories and automatically analyzes every pull request using Claude.",
+        description:
+          "A real-time dashboard that uses Claude to analyze pull requests and provide actionable feedback.",
+        long_description:
+          "This project started as a weekend experiment and evolved into a full-featured code review tool. The dashboard connects to your GitHub repositories and automatically analyzes every pull request using Claude.",
         status: "published",
         github_url: "https://github.com/sarahc/code-review-dashboard",
         live_url: "https://codereview.example.com",
@@ -251,8 +254,10 @@ defmodule Seeds do
         id: generate_uuid(),
         user_id: marcus_id,
         title: "Conversational Data Explorer",
-        description: "Chat with your data using natural language. Built in a weekend with v0 and GPT-4.",
-        long_description: "A tool that lets you explore your database using plain English. Just ask questions and get insights.",
+        description:
+          "Chat with your data using natural language. Built in a weekend with v0 and GPT-4.",
+        long_description:
+          "A tool that lets you explore your database using plain English. Just ask questions and get insights.",
         status: "published",
         github_url: "https://github.com/marcusj/data-explorer",
         published_at: DateTime.add(now, -5 * 86400, :second),
@@ -263,8 +268,10 @@ defmodule Seeds do
         id: generate_uuid(),
         user_id: luna_id,
         title: "Generative Art Studio",
-        description: "Create stunning visuals with AI. A creative playground combining multiple AI tools.",
-        long_description: "An interactive studio for creating AI-generated art with real-time preview and editing.",
+        description:
+          "Create stunning visuals with AI. A creative playground combining multiple AI tools.",
+        long_description:
+          "An interactive studio for creating AI-generated art with real-time preview and editing.",
         status: "published",
         live_url: "https://artstudio.example.com",
         published_at: DateTime.add(now, -8 * 86400, :second),
@@ -339,28 +346,32 @@ defmodule Seeds do
       %{
         id: generate_uuid(),
         user_id: sarah_id,
-        content: "Just discovered you can use Claude to refactor entire modules at once. Game changer for legacy codebases! The key is giving it enough context about your patterns.",
+        content:
+          "Just discovered you can use Claude to refactor entire modules at once. Game changer for legacy codebases! The key is giving it enough context about your patterns.",
         inserted_at: DateTime.add(now, -2 * 3600, :second),
         updated_at: DateTime.add(now, -2 * 3600, :second)
       },
       %{
         id: generate_uuid(),
         user_id: marcus_id,
-        content: "Hot take: vibe coding isn't about replacing developers, it's about amplifying what we can build. I shipped more this month than the entire Q1 last year.",
+        content:
+          "Hot take: vibe coding isn't about replacing developers, it's about amplifying what we can build. I shipped more this month than the entire Q1 last year.",
         inserted_at: DateTime.add(now, -3 * 3600, :second),
         updated_at: DateTime.add(now, -3 * 3600, :second)
       },
       %{
         id: generate_uuid(),
         user_id: luna_id,
-        content: "Pro tip: When using Cursor, keep your project structure flat at first. Let the AI help you refactor into modules once patterns emerge. Fighting the AI early leads to frustration.",
+        content:
+          "Pro tip: When using Cursor, keep your project structure flat at first. Let the AI help you refactor into modules once patterns emerge. Fighting the AI early leads to frustration.",
         inserted_at: DateTime.add(now, -6 * 3600, :second),
         updated_at: DateTime.add(now, -6 * 3600, :second)
       },
       %{
         id: generate_uuid(),
         user_id: alex_id,
-        content: "Anyone else finding that Claude 3.5 Sonnet handles React better than GPT-4? Curious what your experiences have been. Thinking of switching my whole workflow.",
+        content:
+          "Anyone else finding that Claude 3.5 Sonnet handles React better than GPT-4? Curious what your experiences have been. Thinking of switching my whole workflow.",
         inserted_at: DateTime.add(now, -10 * 3600, :second),
         updated_at: DateTime.add(now, -10 * 3600, :second)
       }

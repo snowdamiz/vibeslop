@@ -6,7 +6,8 @@ defmodule Backend.Content.PostMedia do
   @foreign_key_type :binary_id
 
   schema "post_media" do
-    field :url, :string  # Stores base64 data URI
+    # Stores base64 data URI
+    field :url, :string
     field :position, :integer, default: 0
 
     belongs_to :post, Backend.Content.Post

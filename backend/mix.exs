@@ -57,7 +57,8 @@ defmodule Backend.MixProject do
       {:joken, "~> 2.6"},
       {:corsica, "~> 2.1"},
       {:dotenvy, "~> 0.8.0", only: [:dev, :test]},
-      {:hammer, "~> 6.2"}
+      {:hammer, "~> 6.2"},
+      {:oban, "~> 2.18"}
     ]
   end
 

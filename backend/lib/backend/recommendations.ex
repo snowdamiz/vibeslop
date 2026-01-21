@@ -47,21 +47,23 @@ defmodule Backend.Recommendations do
     cutoff = DateTime.add(DateTime.utc_now(), -14, :day)
 
     # Get projects with base scoring
-    projects = build_trending_projects_query(cutoff, limit)
-    |> Repo.all()
-    |> add_velocity_boost()
-    |> Enum.sort_by(& &1.final_score, :desc)
-    |> Enum.take(limit)
-    |> Enum.map(fn result ->
-      project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
-      %{
-        project: project,
-        likes_count: project.likes_count || 0,
-        comments_count: project.comments_count || 0,
-        reposts_count: project.reposts_count || 0,
-        bookmarks_count: project.bookmarks_count || 0
-      }
-    end)
+    projects =
+      build_trending_projects_query(cutoff, limit)
+      |> Repo.all()
+      |> add_velocity_boost()
+      |> Enum.sort_by(& &1.final_score, :desc)
+      |> Enum.take(limit)
+      |> Enum.map(fn result ->
+        project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
+
+        %{
+          project: project,
+          likes_count: project.likes_count || 0,
+          comments_count: project.comments_count || 0,
+          reposts_count: project.reposts_count || 0,
+          bookmarks_count: project.bookmarks_count || 0
+        }
+      end)
 
     # Add engagement status if user is authenticated
     if current_user_id do
@@ -80,54 +82,61 @@ defmodule Backend.Recommendations do
       where: proj.status == "published" and proj.published_at > ^cutoff,
       select: %{
         project: proj,
-        base_score: fragment("""
-          (COALESCE(?, 0) * 1.0 +
-           COALESCE(?, 0) * 13.5 +
-           COALESCE(?, 0) * 20.0 +
-           COALESCE(?, 0) * 10.0 +
-           COALESCE(?, 0) * 15.0) *
-          (1.0 +
-           CASE WHEN EXISTS(SELECT 1 FROM project_images WHERE project_id = ?) THEN 0.1 ELSE 0 END +
-           CASE WHEN LENGTH(COALESCE(?, '')) > 100 THEN 0.1 ELSE 0 END +
-           CASE WHEN EXISTS(SELECT 1 FROM project_tech_stacks WHERE project_id = ?) THEN 0.1 ELSE 0 END
-          ) /
-          POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
-        """,
-          proj.likes_count,
-          proj.comments_count,
-          proj.reposts_count,
-          proj.bookmarks_count,
-          proj.quotes_count,
-          proj.id,
-          proj.description,
-          proj.id,
-          proj.published_at
-        )
+        base_score:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 +
+               COALESCE(?, 0) * 13.5 +
+               COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 +
+               COALESCE(?, 0) * 15.0) *
+              (1.0 +
+               CASE WHEN EXISTS(SELECT 1 FROM project_images WHERE project_id = ?) THEN 0.1 ELSE 0 END +
+               CASE WHEN LENGTH(COALESCE(?, '')) > 100 THEN 0.1 ELSE 0 END +
+               CASE WHEN EXISTS(SELECT 1 FROM project_tech_stacks WHERE project_id = ?) THEN 0.1 ELSE 0 END
+              ) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.id,
+            proj.description,
+            proj.id,
+            proj.published_at
+          )
       },
-      order_by: [desc: fragment("""
-        (COALESCE(?, 0) * 1.0 +
-         COALESCE(?, 0) * 13.5 +
-         COALESCE(?, 0) * 20.0 +
-         COALESCE(?, 0) * 10.0 +
-         COALESCE(?, 0) * 15.0) *
-        (1.0 +
-         CASE WHEN EXISTS(SELECT 1 FROM project_images WHERE project_id = ?) THEN 0.1 ELSE 0 END +
-         CASE WHEN LENGTH(COALESCE(?, '')) > 100 THEN 0.1 ELSE 0 END +
-         CASE WHEN EXISTS(SELECT 1 FROM project_tech_stacks WHERE project_id = ?) THEN 0.1 ELSE 0 END
-        ) /
-        POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
-      """,
-        proj.likes_count,
-        proj.comments_count,
-        proj.reposts_count,
-        proj.bookmarks_count,
-        proj.quotes_count,
-        proj.id,
-        proj.description,
-        proj.id,
-        proj.published_at
-      )],
-      limit: ^(limit * 3)  # Fetch 3x for velocity boost filtering
+      order_by: [
+        desc:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 +
+               COALESCE(?, 0) * 13.5 +
+               COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 +
+               COALESCE(?, 0) * 15.0) *
+              (1.0 +
+               CASE WHEN EXISTS(SELECT 1 FROM project_images WHERE project_id = ?) THEN 0.1 ELSE 0 END +
+               CASE WHEN LENGTH(COALESCE(?, '')) > 100 THEN 0.1 ELSE 0 END +
+               CASE WHEN EXISTS(SELECT 1 FROM project_tech_stacks WHERE project_id = ?) THEN 0.1 ELSE 0 END
+              ) /
+              POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.id,
+            proj.description,
+            proj.id,
+            proj.published_at
+          )
+      ],
+      # Fetch 3x for velocity boost filtering
+      limit: ^(limit * 3)
     )
   end
 
@@ -139,27 +148,31 @@ defmodule Backend.Recommendations do
     older_cutoff = DateTime.add(DateTime.utc_now(), -24, :hour)
 
     # Get recent engagement (last 6 hours)
-    recent_engagement = from(e in EngagementHourly,
-      where: e.content_type == "Project" and
-             e.content_id in ^project_ids and
-             e.hour_bucket >= ^recent_cutoff,
-      group_by: e.content_id,
-      select: {e.content_id, sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.bookmarks)}
-    )
-    |> Repo.all()
-    |> Map.new()
+    recent_engagement =
+      from(e in EngagementHourly,
+        where:
+          e.content_type == "Project" and
+            e.content_id in ^project_ids and
+            e.hour_bucket >= ^recent_cutoff,
+        group_by: e.content_id,
+        select: {e.content_id, sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.bookmarks)}
+      )
+      |> Repo.all()
+      |> Map.new()
 
     # Get older engagement (6-24 hours ago)
-    older_engagement = from(e in EngagementHourly,
-      where: e.content_type == "Project" and
-             e.content_id in ^project_ids and
-             e.hour_bucket >= ^older_cutoff and
-             e.hour_bucket < ^recent_cutoff,
-      group_by: e.content_id,
-      select: {e.content_id, sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.bookmarks)}
-    )
-    |> Repo.all()
-    |> Map.new()
+    older_engagement =
+      from(e in EngagementHourly,
+        where:
+          e.content_type == "Project" and
+            e.content_id in ^project_ids and
+            e.hour_bucket >= ^older_cutoff and
+            e.hour_bucket < ^recent_cutoff,
+        group_by: e.content_id,
+        select: {e.content_id, sum(e.likes) + sum(e.comments) + sum(e.reposts) + sum(e.bookmarks)}
+      )
+      |> Repo.all()
+      |> Map.new()
 
     # Calculate velocity boost for each project
     Enum.map(projects, fn %{project: project, base_score: base_score} = result ->
@@ -220,11 +233,13 @@ defmodule Backend.Recommendations do
 
   defp has_social_graph?(user_id) do
     # Check if user has any follows or engagement
-    follows_count = from(f in Follow, where: f.follower_id == ^user_id, select: count(f.id))
-    |> Repo.one()
+    follows_count =
+      from(f in Follow, where: f.follower_id == ^user_id, select: count(f.id))
+      |> Repo.one()
 
-    likes_count = from(l in Like, where: l.user_id == ^user_id, select: count(l.id))
-    |> Repo.one()
+    likes_count =
+      from(l in Like, where: l.user_id == ^user_id, select: count(l.id))
+      |> Repo.one()
 
     follows_count > 0 or likes_count > 3
   end
@@ -239,16 +254,19 @@ defmodule Backend.Recommendations do
     (graph_candidates ++ popularity_candidates ++ relevance_candidates)
     |> Enum.group_by(& &1.user_id)
     |> Enum.map(fn {candidate_user_id, scores} ->
-      graph_score = Enum.find(scores, fn s -> s.signal == :graph end)
-      |> then(fn s -> if s, do: s.score, else: 0.0 end)
+      graph_score =
+        Enum.find(scores, fn s -> s.signal == :graph end)
+        |> then(fn s -> if s, do: s.score, else: 0.0 end)
 
-      popularity_score = Enum.find(scores, fn s -> s.signal == :popularity end)
-      |> then(fn s -> if s, do: s.score, else: 0.0 end)
+      popularity_score =
+        Enum.find(scores, fn s -> s.signal == :popularity end)
+        |> then(fn s -> if s, do: s.score, else: 0.0 end)
 
-      relevance_score = Enum.find(scores, fn s -> s.signal == :relevance end)
-      |> then(fn s -> if s, do: s.score, else: 0.0 end)
+      relevance_score =
+        Enum.find(scores, fn s -> s.signal == :relevance end)
+        |> then(fn s -> if s, do: s.score, else: 0.0 end)
 
-      final_score = (graph_score * 0.4) + (popularity_score * 0.3) + (relevance_score * 0.3)
+      final_score = graph_score * 0.4 + popularity_score * 0.3 + relevance_score * 0.3
 
       %{user_id: candidate_user_id, final_score: final_score}
     end)
@@ -260,49 +278,59 @@ defmodule Backend.Recommendations do
   # Signal 1: Social Graph Score
   defp get_graph_score_candidates(user_id, limit) do
     # Friends of friends
-    friends_of_friends = from(u in User,
-      join: f1 in Follow, on: f1.following_id == u.id,
-      join: f2 in Follow, on: f2.follower_id == f1.following_id,
-      where: f2.following_id == ^user_id and
-             u.id != ^user_id and
-             u.id not in subquery(
-               from f in Follow,
-                 where: f.follower_id == ^user_id,
-                 select: f.following_id
-             ),
-      group_by: u.id,
-      select: %{
-        user_id: u.id,
-        score: count(f1.follower_id, :distinct) |> type(:float),
-        signal: :graph
-      },
-      limit: ^limit
-    )
-    |> Repo.all()
+    friends_of_friends =
+      from(u in User,
+        join: f1 in Follow,
+        on: f1.following_id == u.id,
+        join: f2 in Follow,
+        on: f2.follower_id == f1.following_id,
+        where:
+          f2.following_id == ^user_id and
+            u.id != ^user_id and
+            u.id not in subquery(
+              from f in Follow,
+                where: f.follower_id == ^user_id,
+                select: f.following_id
+            ),
+        group_by: u.id,
+        select: %{
+          user_id: u.id,
+          score: count(f1.follower_id, :distinct) |> type(:float),
+          signal: :graph
+        },
+        limit: ^limit
+      )
+      |> Repo.all()
 
     # Engaged creators (users whose content the viewer has liked/bookmarked)
-    engaged_creators = from(u in User,
-      left_join: l in Like, on: l.likeable_type in ["Post", "Project"],
-      left_join: b in Bookmark, on: b.bookmarkable_type in ["Post", "Project"],
-      left_join: p in Backend.Content.Post, on: p.id == l.likeable_id or p.id == b.bookmarkable_id,
-      left_join: proj in Project, on: proj.id == l.likeable_id or proj.id == b.bookmarkable_id,
-      where: (l.user_id == ^user_id or b.user_id == ^user_id) and
-             (p.user_id == u.id or proj.user_id == u.id) and
-             u.id != ^user_id and
-             u.id not in subquery(
-               from f in Follow,
-                 where: f.follower_id == ^user_id,
-                 select: f.following_id
-             ),
-      group_by: u.id,
-      select: %{
-        user_id: u.id,
-        score: (count(l.id, :distinct) * 1.0 + count(b.id, :distinct) * 2.0) |> type(:float),
-        signal: :graph
-      },
-      limit: ^limit
-    )
-    |> Repo.all()
+    engaged_creators =
+      from(u in User,
+        left_join: l in Like,
+        on: l.likeable_type in ["Post", "Project"],
+        left_join: b in Bookmark,
+        on: b.bookmarkable_type in ["Post", "Project"],
+        left_join: p in Backend.Content.Post,
+        on: p.id == l.likeable_id or p.id == b.bookmarkable_id,
+        left_join: proj in Project,
+        on: proj.id == l.likeable_id or proj.id == b.bookmarkable_id,
+        where:
+          (l.user_id == ^user_id or b.user_id == ^user_id) and
+            (p.user_id == u.id or proj.user_id == u.id) and
+            u.id != ^user_id and
+            u.id not in subquery(
+              from f in Follow,
+                where: f.follower_id == ^user_id,
+                select: f.following_id
+            ),
+        group_by: u.id,
+        select: %{
+          user_id: u.id,
+          score: (count(l.id, :distinct) * 1.0 + count(b.id, :distinct) * 2.0) |> type(:float),
+          signal: :graph
+        },
+        limit: ^limit
+      )
+      |> Repo.all()
 
     friends_of_friends ++ engaged_creators
   end
@@ -315,36 +343,55 @@ defmodule Backend.Recommendations do
     old_cutoff = DateTime.add(DateTime.utc_now(), -60, :day)
 
     # Subquery for excluded users
-    excluded_users = from(f in Follow,
-      where: f.follower_id == ^user_id,
-      select: f.following_id
-    )
+    excluded_users =
+      from(f in Follow,
+        where: f.follower_id == ^user_id,
+        select: f.following_id
+      )
 
     from(u in User,
-      left_join: f in Follow, on: f.following_id == u.id,
+      left_join: f in Follow,
+      on: f.following_id == u.id,
       left_join: recent_post in Backend.Content.Post,
-        on: recent_post.user_id == u.id and recent_post.inserted_at > ^recent_cutoff,
+      on: recent_post.user_id == u.id and recent_post.inserted_at > ^recent_cutoff,
       left_join: moderate_post in Backend.Content.Post,
-        on: moderate_post.user_id == u.id and moderate_post.inserted_at > ^moderate_cutoff and moderate_post.inserted_at <= ^recent_cutoff,
+      on:
+        moderate_post.user_id == u.id and moderate_post.inserted_at > ^moderate_cutoff and
+          moderate_post.inserted_at <= ^recent_cutoff,
       left_join: old_post in Backend.Content.Post,
-        on: old_post.user_id == u.id and old_post.inserted_at > ^old_cutoff and old_post.inserted_at <= ^moderate_cutoff,
+      on:
+        old_post.user_id == u.id and old_post.inserted_at > ^old_cutoff and
+          old_post.inserted_at <= ^moderate_cutoff,
       where: u.id != ^user_id and u.id not in subquery(excluded_users),
       group_by: u.id,
       select: %{
         user_id: u.id,
-        score: fragment("""
-          LN(COALESCE(COUNT(DISTINCT ?), 0) + 1) *
-          CASE
-            WHEN COUNT(DISTINCT ?) > 0 THEN 1.0
-            WHEN COUNT(DISTINCT ?) > 0 THEN 0.8
-            WHEN COUNT(DISTINCT ?) > 0 THEN 0.5
-            ELSE 0.0
-          END
-        """, f.id, recent_post.id, moderate_post.id, old_post.id) |> type(:float),
+        score:
+          fragment(
+            """
+              LN(COALESCE(COUNT(DISTINCT ?), 0) + 1) *
+              CASE
+                WHEN COUNT(DISTINCT ?) > 0 THEN 1.0
+                WHEN COUNT(DISTINCT ?) > 0 THEN 0.8
+                WHEN COUNT(DISTINCT ?) > 0 THEN 0.5
+                ELSE 0.0
+              END
+            """,
+            f.id,
+            recent_post.id,
+            moderate_post.id,
+            old_post.id
+          )
+          |> type(:float),
         signal: :popularity
       },
-      having: fragment("COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0",
-        recent_post.id, moderate_post.id, old_post.id),
+      having:
+        fragment(
+          "COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0",
+          recent_post.id,
+          moderate_post.id,
+          old_post.id
+        ),
       limit: ^limit
     )
     |> Repo.all()
@@ -354,32 +401,42 @@ defmodule Backend.Recommendations do
   defp get_relevance_score_candidates(user_id, limit) do
     # Get shared AI tools and tech stacks from user's liked/bookmarked projects
     from(u in User,
-      join: proj in Project, on: proj.user_id == u.id,
-      left_join: pat in "project_ai_tools", on: pat.project_id == proj.id,
-      left_join: pts in "project_tech_stacks", on: pts.project_id == proj.id,
-      where: u.id != ^user_id and
-             u.id not in subquery(
-               from f in Follow,
-                 where: f.follower_id == ^user_id,
-                 select: f.following_id
-             ) and
-             (pat.ai_tool_id in subquery(
+      join: proj in Project,
+      on: proj.user_id == u.id,
+      left_join: pat in "project_ai_tools",
+      on: pat.project_id == proj.id,
+      left_join: pts in "project_tech_stacks",
+      on: pts.project_id == proj.id,
+      where:
+        u.id != ^user_id and
+          u.id not in subquery(
+            from f in Follow,
+              where: f.follower_id == ^user_id,
+              select: f.following_id
+          ) and
+          (pat.ai_tool_id in subquery(
+             from l in Like,
+               join: p2 in Project,
+               on: p2.id == l.likeable_id and l.likeable_type == "Project",
+               join: pat2 in "project_ai_tools",
+               on: pat2.project_id == p2.id,
+               where: l.user_id == ^user_id,
+               select: pat2.ai_tool_id
+           ) or
+             pts.tech_stack_id in subquery(
                from l in Like,
-                 join: p2 in Project, on: p2.id == l.likeable_id and l.likeable_type == "Project",
-                 join: pat2 in "project_ai_tools", on: pat2.project_id == p2.id,
-                 where: l.user_id == ^user_id,
-                 select: pat2.ai_tool_id
-             ) or pts.tech_stack_id in subquery(
-               from l in Like,
-                 join: p2 in Project, on: p2.id == l.likeable_id and l.likeable_type == "Project",
-                 join: pts2 in "project_tech_stacks", on: pts2.project_id == p2.id,
+                 join: p2 in Project,
+                 on: p2.id == l.likeable_id and l.likeable_type == "Project",
+                 join: pts2 in "project_tech_stacks",
+                 on: pts2.project_id == p2.id,
                  where: l.user_id == ^user_id,
                  select: pts2.tech_stack_id
              )),
       group_by: u.id,
       select: %{
         user_id: u.id,
-        score: (count(pat.ai_tool_id, :distinct) + count(pts.tech_stack_id, :distinct)) |> type(:float),
+        score:
+          (count(pat.ai_tool_id, :distinct) + count(pts.tech_stack_id, :distinct)) |> type(:float),
         signal: :relevance
       },
       limit: ^limit
@@ -392,18 +449,23 @@ defmodule Backend.Recommendations do
     recent_cutoff = DateTime.add(DateTime.utc_now(), -7, :day)
 
     from(u in User,
-      left_join: f in Follow, on: f.following_id == u.id,
-      left_join: p in Backend.Content.Post, on: p.user_id == u.id and p.inserted_at > ^recent_cutoff,
-      left_join: proj in Project, on: proj.user_id == u.id and proj.published_at > ^recent_cutoff,
-      where: u.id != ^user_id and
-             u.id not in subquery(
-               from f in Follow,
-                 where: f.follower_id == ^user_id,
-                 select: f.following_id
-             ),
+      left_join: f in Follow,
+      on: f.following_id == u.id,
+      left_join: p in Backend.Content.Post,
+      on: p.user_id == u.id and p.inserted_at > ^recent_cutoff,
+      left_join: proj in Project,
+      on: proj.user_id == u.id and proj.published_at > ^recent_cutoff,
+      where:
+        u.id != ^user_id and
+          u.id not in subquery(
+            from f in Follow,
+              where: f.follower_id == ^user_id,
+              select: f.following_id
+          ),
       group_by: u.id,
-      having: count(f.id, :distinct) > 0 and
-              (count(p.id, :distinct) > 0 or count(proj.id, :distinct) > 0),
+      having:
+        count(f.id, :distinct) > 0 and
+          (count(p.id, :distinct) > 0 or count(proj.id, :distinct) > 0),
       order_by: [desc: count(f.id, :distinct)],
       limit: ^limit,
       select: u
@@ -414,14 +476,15 @@ defmodule Backend.Recommendations do
   defp load_users(scored_users) do
     user_ids = Enum.map(scored_users, & &1.user_id)
 
-    users = from(u in User, where: u.id in ^user_ids)
-    |> Repo.all()
-    |> Map.new(fn u -> {u.id, u} end)
+    users =
+      from(u in User, where: u.id in ^user_ids)
+      |> Repo.all()
+      |> Map.new(fn u -> {u.id, u} end)
 
     Enum.map(scored_users, fn %{user_id: id, final_score: _score} ->
       Map.get(users, id)
     end)
-    |> Enum.filter(& &1 != nil)
+    |> Enum.filter(&(&1 != nil))
   end
 
   # ============================================================================

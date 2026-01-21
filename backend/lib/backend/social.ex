@@ -67,7 +67,8 @@ defmodule Backend.Social do
 
     query =
       from f in Follow,
-        join: u in User, on: f.follower_id == u.id,
+        join: u in User,
+        on: f.follower_id == u.id,
         where: f.following_id == ^user_id,
         select: u,
         order_by: [desc: f.inserted_at],
@@ -86,7 +87,8 @@ defmodule Backend.Social do
 
     query =
       from f in Follow,
-        join: u in User, on: f.following_id == u.id,
+        join: u in User,
+        on: f.following_id == u.id,
         where: f.follower_id == ^user_id,
         select: u,
         order_by: [desc: f.inserted_at],
@@ -104,14 +106,21 @@ defmodule Backend.Social do
   def toggle_like(user_id, likeable_type, likeable_id) do
     query =
       from l in Like,
-        where: l.user_id == ^user_id and l.likeable_type == ^likeable_type and l.likeable_id == ^likeable_id
+        where:
+          l.user_id == ^user_id and l.likeable_type == ^likeable_type and
+            l.likeable_id == ^likeable_id
 
     case Repo.one(query) do
       nil ->
         # Create like
-        result = %Like{}
-        |> Like.changeset(%{user_id: user_id, likeable_type: likeable_type, likeable_id: likeable_id})
-        |> Repo.insert()
+        result =
+          %Like{}
+          |> Like.changeset(%{
+            user_id: user_id,
+            likeable_type: likeable_type,
+            likeable_id: likeable_id
+          })
+          |> Repo.insert()
 
         case result do
           {:ok, like} ->
@@ -119,8 +128,11 @@ defmodule Backend.Social do
             Backend.Metrics.increment_counter(likeable_type, likeable_id, :likes_count)
             Backend.Metrics.record_hourly_engagement(likeable_type, likeable_id, :likes)
             {:ok, :liked, like}
-          error -> error
+
+          error ->
+            error
         end
+
       like ->
         # Remove like
         result = Repo.delete(like)
@@ -130,7 +142,9 @@ defmodule Backend.Social do
             # Decrement counter
             Backend.Metrics.decrement_counter(likeable_type, likeable_id, :likes_count)
             {:ok, :unliked, like}
-          error -> error
+
+          error ->
+            error
         end
     end
   end
@@ -141,7 +155,9 @@ defmodule Backend.Social do
   def has_liked?(user_id, likeable_type, likeable_id) do
     query =
       from l in Like,
-        where: l.user_id == ^user_id and l.likeable_type == ^likeable_type and l.likeable_id == ^likeable_id,
+        where:
+          l.user_id == ^user_id and l.likeable_type == ^likeable_type and
+            l.likeable_id == ^likeable_id,
         select: count(l.id)
 
     Repo.one(query) > 0
@@ -178,16 +194,19 @@ defmodule Backend.Social do
 
     # Load the actual liked items
     Enum.map(likes, fn like ->
-      item = case like.likeable_type do
-        "Post" ->
-          Repo.get(Backend.Content.Post, like.likeable_id)
-          |> Repo.preload([:user, :media])
-        "Project" ->
-          Repo.get(Backend.Content.Project, like.likeable_id)
-          |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-        _ ->
-          nil
-      end
+      item =
+        case like.likeable_type do
+          "Post" ->
+            Repo.get(Backend.Content.Post, like.likeable_id)
+            |> Repo.preload([:user, :media])
+
+          "Project" ->
+            Repo.get(Backend.Content.Project, like.likeable_id)
+            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
+
+          _ ->
+            nil
+        end
 
       %{
         type: like.likeable_type,
@@ -195,7 +214,7 @@ defmodule Backend.Social do
         liked_at: like.inserted_at
       }
     end)
-    |> Enum.filter(& &1.item != nil)
+    |> Enum.filter(&(&1.item != nil))
   end
 
   ## Notifications
@@ -250,6 +269,7 @@ defmodule Backend.Social do
     case Repo.one(query) do
       nil ->
         {:error, :not_found}
+
       notification ->
         notification
         |> Notification.changeset(%{read: true})
@@ -277,14 +297,21 @@ defmodule Backend.Social do
   def toggle_repost(user_id, repostable_type, repostable_id) do
     query =
       from r in Repost,
-        where: r.user_id == ^user_id and r.repostable_type == ^repostable_type and r.repostable_id == ^repostable_id
+        where:
+          r.user_id == ^user_id and r.repostable_type == ^repostable_type and
+            r.repostable_id == ^repostable_id
 
     case Repo.one(query) do
       nil ->
         # Create repost
-        result = %Repost{}
-        |> Repost.changeset(%{user_id: user_id, repostable_type: repostable_type, repostable_id: repostable_id})
-        |> Repo.insert()
+        result =
+          %Repost{}
+          |> Repost.changeset(%{
+            user_id: user_id,
+            repostable_type: repostable_type,
+            repostable_id: repostable_id
+          })
+          |> Repo.insert()
 
         case result do
           {:ok, repost} ->
@@ -292,8 +319,11 @@ defmodule Backend.Social do
             Backend.Metrics.increment_counter(repostable_type, repostable_id, :reposts_count)
             Backend.Metrics.record_hourly_engagement(repostable_type, repostable_id, :reposts)
             {:ok, :reposted, repost}
-          error -> error
+
+          error ->
+            error
         end
+
       repost ->
         # Remove repost
         result = Repo.delete(repost)
@@ -303,7 +333,9 @@ defmodule Backend.Social do
             # Decrement counter
             Backend.Metrics.decrement_counter(repostable_type, repostable_id, :reposts_count)
             {:ok, :unreposted, repost}
-          error -> error
+
+          error ->
+            error
         end
     end
   end
@@ -314,7 +346,9 @@ defmodule Backend.Social do
   def has_reposted?(user_id, repostable_type, repostable_id) do
     query =
       from r in Repost,
-        where: r.user_id == ^user_id and r.repostable_type == ^repostable_type and r.repostable_id == ^repostable_id,
+        where:
+          r.user_id == ^user_id and r.repostable_type == ^repostable_type and
+            r.repostable_id == ^repostable_id,
         select: count(r.id)
 
     Repo.one(query) > 0
@@ -351,16 +385,19 @@ defmodule Backend.Social do
 
     # Load the actual reposted items
     Enum.map(reposts, fn repost ->
-      item = case repost.repostable_type do
-        "Post" ->
-          Repo.get(Backend.Content.Post, repost.repostable_id)
-          |> Repo.preload([:user, :media])
-        "Project" ->
-          Repo.get(Backend.Content.Project, repost.repostable_id)
-          |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-        _ ->
-          nil
-      end
+      item =
+        case repost.repostable_type do
+          "Post" ->
+            Repo.get(Backend.Content.Post, repost.repostable_id)
+            |> Repo.preload([:user, :media])
+
+          "Project" ->
+            Repo.get(Backend.Content.Project, repost.repostable_id)
+            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
+
+          _ ->
+            nil
+        end
 
       %{
         type: repost.repostable_type,
@@ -368,7 +405,7 @@ defmodule Backend.Social do
         reposted_at: repost.inserted_at
       }
     end)
-    |> Enum.filter(& &1.item != nil)
+    |> Enum.filter(&(&1.item != nil))
   end
 
   ## Bookmarks
@@ -379,23 +416,43 @@ defmodule Backend.Social do
   def toggle_bookmark(user_id, bookmarkable_type, bookmarkable_id) do
     query =
       from b in Bookmark,
-        where: b.user_id == ^user_id and b.bookmarkable_type == ^bookmarkable_type and b.bookmarkable_id == ^bookmarkable_id
+        where:
+          b.user_id == ^user_id and b.bookmarkable_type == ^bookmarkable_type and
+            b.bookmarkable_id == ^bookmarkable_id
 
     case Repo.one(query) do
       nil ->
         # Create bookmark
-        result = %Bookmark{}
-        |> Bookmark.changeset(%{user_id: user_id, bookmarkable_type: bookmarkable_type, bookmarkable_id: bookmarkable_id})
-        |> Repo.insert()
+        result =
+          %Bookmark{}
+          |> Bookmark.changeset(%{
+            user_id: user_id,
+            bookmarkable_type: bookmarkable_type,
+            bookmarkable_id: bookmarkable_id
+          })
+          |> Repo.insert()
 
         case result do
           {:ok, bookmark} ->
             # Increment counter and record hourly engagement
-            Backend.Metrics.increment_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
-            Backend.Metrics.record_hourly_engagement(bookmarkable_type, bookmarkable_id, :bookmarks)
+            Backend.Metrics.increment_counter(
+              bookmarkable_type,
+              bookmarkable_id,
+              :bookmarks_count
+            )
+
+            Backend.Metrics.record_hourly_engagement(
+              bookmarkable_type,
+              bookmarkable_id,
+              :bookmarks
+            )
+
             {:ok, :bookmarked, bookmark}
-          error -> error
+
+          error ->
+            error
         end
+
       bookmark ->
         # Remove bookmark
         result = Repo.delete(bookmark)
@@ -403,9 +460,16 @@ defmodule Backend.Social do
         case result do
           {:ok, bookmark} ->
             # Decrement counter
-            Backend.Metrics.decrement_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
+            Backend.Metrics.decrement_counter(
+              bookmarkable_type,
+              bookmarkable_id,
+              :bookmarks_count
+            )
+
             {:ok, :unbookmarked, bookmark}
-          error -> error
+
+          error ->
+            error
         end
     end
   end
@@ -416,7 +480,9 @@ defmodule Backend.Social do
   def has_bookmarked?(user_id, bookmarkable_type, bookmarkable_id) do
     query =
       from b in Bookmark,
-        where: b.user_id == ^user_id and b.bookmarkable_type == ^bookmarkable_type and b.bookmarkable_id == ^bookmarkable_id,
+        where:
+          b.user_id == ^user_id and b.bookmarkable_type == ^bookmarkable_type and
+            b.bookmarkable_id == ^bookmarkable_id,
         select: count(b.id)
 
     Repo.one(query) > 0
@@ -441,16 +507,19 @@ defmodule Backend.Social do
 
     # Load the actual bookmarked items
     Enum.map(bookmarks, fn bookmark ->
-      item = case bookmark.bookmarkable_type do
-        "Post" ->
-          Repo.get(Backend.Content.Post, bookmark.bookmarkable_id)
-          |> Repo.preload([:user, :media])
-        "Project" ->
-          Repo.get(Backend.Content.Project, bookmark.bookmarkable_id)
-          |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-        _ ->
-          nil
-      end
+      item =
+        case bookmark.bookmarkable_type do
+          "Post" ->
+            Repo.get(Backend.Content.Post, bookmark.bookmarkable_id)
+            |> Repo.preload([:user, :media])
+
+          "Project" ->
+            Repo.get(Backend.Content.Project, bookmark.bookmarkable_id)
+            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
+
+          _ ->
+            nil
+        end
 
       %{
         type: bookmark.bookmarkable_type,
@@ -458,7 +527,7 @@ defmodule Backend.Social do
         bookmarked_at: bookmark.inserted_at
       }
     end)
-    |> Enum.filter(& &1.item != nil)
+    |> Enum.filter(&(&1.item != nil))
   end
 
   ## Reports
@@ -484,7 +553,9 @@ defmodule Backend.Social do
   def has_reported?(user_id, reportable_type, reportable_id) do
     query =
       from r in Report,
-        where: r.user_id == ^user_id and r.reportable_type == ^reportable_type and r.reportable_id == ^reportable_id,
+        where:
+          r.user_id == ^user_id and r.reportable_type == ^reportable_type and
+            r.reportable_id == ^reportable_id,
         select: count(r.id)
 
     Repo.one(query) > 0
@@ -503,7 +574,10 @@ defmodule Backend.Social do
     ip_address = Keyword.get(opts, :ip_address)
 
     # Check if impression already exists to avoid Postgres error logs
-    if has_impressed?(impressionable_type, impressionable_id, user_id: user_id, fingerprint: fingerprint) do
+    if has_impressed?(impressionable_type, impressionable_id,
+         user_id: user_id,
+         fingerprint: fingerprint
+       ) do
       {:ok, :already_impressed}
     else
       attrs = %{
@@ -518,16 +592,19 @@ defmodule Backend.Social do
         %Impression{}
         |> Impression.changeset(attrs)
         |> Ecto.Changeset.unique_constraint(:user_id,
-            name: :impressions_user_unique_index,
-            message: "already impressed")
+          name: :impressions_user_unique_index,
+          message: "already impressed"
+        )
         |> Ecto.Changeset.unique_constraint(:fingerprint,
-            name: :impressions_fingerprint_unique_index,
-            message: "already impressed")
+          name: :impressions_fingerprint_unique_index,
+          message: "already impressed"
+        )
 
       try do
         case Repo.insert(changeset) do
           {:ok, impression} ->
             {:ok, impression}
+
           {:error, %Ecto.Changeset{} = changeset} ->
             # Check if it's a unique constraint violation (race condition)
             if has_unique_constraint_error?(changeset) do
@@ -556,23 +633,35 @@ defmodule Backend.Social do
 
   @doc """
   Checks if a user/fingerprint has already impressed an item.
+  When both user_id and fingerprint are provided, checks for either to catch race conditions.
   """
   def has_impressed?(impressionable_type, impressionable_id, opts \\ []) do
     user_id = Keyword.get(opts, :user_id)
     fingerprint = Keyword.get(opts, :fingerprint)
 
-    query = from i in Impression,
-      where: i.impressionable_type == ^impressionable_type and i.impressionable_id == ^impressionable_id
+    query =
+      from i in Impression,
+        where:
+          i.impressionable_type == ^impressionable_type and
+            i.impressionable_id == ^impressionable_id
 
-    query = cond do
-      user_id != nil ->
-        from i in query, where: i.user_id == ^user_id
-      fingerprint != nil ->
-        from i in query, where: i.fingerprint == ^fingerprint and is_nil(i.user_id)
-      true ->
-        # No identifier, can't check
-        from i in query, where: false
-    end
+    query =
+      cond do
+        # When both are provided, check for EITHER to catch race conditions
+        # (e.g., fingerprint impression sent before authenticated impression)
+        user_id != nil && fingerprint != nil ->
+          from i in query, where: i.user_id == ^user_id or i.fingerprint == ^fingerprint
+
+        user_id != nil ->
+          from i in query, where: i.user_id == ^user_id
+
+        fingerprint != nil ->
+          from i in query, where: i.fingerprint == ^fingerprint
+
+        true ->
+          # No identifier, can't check
+          from i in query, where: false
+      end
 
     Repo.exists?(query)
   end

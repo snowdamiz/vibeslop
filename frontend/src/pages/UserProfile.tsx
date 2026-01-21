@@ -17,21 +17,66 @@ import {
   ArrowLeft,
   MessageSquare,
   Loader2,
-  Repeat2,
   Camera,
   Flag,
+  Zap,
+  Star,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
+import { api, type GigReview } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { AvatarEditDialog } from '@/components/AvatarEditDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ReviewCard } from '@/components/gigs'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+
+// Helper function to format large numbers with abbreviations
+function formatScore(score: number): string {
+  if (score >= 1000000) {
+    return `${(score / 1000000).toFixed(1)}M`
+  }
+  if (score >= 1000) {
+    return `${(score / 1000).toFixed(1)}K`
+  }
+  return score.toString()
+}
+
+// GitHub stats breakdown type
+interface GitHubStatsBreakdown {
+  score_breakdown?: {
+    commits?: number
+    pull_requests?: number
+    issues?: number
+    repos?: number
+    stars?: number
+    forks?: number
+    followers?: number
+    consistency?: number
+    language_diversity?: number
+  }
+  commits_count?: number
+  prs_count?: number
+  prs_merged_count?: number
+  issues_count?: number
+  public_repos?: number
+  total_stars?: number
+  total_forks?: number
+  followers?: number
+  languages?: string[]
+  active_weeks?: number
+  current_streak?: number
+}
 
 // Backup mock user data
 const mockUserData = {
@@ -50,6 +95,8 @@ const mockUserData = {
   specializations: ['Frontend', 'Developer Tools', 'AI Integration', 'React', 'TypeScript'],
   favoriteTools: ['Cursor', 'Claude', 'v0'],
   isVerified: true,
+  developerScore: 1855,
+  githubStats: null as GitHubStatsBreakdown | null,
   stats: {
     projects: 12,
     posts: 28,
@@ -176,7 +223,7 @@ const mockUserData = {
   ] as FeedItem[],
 }
 
-type ProfileTab = 'posts' | 'projects' | 'reposts' | 'likes'
+type ProfileTab = 'posts' | 'projects' | 'likes' | 'reviews'
 
 export function UserProfile() {
   const { username } = useParams()
@@ -192,6 +239,7 @@ export function UserProfile() {
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [isReporting, setIsReporting] = useState(false)
+  const [reviews, setReviews] = useState<GigReview[]>([])
 
   // Fetch user data
   useEffect(() => {
@@ -200,7 +248,7 @@ export function UserProfile() {
     const fetchUser = async () => {
       setIsLoading(true)
       setError(null)
-      
+
       try {
         const response = await api.getUser(username)
         const apiData = response.data as {
@@ -215,6 +263,9 @@ export function UserProfile() {
           avatar_url?: string
           is_verified: boolean
           joined_at?: string
+          developer_score?: number
+          developer_score_updated_at?: string
+          github_stats?: GitHubStatsBreakdown
           stats?: {
             followers_count?: number
             following_count?: number
@@ -222,7 +273,7 @@ export function UserProfile() {
             projects_count?: number
           }
         }
-        
+
         // Map API response to component format
         const mappedUser: typeof mockUserData = {
           id: apiData.id,
@@ -240,13 +291,15 @@ export function UserProfile() {
           website: apiData.website_url || '',
           twitter: apiData.twitter_handle || '',
           github: apiData.github_username || '',
-          joinedDate: apiData.joined_at 
+          joinedDate: apiData.joined_at
             ? new Date(apiData.joined_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
             : '',
           color: 'from-violet-500 to-purple-600',
           specializations: [],
           favoriteTools: [],
           isVerified: apiData.is_verified,
+          developerScore: apiData.developer_score || 0,
+          githubStats: apiData.github_stats || null,
           stats: {
             projects: apiData.stats?.projects_count || 0,
             posts: apiData.stats?.posts_count || 0,
@@ -259,7 +312,7 @@ export function UserProfile() {
           projects: [],
           likedPosts: [],
         }
-        
+
         setUser(mappedUser)
       } catch (err) {
         console.error('Failed to fetch user:', err)
@@ -280,25 +333,27 @@ export function UserProfile() {
 
     const fetchTabContent = async () => {
       setTabLoading(true)
-      
+
       try {
         let response
         switch (activeTab) {
           case 'posts':
-            response = await api.getUserPosts(username, { limit: 20 })
+            response = await api.getUserTimeline(username, { limit: 20 })
+            setTabContent((response.data as FeedItem[]) || [])
             break
           case 'projects':
             response = await api.getUserProjects(username, { limit: 20 })
-            break
-          case 'reposts':
-            response = await api.getUserReposts(username, { limit: 20 })
+            setTabContent((response.data as FeedItem[]) || [])
             break
           case 'likes':
             response = await api.getUserLikes(username, { limit: 20 })
+            setTabContent((response.data as FeedItem[]) || [])
+            break
+          case 'reviews':
+            response = await api.getUserReviews(username)
+            setReviews((response.data as GigReview[]) || [])
             break
         }
-        
-        setTabContent((response.data as FeedItem[]) || [])
       } catch (err) {
         console.error(`Failed to fetch ${activeTab}:`, err)
         // Fallback to mock data
@@ -306,8 +361,6 @@ export function UserProfile() {
           setTabContent(mockUserData.posts)
         } else if (activeTab === 'projects') {
           setTabContent(mockUserData.posts.filter(p => p.type === 'project'))
-        } else if (activeTab === 'reposts') {
-          setTabContent([]) // No mock data for reposts
         } else {
           setTabContent(mockUserData.likedPosts)
         }
@@ -327,7 +380,7 @@ export function UserProfile() {
 
   const handleReportUser = async () => {
     if (!user?.id) return
-    
+
     setIsReporting(true)
     try {
       await api.reportUser(user.id)
@@ -368,7 +421,7 @@ export function UserProfile() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
+        <div className="mx-auto flex items-center gap-4 px-4 h-14">
           <Link to="/">
             <Button variant="ghost" size="icon" className="rounded-full">
               <ArrowLeft className="w-5 h-5" />
@@ -387,7 +440,7 @@ export function UserProfile() {
         <div className="flex items-start gap-4">
           {/* Avatar */}
           {isOwnProfile ? (
-            <button 
+            <button
               onClick={() => setShowAvatarDialog(true)}
               className="relative group cursor-pointer flex-shrink-0"
             >
@@ -409,7 +462,7 @@ export function UserProfile() {
               </AvatarFallback>
             </Avatar>
           )}
-          
+
           {/* Identity + Stats */}
           <div className="flex-1 min-w-0">
             {/* Name Row */}
@@ -419,7 +472,7 @@ export function UserProfile() {
                 <CheckCircle2 className="w-5 h-5 text-primary fill-primary/20 flex-shrink-0" />
               )}
             </div>
-            
+
             {/* Username + Integrated Stats */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
               <span>@{user.username}</span>
@@ -432,7 +485,7 @@ export function UserProfile() {
                 <span className="font-semibold text-foreground">{user.stats?.followers || 0}</span> Followers
               </button>
             </div>
-            
+
             {/* Meta Info Row */}
             <div className="flex items-center gap-2 mt-1.5 text-sm text-muted-foreground flex-wrap">
               {user.location && (
@@ -485,24 +538,110 @@ export function UserProfile() {
                 </a>
               )}
               {user.github && (
-                <a
-                  href={`https://github.com/${user.github}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <Github className="w-4 h-4" />
-                </a>
+                <>
+                  <a
+                    href={`https://github.com/${user.github}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <Github className="w-4 h-4" />
+                  </a>
+                  {user.developerScore > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary font-medium cursor-help text-xs">
+                            <span className="font-semibold">{formatScore(user.developerScore)}</span>
+                            <span className="text-primary/70">pts</span>
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent className="w-80 p-0 overflow-hidden">
+                          <div className="bg-primary px-4 py-3">
+                            <p className="font-semibold text-primary-foreground flex items-center gap-2">
+                              <Github className="w-4 h-4" />
+                              GitHub Developer Score
+                            </p>
+                          </div>
+                          <div className="p-4 space-y-4">
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                              A score calculated from your public GitHub activity including commits, pull requests, repositories, and community engagement.
+                            </p>
+                            {user.githubStats?.score_breakdown && (
+                              <>
+                                <div className="space-y-2">
+                                  <h4 className="text-xs font-semibold text-foreground/70 uppercase tracking-wider">Points Breakdown</h4>
+                                  <div className="grid grid-cols-2 gap-3">
+                                    {user.githubStats.score_breakdown.commits !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">Commits</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.commits}</span>
+                                      </div>
+                                    )}
+                                    {user.githubStats.score_breakdown.pull_requests !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">PRs</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.pull_requests}</span>
+                                      </div>
+                                    )}
+                                    {user.githubStats.score_breakdown.repos !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">Repositories</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.repos}</span>
+                                      </div>
+                                    )}
+                                    {user.githubStats.score_breakdown.issues !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">Issues</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.issues}</span>
+                                      </div>
+                                    )}
+                                    {user.githubStats.score_breakdown.consistency !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">Consistency</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.consistency}</span>
+                                      </div>
+                                    )}
+                                    {user.githubStats.score_breakdown.language_diversity !== undefined && (
+                                      <div className="flex items-center justify-between py-1.5 px-2 rounded-md bg-muted/50">
+                                        <span className="text-xs text-muted-foreground">Languages</span>
+                                        <span className="text-sm font-semibold text-foreground">+{user.githubStats.score_breakdown.language_diversity}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="border-t border-border pt-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-medium text-muted-foreground">Total Score</span>
+                                    <span className="text-lg font-bold text-primary">{user.developerScore.toLocaleString()}</span>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+                            {user.githubStats?.current_streak !== undefined && user.githubStats.current_streak > 0 && (
+                              <div className="flex items-center gap-2 pt-2 pb-1 px-3 -mx-1 rounded-md bg-primary/5 border border-primary/10">
+                                <Zap className="w-4 h-4 text-primary flex-shrink-0" />
+                                <p className="text-xs text-foreground">
+                                  <span className="font-semibold">{user.githubStats.current_streak} week</span> contribution streak!
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </>
               )}
             </div>
           </div>
-          
+
           {/* Actions */}
           <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
             {!isOwnProfile && isAuthenticated && (
-              <Button 
-                variant="outline" 
-                size="icon" 
+              <Button
+                variant="outline"
+                size="icon"
                 className="rounded-full border border-border"
                 onClick={handleMessageClick}
               >
@@ -538,14 +677,14 @@ export function UserProfile() {
             )}
           </div>
         </div>
-        
+
         {/* Mobile Actions - Stacked below on small screens */}
         {!isOwnProfile && (
           <div className="flex sm:hidden items-center gap-2 mt-4">
             {isAuthenticated && (
-              <Button 
-                variant="outline" 
-                size="icon" 
+              <Button
+                variant="outline"
+                size="icon"
                 className="rounded-full border border-border"
                 onClick={handleMessageClick}
               >
@@ -579,7 +718,7 @@ export function UserProfile() {
             </Button>
           </div>
         )}
-        
+
         {/* Bio - Full Width Below */}
         {user.bio && (
           <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-wrap">{user.bio}</p>
@@ -616,19 +755,6 @@ export function UserProfile() {
             )}
           </button>
           <button
-            onClick={() => setActiveTab('reposts')}
-            className={cn(
-              'flex-1 py-4 text-sm font-medium transition-colors relative hover:bg-muted/50 flex items-center justify-center gap-1.5',
-              activeTab === 'reposts' ? 'text-foreground' : 'text-muted-foreground'
-            )}
-          >
-            <Repeat2 className="w-4 h-4" />
-            Reposts
-            {activeTab === 'reposts' && (
-              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
-            )}
-          </button>
-          <button
             onClick={() => setActiveTab('likes')}
             className={cn(
               'flex-1 py-4 text-sm font-medium transition-colors relative hover:bg-muted/50 flex items-center justify-center gap-1.5',
@@ -641,6 +767,19 @@ export function UserProfile() {
               <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
             )}
           </button>
+          <button
+            onClick={() => setActiveTab('reviews')}
+            className={cn(
+              'flex-1 py-4 text-sm font-medium transition-colors relative hover:bg-muted/50 flex items-center justify-center gap-1.5',
+              activeTab === 'reviews' ? 'text-foreground' : 'text-muted-foreground'
+            )}
+          >
+            <Star className="w-4 h-4" />
+            Reviews
+            {activeTab === 'reviews' && (
+              <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-1 bg-primary rounded-full" />
+            )}
+          </button>
         </div>
       </div>
 
@@ -650,6 +789,21 @@ export function UserProfile() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-primary" />
           </div>
+        ) : activeTab === 'reviews' ? (
+          reviews.length > 0 ? (
+            <div className="max-w-[600px] mx-auto space-y-3 px-4">
+              {reviews.map((review) => (
+                <ReviewCard key={review.id} review={review} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <div className="max-w-[600px] mx-auto px-4">
+                <Star className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                <p className="text-muted-foreground">No reviews yet</p>
+              </div>
+            </div>
+          )
         ) : tabContent.length > 0 ? (
           tabContent.map((post, index) => (
             <Post
@@ -674,12 +828,6 @@ export function UserProfile() {
                   <p className="text-muted-foreground">No projects yet</p>
                 </>
               )}
-              {activeTab === 'reposts' && (
-                <>
-                  <Repeat2 className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                  <p className="text-muted-foreground">No reposts yet</p>
-                </>
-              )}
               {activeTab === 'likes' && (
                 <>
                   <Heart className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
@@ -692,8 +840,8 @@ export function UserProfile() {
       </div>
 
       {/* Avatar Edit Dialog */}
-      <AvatarEditDialog 
-        open={showAvatarDialog} 
+      <AvatarEditDialog
+        open={showAvatarDialog}
         onOpenChange={setShowAvatarDialog}
       />
 

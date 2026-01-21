@@ -100,7 +100,25 @@ defmodule BackendWeb.Router do
     post "/ai/generate-project", AIController, :generate_project
     post "/ai/generate-image", AIController, :generate_image
     post "/ai/improve-post", AIController, :improve_post
+    post "/ai/improve-gig", AIController, :improve_gig
     get "/ai/quota", AIController, :quota
+
+    # Gigs (authenticated)
+    post "/gigs", GigController, :create
+    put "/gigs/:id", GigController, :update
+    post "/gigs/:id/cancel", GigController, :cancel
+    post "/gigs/:id/hire", GigController, :hire
+    post "/gigs/:id/complete", GigController, :complete
+
+    get "/gigs/:id/bids", GigController, :bids
+    post "/gigs/:id/bids", GigController, :bid
+    put "/gigs/:id/bids/:bid_id", GigController, :update_bid
+    delete "/gigs/:id/bids/:bid_id", GigController, :withdraw_bid
+
+    post "/gigs/:id/reviews", GigController, :review
+
+    get "/my/gigs", GigController, :my_gigs
+    get "/my/bids", GigController, :my_bids
   end
 
   # Public API routes with optional auth
@@ -113,6 +131,11 @@ defmodule BackendWeb.Router do
     # Search with optional auth (for engagement status)
     get "/search", SearchController, :index
     get "/search/suggestions", SearchController, :suggestions
+
+    # Gigs (public with optional auth)
+    get "/gigs", GigController, :index
+    get "/gigs/:id", GigController, :show
+    get "/gigs/:id/reviews", GigController, :reviews
   end
 
   # Public API routes with optional auth
@@ -157,9 +180,11 @@ defmodule BackendWeb.Router do
 
     get "/users/:username", UserController, :show
     get "/users/:username/posts", UserController, :posts
+    get "/users/:username/timeline", UserController, :timeline
     get "/users/:username/projects", UserController, :projects
     get "/users/:username/likes", UserController, :likes
     get "/users/:username/reposts", UserController, :reposts
+    get "/users/:username/reviews", UserController, :reviews
   end
 
   # Enable LiveDashboard and Swoosh mailbox preview in development

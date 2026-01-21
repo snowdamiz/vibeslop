@@ -12,7 +12,8 @@ defmodule Backend.AI.RateLimiter do
   """
   def check_text_generation(user_id) do
     bucket = "ai_text:#{user_id}"
-    scale = 60_000 * 60  # 1 hour in milliseconds
+    # 1 hour in milliseconds
+    scale = 60_000 * 60
     limit = get_text_limit()
 
     case Hammer.check_rate(bucket, scale, limit) do
@@ -32,7 +33,8 @@ defmodule Backend.AI.RateLimiter do
   """
   def check_image_generation(user_id) do
     bucket = "ai_image:#{user_id}"
-    scale = 60_000 * 60  # 1 hour in milliseconds
+    # 1 hour in milliseconds
+    scale = 60_000 * 60
     limit = get_image_limit()
 
     case Hammer.check_rate(bucket, scale, limit) do

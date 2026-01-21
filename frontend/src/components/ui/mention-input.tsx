@@ -42,36 +42,38 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
 
     // Reset selected index when results change
     useEffect(() => {
-      setMentionState(prev => ({ ...prev, selectedIndex: 0 }))
-    }, [results])
+      if (mentionState.selectedIndex !== 0) {
+        setTimeout(() => setMentionState(prev => ({ ...prev, selectedIndex: 0 })), 0)
+      }
+    }, [results, mentionState.selectedIndex])
 
     // Calculate cursor position for dropdown
     const getCursorPosition = (textarea: HTMLTextAreaElement, caretPos: number) => {
       const div = document.createElement('div')
       const style = getComputedStyle(textarea)
-      
+
       // Copy textarea styles to div
       Array.from(style).forEach(prop => {
         div.style.setProperty(prop, style.getPropertyValue(prop))
       })
-      
+
       div.style.position = 'absolute'
       div.style.visibility = 'hidden'
       div.style.whiteSpace = 'pre-wrap'
       div.style.wordWrap = 'break-word'
       div.textContent = textarea.value.substring(0, caretPos)
-      
+
       const span = document.createElement('span')
       span.textContent = textarea.value.substring(caretPos) || '.'
       div.appendChild(span)
-      
+
       document.body.appendChild(div)
-      
+
       const textareaRect = textarea.getBoundingClientRect()
       const spanRect = span.getBoundingClientRect()
-      
+
       document.body.removeChild(div)
-      
+
       return {
         top: spanRect.top - textareaRect.top + textarea.scrollTop + 20,
         left: spanRect.left - textareaRect.left + textarea.scrollLeft,
@@ -82,13 +84,13 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
     const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const newValue = e.target.value
       const cursorPos = e.target.selectionStart
-      
+
       onChange(newValue)
-      
+
       // Check for @ mention trigger
       const textBeforeCursor = newValue.substring(0, cursorPos)
       const atMatch = textBeforeCursor.match(/@(\w*)$/)
-      
+
       if (atMatch) {
         const position = getCursorPosition(e.target, cursorPos)
         setMentionState({
@@ -106,13 +108,13 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
     // Handle mention selection
     const selectMention = (username: string) => {
       if (!textareaRef.current) return
-      
+
       const before = value.substring(0, mentionState.startIndex)
       const after = value.substring(textareaRef.current.selectionStart)
       const newValue = `${before}@${username} ${after}`
-      
+
       onChange(newValue)
-      
+
       // Set cursor position after mention
       const newCursorPos = mentionState.startIndex + username.length + 2
       setTimeout(() => {
@@ -121,7 +123,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
           textareaRef.current.setSelectionRange(newCursorPos, newCursorPos)
         }
       }, 0)
-      
+
       setMentionState(prev => ({ ...prev, show: false }))
     }
 
@@ -131,7 +133,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
         props.onKeyDown?.(e)
         return
       }
-      
+
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setMentionState(prev => ({
@@ -170,7 +172,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
           setMentionState(prev => ({ ...prev, show: false }))
         }
       }
-      
+
       document.addEventListener('mousedown', handleClickOutside)
       return () => document.removeEventListener('mousedown', handleClickOutside)
     }, [])
@@ -188,7 +190,7 @@ export const MentionInput = forwardRef<HTMLTextAreaElement, MentionInputProps>(
           )}
           {...props}
         />
-        
+
         {mentionState.show && (
           <div
             ref={dropdownRef}

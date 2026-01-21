@@ -94,6 +94,7 @@ defmodule Backend.Repo.Migrations.BackfillEngagementCounters do
   def down do
     # Reset all counters to 0
     execute "UPDATE posts SET likes_count = 0, comments_count = 0, reposts_count = 0, bookmarks_count = 0, quotes_count = 0"
+
     execute "UPDATE projects SET likes_count = 0, comments_count = 0, reposts_count = 0, bookmarks_count = 0, quotes_count = 0"
   end
 end

@@ -180,7 +180,7 @@ defmodule Backend.Messaging do
       from m in Message,
         join: c in Conversation,
         on: m.conversation_id == c.id,
-        where: (c.user_one_id == ^user_id or c.user_two_id == ^user_id),
+        where: c.user_one_id == ^user_id or c.user_two_id == ^user_id,
         where: m.sender_id != ^user_id,
         where: is_nil(m.read_at),
         select: count(m.id)

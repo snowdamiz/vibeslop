@@ -3,7 +3,8 @@ defmodule Backend.Auth.Token do
 
   @impl true
   def token_config do
-    default_claims(default_exp: 60 * 60 * 24 * 7, iss: "vibeslop") # 7 days
+    # 7 days
+    default_claims(default_exp: 60 * 60 * 24 * 7, iss: "vibeslop")
   end
 
   @doc """

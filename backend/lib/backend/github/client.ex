@@ -27,9 +27,9 @@ defmodule Backend.GitHub.Client do
     }
 
     case Req.get("#{@base_url}/user/repos",
-      params: params,
-      headers: authorization_header(access_token)
-    ) do
+           params: params,
+           headers: authorization_header(access_token)
+         ) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
 
@@ -46,8 +46,8 @@ defmodule Backend.GitHub.Client do
   """
   def get_repo(access_token, owner, repo) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}",
-      headers: authorization_header(access_token)
-    ) do
+           headers: authorization_header(access_token)
+         ) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
 
@@ -68,8 +68,9 @@ defmodule Backend.GitHub.Client do
   """
   def get_readme(access_token, owner, repo) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}/readme",
-      headers: authorization_header(access_token) ++ [{"Accept", "application/vnd.github.raw"}]
-    ) do
+           headers:
+             authorization_header(access_token) ++ [{"Accept", "application/vnd.github.raw"}]
+         ) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
 
@@ -90,8 +91,8 @@ defmodule Backend.GitHub.Client do
   """
   def get_languages(access_token, owner, repo) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}/languages",
-      headers: authorization_header(access_token)
-    ) do
+           headers: authorization_header(access_token)
+         ) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, body}
 
@@ -108,8 +109,10 @@ defmodule Backend.GitHub.Client do
   """
   def get_topics(access_token, owner, repo) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}/topics",
-      headers: authorization_header(access_token) ++ [{"Accept", "application/vnd.github.mercy-preview+json"}]
-    ) do
+           headers:
+             authorization_header(access_token) ++
+               [{"Accept", "application/vnd.github.mercy-preview+json"}]
+         ) do
       {:ok, %{status: 200, body: %{"names" => names}}} ->
         {:ok, names}
 
@@ -129,19 +132,21 @@ defmodule Backend.GitHub.Client do
     with {:ok, repo_data} <- get_repo(access_token, owner, repo),
          {:ok, languages} <- get_languages(access_token, owner, repo),
          {:ok, topics} <- get_topics(access_token, owner, repo) do
-
       readme_result = get_readme(access_token, owner, repo)
-      readme = case readme_result do
-        {:ok, content} -> content
-        {:error, _} -> nil
-      end
 
-      {:ok, %{
-        repo: repo_data,
-        languages: languages,
-        topics: topics,
-        readme: readme
-      }}
+      readme =
+        case readme_result do
+          {:ok, content} -> content
+          {:error, _} -> nil
+        end
+
+      {:ok,
+       %{
+         repo: repo_data,
+         languages: languages,
+         topics: topics,
+         readme: readme
+       }}
     else
       {:error, reason} -> {:error, reason}
     end
@@ -191,9 +196,9 @@ defmodule Backend.GitHub.Client do
 
   defp fetch_tree(access_token, owner, repo, branch) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}/git/trees/#{branch}",
-      params: %{recursive: "1"},
-      headers: authorization_header(access_token)
-    ) do
+           params: %{recursive: "1"},
+           headers: authorization_header(access_token)
+         ) do
       {:ok, %{status: 200, body: %{"tree" => tree}}} ->
         {:ok, tree}
 
@@ -227,7 +232,9 @@ defmodule Backend.GitHub.Client do
       |> Enum.sort_by(fn {_path, score} -> score end, :desc)
       |> Enum.take(5)
 
-    Logger.info("Found #{length(scored_files)} potential logo files: #{inspect(Enum.map(scored_files, &elem(&1, 0)))}")
+    Logger.info(
+      "Found #{length(scored_files)} potential logo files: #{inspect(Enum.map(scored_files, &elem(&1, 0)))}"
+    )
 
     Enum.map(scored_files, &elem(&1, 0))
   end
@@ -290,12 +297,14 @@ defmodule Backend.GitHub.Client do
 
     logos =
       paths
-      |> Enum.take(3)  # Limit to 3 logos
+      # Limit to 3 logos
+      |> Enum.take(3)
       |> Enum.reduce_while([], fn path, acc ->
         case get_file_content(access_token, owner, repo, path) do
           {:ok, {content, mime_type}} ->
             Logger.info("Fetched logo: #{path} (#{mime_type})")
             {:cont, [{content, mime_type} | acc]}
+
           {:error, reason} ->
             Logger.warning("Failed to fetch #{path}: #{reason}")
             {:cont, acc}
@@ -316,8 +325,8 @@ defmodule Backend.GitHub.Client do
   """
   def get_file_content(access_token, owner, repo, path) do
     case Req.get("#{@base_url}/repos/#{owner}/#{repo}/contents/#{path}",
-      headers: authorization_header(access_token)
-    ) do
+           headers: authorization_header(access_token)
+         ) do
       {:ok, %{status: 200, body: %{"content" => content, "encoding" => "base64"}}} ->
         # GitHub returns base64 with newlines, clean it up
         clean_content = content |> String.replace("\n", "") |> String.trim()
@@ -343,6 +352,240 @@ defmodule Backend.GitHub.Client do
       ".gif" -> "image/gif"
       ".webp" -> "image/webp"
       _ -> "application/octet-stream"
+    end
+  end
+
+  # =============================================================================
+  # Developer Score Functions
+  # =============================================================================
+
+  @doc """
+  Gets public profile stats for a GitHub user.
+  Returns: public_repos, followers, following, created_at
+  """
+  def get_user_public_stats(username) do
+    case Req.get("#{@base_url}/users/#{username}",
+           headers: [
+             {"Accept", "application/vnd.github.v3+json"},
+             {"User-Agent", "Vibeslop"}
+           ]
+         ) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok,
+         %{
+           public_repos: body["public_repos"],
+           followers: body["followers"],
+           following: body["following"],
+           created_at: body["created_at"]
+         }}
+
+      {:ok, %{status: 404}} ->
+        {:error, "User not found"}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "GitHub API returned status #{status}: #{inspect(body)}"}
+
+      {:error, error} ->
+        {:error, "Failed to fetch user stats: #{inspect(error)}"}
+    end
+  end
+
+  @doc """
+  Gets all public repositories for a user with stats needed for developer score.
+  Returns list of repos with: name, pushed_at, stargazers_count, forks_count, language
+  """
+  def get_repos_with_stats(access_token, opts \\ []) do
+    per_page = Keyword.get(opts, :per_page, 100)
+    fetch_all_repos(access_token, 1, per_page, [])
+  end
+
+  defp fetch_all_repos(access_token, page, per_page, acc) do
+    params = %{
+      per_page: per_page,
+      page: page,
+      sort: "pushed",
+      direction: "desc",
+      visibility: "public",
+      affiliation: "owner"
+    }
+
+    case Req.get("#{@base_url}/user/repos",
+           params: params,
+           headers: authorization_header(access_token)
+         ) do
+      {:ok, %{status: 200, body: body}} when is_list(body) ->
+        repos =
+          Enum.map(body, fn repo ->
+            %{
+              name: repo["name"],
+              full_name: repo["full_name"],
+              pushed_at: repo["pushed_at"],
+              created_at: repo["created_at"],
+              stargazers_count: repo["stargazers_count"],
+              forks_count: repo["forks_count"],
+              language: repo["language"],
+              size: repo["size"]
+            }
+          end)
+
+        if length(body) < per_page do
+          # Last page
+          {:ok, acc ++ repos}
+        else
+          # More pages available
+          fetch_all_repos(access_token, page + 1, per_page, acc ++ repos)
+        end
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "GitHub API returned status #{status}: #{inspect(body)}"}
+
+      {:error, error} ->
+        {:error, "Failed to fetch repositories: #{inspect(error)}"}
+    end
+  end
+
+  @doc """
+  Searches for commits by a user in the last year.
+  Returns list of commits with dates.
+  Note: GitHub Search API has a 1000 result limit.
+  """
+  def get_commits_with_dates(access_token, username) do
+    # Search for commits by author in the last year
+    one_year_ago = Date.utc_today() |> Date.add(-365) |> Date.to_iso8601()
+    query = "author:#{username} committer-date:>=#{one_year_ago}"
+
+    fetch_search_results(access_token, "commits", query, [])
+  end
+
+  @doc """
+  Searches for pull requests created by a user in the last year.
+  Returns list of PRs with created_at, merged_at, state.
+  """
+  def get_prs_with_dates(access_token, username) do
+    one_year_ago = Date.utc_today() |> Date.add(-365) |> Date.to_iso8601()
+    query = "author:#{username} type:pr created:>=#{one_year_ago}"
+
+    case fetch_search_results(access_token, "issues", query, []) do
+      {:ok, items} ->
+        # Transform to include relevant PR fields
+        prs =
+          Enum.map(items, fn item ->
+            %{
+              id: item["id"],
+              title: item["title"],
+              state: item["state"],
+              created_at: item["created_at"],
+              closed_at: item["closed_at"],
+              # pull_request.merged_at is in the nested object
+              merged_at: get_in(item, ["pull_request", "merged_at"]),
+              repository_url: item["repository_url"]
+            }
+          end)
+
+        {:ok, prs}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Searches for issues created by a user in the last year (excluding PRs).
+  Returns list of issues with created_at, closed_at.
+  """
+  def get_issues_with_dates(access_token, username) do
+    one_year_ago = Date.utc_today() |> Date.add(-365) |> Date.to_iso8601()
+    query = "author:#{username} type:issue created:>=#{one_year_ago}"
+
+    case fetch_search_results(access_token, "issues", query, []) do
+      {:ok, items} ->
+        issues =
+          Enum.map(items, fn item ->
+            %{
+              id: item["id"],
+              title: item["title"],
+              state: item["state"],
+              created_at: item["created_at"],
+              closed_at: item["closed_at"]
+            }
+          end)
+
+        {:ok, issues}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Fetches all developer score data for a user in one call.
+  Aggregates repos, commits, PRs, issues, and profile stats.
+  """
+  def get_developer_score_data(access_token, username) do
+    with {:ok, profile} <- get_user_public_stats(username),
+         {:ok, repos} <- get_repos_with_stats(access_token),
+         {:ok, commits} <- get_commits_with_dates(access_token, username),
+         {:ok, prs} <- get_prs_with_dates(access_token, username),
+         {:ok, issues} <- get_issues_with_dates(access_token, username) do
+      # Aggregate stats from repos
+      total_stars = repos |> Enum.map(& &1.stargazers_count) |> Enum.sum()
+      total_forks = repos |> Enum.map(& &1.forks_count) |> Enum.sum()
+
+      # Collect all unique languages
+      languages =
+        repos
+        |> Enum.map(& &1.language)
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+
+      {:ok,
+       %{
+         profile: profile,
+         repos: repos,
+         commits: commits,
+         pull_requests: prs,
+         issues: issues,
+         total_stars: total_stars,
+         total_forks: total_forks,
+         languages: languages,
+         followers: profile.followers
+       }}
+    else
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  # Helper to fetch paginated search results (up to 1000 items)
+  defp fetch_search_results(access_token, search_type, query, acc, page \\ 1) do
+    per_page = 100
+
+    case Req.get("#{@base_url}/search/#{search_type}",
+           params: %{q: query, per_page: per_page, page: page, sort: "author-date", order: "desc"},
+           headers: authorization_header(access_token)
+         ) do
+      {:ok, %{status: 200, body: %{"items" => items, "total_count" => total}}} ->
+        new_acc = acc ++ items
+
+        # GitHub Search API limits to 1000 results
+        if length(new_acc) < total and length(items) == per_page and page < 10 do
+          # Small delay to avoid rate limiting on search API
+          Process.sleep(100)
+          fetch_search_results(access_token, search_type, query, new_acc, page + 1)
+        else
+          {:ok, new_acc}
+        end
+
+      {:ok, %{status: 422, body: body}} ->
+        # Validation failed - usually means no results or bad query
+        require Logger
+        Logger.warning("GitHub search validation failed: #{inspect(body)}")
+        {:ok, []}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "GitHub Search API returned status #{status}: #{inspect(body)}"}
+
+      {:error, error} ->
+        {:error, "Failed to search #{search_type}: #{inspect(error)}"}
     end
   end
 

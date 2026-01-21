@@ -180,11 +180,10 @@ export function Comment({
             <div className="flex items-center gap-4">
               <button
                 onClick={handleLike}
-                className={`flex items-center gap-1.5 text-xs transition-colors ${
-                  isLiked
+                className={`flex items-center gap-1.5 text-xs transition-colors ${isLiked
                     ? 'text-red-500'
                     : 'text-muted-foreground hover:text-red-500'
-                }`}
+                  }`}
               >
                 <Heart
                   className={`w-3.5 h-3.5 ${isLiked ? 'fill-current' : ''}`}
@@ -207,7 +206,7 @@ export function Comment({
               onOpenChange={setShowDeleteConfirm}
               title="Delete comment"
               description="Are you sure you want to delete this comment? This action cannot be undone."
-              confirmText={isDeleting ? "Deleting..." : "Delete"}
+              confirmLabel={isDeleting ? "Deleting..." : "Delete"}
               onConfirm={handleDelete}
               variant="destructive"
             />
