@@ -1,12 +1,12 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { Header, Footer, AppShell } from '@/components/layout'
-import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail } from '@/pages'
+import { Landing, Home, About, ProjectDetail, PostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail, Admin, AdminUsers } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
 
 function App() {
   const location = useLocation()
   const { isAuthenticated, isLoading } = useAuth()
-  
+
   // Show loading spinner while checking auth status
   if (isLoading) {
     return (
@@ -18,7 +18,7 @@ function App() {
       </div>
     )
   }
-  
+
   const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/auth/callback' || location.pathname === '/onboarding'
   const isLandingPage = location.pathname === '/' && !isAuthenticated
 
@@ -64,6 +64,8 @@ function App() {
         <Route path="/gigs" element={<Gigs />} />
         <Route path="/gigs/:id" element={<GigDetail />} />
         <Route path="/bookmarks" element={<Bookmarks />} />
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/users" element={<AdminUsers />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </AppShell>

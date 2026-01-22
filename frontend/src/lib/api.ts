@@ -17,6 +17,7 @@ export interface User {
   avatar_url?: string
   banner_url?: string
   is_verified: boolean
+  is_admin: boolean
   has_onboarded: boolean
 }
 
@@ -59,6 +60,27 @@ export interface Notification {
 export interface NotificationResponse {
   data: Notification[]
   unread_count: number
+}
+
+export interface AdminUser {
+  id: string
+  email: string
+  username: string
+  display_name: string
+  avatar_url?: string
+  is_verified: boolean
+  has_onboarded: boolean
+  inserted_at: string
+  updated_at: string
+}
+
+export interface AdminUsersResponse {
+  data: AdminUser[]
+  meta: {
+    total: number
+    limit: number
+    offset: number
+  }
 }
 
 export interface UserProfile {
@@ -592,7 +614,7 @@ class ApiClient {
   // Search
   async search(params: {
     q: string
-    type?: 'top' | 'people' | 'projects' | 'posts'
+    type?: 'top' | 'people' | 'projects' | 'posts' | 'gigs'
     limit?: number
     offset?: number
   }): Promise<{ data: unknown; meta: { query: string; total_results?: number; total?: number } }> {
@@ -604,7 +626,7 @@ class ApiClient {
     return this.get(`/search?${queryParams}`)
   }
 
-  async searchSuggestions(query: string, limit?: number): Promise<{ data: { users: SuggestedUser[]; projects: Array<{ id: string; title: string; image_url?: string; user: { username: string; display_name: string } }>; posts: Array<{ id: string; content: string; user: { username: string; display_name: string } }> } }> {
+  async searchSuggestions(query: string, limit?: number): Promise<{ data: { users: SuggestedUser[]; projects: Array<{ id: string; title: string; image_url?: string; user: { username: string; display_name: string } }>; posts: Array<{ id: string; content: string; user: { username: string; display_name: string } }>; gigs: Array<{ id: string; title: string; budget_min?: number; budget_max?: number; currency: string; user: { username: string; display_name: string } }> } }> {
     const queryParams = new URLSearchParams()
     queryParams.append('q', query)
     if (limit) queryParams.append('limit', limit.toString())
@@ -643,6 +665,27 @@ class ApiClient {
 
   async getAIQuota(): Promise<{ text_generation: QuotaInfo; image_generation: QuotaInfo }> {
     return this.get('/ai/quota')
+  }
+
+  // Admin
+  async getAdminUsers(params?: {
+    limit?: number
+    offset?: number
+    search?: string
+  }): Promise<AdminUsersResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.search) queryParams.append('search', params.search)
+    return this.get(`/admin/users?${queryParams}`)
+  }
+
+  async toggleUserVerified(userId: string): Promise<{ data: AdminUser }> {
+    return this.post(`/admin/users/${userId}/toggle-verified`)
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    return this.delete(`/admin/users/${userId}`)
   }
 
   /**

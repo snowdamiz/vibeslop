@@ -16,6 +16,7 @@ interface User {
   website_url?: string
   github_username?: string
   is_verified: boolean
+  is_admin: boolean
   has_onboarded: boolean
 }
 
@@ -51,6 +52,7 @@ function transformApiUser(apiUser: ApiUser): User {
     website_url: apiUser.website_url,
     github_username: apiUser.github_username,
     is_verified: apiUser.is_verified,
+    is_admin: apiUser.is_admin || false,
     has_onboarded: apiUser.has_onboarded,
   }
 }
@@ -63,9 +65,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Clean up any old mock user data
     localStorage.removeItem('vibeslop_user')
-    
+
     const token = api.getToken()
-    
+
     if (token) {
       api.getCurrentUser()
         .then((apiUser) => {
@@ -91,7 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleAuthCallback = useCallback(async (token: string) => {
     // Store the token
     api.setToken(token)
-    
+
     // Fetch the user data
     try {
       const apiUser = await api.getCurrentUser()
@@ -116,11 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      isAuthenticated: !!user, 
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated: !!user,
       isLoading,
-      login, 
+      login,
       logout,
       handleAuthCallback,
       updateUser

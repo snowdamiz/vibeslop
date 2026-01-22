@@ -103,7 +103,7 @@ const team = [
     role: 'Founder & CEO',
     bio: 'Former indie hacker who built 12 AI-assisted projects before realizing the community needed a home.',
     initials: 'AR',
-    color: 'from-violet-500 to-purple-600',
+    color: 'from-blue-500 to-indigo-600',
     twitter: '#',
     github: '#',
   },

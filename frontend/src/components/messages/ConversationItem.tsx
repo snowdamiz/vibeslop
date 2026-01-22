@@ -46,7 +46,7 @@ export function ConversationItem({ conversation, isActive, onClick }: Conversati
           src={participant.avatarUrl || `https://i.pravatar.cc/150?img=${participant.username?.charCodeAt(0) % 70 || 1}`}
           alt={participant.name}
         />
-        <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
           {participant.initials}
         </AvatarFallback>
       </Avatar>

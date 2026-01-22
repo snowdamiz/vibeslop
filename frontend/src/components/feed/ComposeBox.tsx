@@ -454,7 +454,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
         <div className="flex items-center gap-3 max-w-[600px] mx-auto px-4 py-3">
           <Avatar className="w-10 h-10">
             <AvatarImage src={user.avatar_url} alt={user.name} />
-            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
               {user.initials}
             </AvatarFallback>
           </Avatar>
@@ -503,7 +503,7 @@ export function ComposeBox({ placeholder, onPost, quotedItem, onClearQuote, isOp
             <div className="flex items-center gap-3">
               <Avatar className="w-9 h-9">
                 <AvatarImage src={user.avatar_url} alt={user.name} />
-                <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
                   {user.initials}
                 </AvatarFallback>
               </Avatar>

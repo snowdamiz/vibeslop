@@ -133,7 +133,7 @@ export function Header() {
                     <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full">
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={user?.avatar_url} alt={user?.name} />
-                        <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+                        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
                           {user?.initials}
                         </AvatarFallback>
                       </Avatar>

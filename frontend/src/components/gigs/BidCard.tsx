@@ -44,7 +44,7 @@ export function BidCard({ bid, onHire, canHire, showBorder = true }: BidCardProp
             {bid.user.avatar_url && (
               <AvatarImage src={bid.user.avatar_url} alt={bid.user.display_name} />
             )}
-            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white font-medium">
+            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-medium">
               {bid.user.display_name.slice(0, 2).toUpperCase()}
             </AvatarFallback>
           </Avatar>

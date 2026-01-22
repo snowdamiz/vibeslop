@@ -179,6 +179,7 @@ export function Onboarding() {
         website_url: updatedUser.website_url,
         github_username: updatedUser.github_username,
         is_verified: updatedUser.is_verified,
+        is_admin: updatedUser.is_admin,
         has_onboarded: updatedUser.has_onboarded,
       }
 
@@ -229,7 +230,7 @@ export function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-violet-500/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-blue-500/5 flex items-center justify-center p-4">
       <div className="w-full max-w-2xl">
         <div className="bg-card rounded-2xl shadow-xl overflow-hidden border border-border/50 backdrop-blur-sm">
           {/* Header */}
@@ -260,8 +261,8 @@ export function Onboarding() {
                       <div
                         className={cn(
                           "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 shadow-md",
-                          isCompleted ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white shadow-violet-500/20" :
-                            isCurrent ? "bg-gradient-to-br from-violet-500 to-purple-600 text-white ring-4 ring-violet-500/20 scale-110 shadow-violet-500/30" :
+                          isCompleted ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-blue-500/20" :
+                            isCurrent ? "bg-gradient-to-br from-blue-500 to-indigo-600 text-white ring-4 ring-blue-500/20 scale-110 shadow-blue-500/30" :
                               "bg-muted text-muted-foreground hover:bg-muted/80"
                         )}
                       >
@@ -269,7 +270,7 @@ export function Onboarding() {
                       </div>
                       <span className={cn(
                         "text-xs font-semibold whitespace-nowrap",
-                        isCurrent ? "text-violet-600 dark:text-violet-400" : "text-muted-foreground"
+                        isCurrent ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
                       )}>
                         {step.label}
                       </span>
@@ -280,7 +281,7 @@ export function Onboarding() {
                         <div
                           className={cn(
                             "h-0.5 rounded-full w-full transition-all duration-500",
-                            i < currentStep ? "bg-gradient-to-r from-violet-500 to-purple-600" : "bg-muted"
+                            i < currentStep ? "bg-gradient-to-r from-blue-500 to-indigo-600" : "bg-muted"
                           )}
                         />
                       </div>
@@ -311,12 +312,12 @@ export function Onboarding() {
                         {avatarUrl ? (
                           <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                          <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-3xl font-bold">
                             {displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                           </div>
                         )}
                       </Avatar>
-                      <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg ring-4 ring-background">
+                      <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg ring-4 ring-background">
                         <ImageIcon className="w-4 h-4 text-white" />
                       </div>
                     </div>
@@ -324,7 +325,7 @@ export function Onboarding() {
                     <div
                       className={cn(
                         "w-full relative group cursor-pointer transition-all rounded-xl border-2 border-dashed min-h-[140px] flex flex-col items-center justify-center",
-                        isDragging ? "border-violet-500 bg-violet-500/5 scale-105" : "border-border hover:border-violet-500/50 hover:bg-muted/50"
+                        isDragging ? "border-blue-500 bg-blue-500/5 scale-105" : "border-border hover:border-blue-500/50 hover:bg-muted/50"
                       )}
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
@@ -332,8 +333,8 @@ export function Onboarding() {
                       onClick={() => fileInputRef.current?.click()}
                     >
                       <div className="flex flex-col items-center justify-center gap-2.5 text-center p-5">
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <ImageIcon className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div>
                           <p className="text-sm font-semibold">Upload a custom avatar</p>
@@ -375,8 +376,8 @@ export function Onboarding() {
                   <div className="space-y-5">
                     <div className="space-y-2">
                       <label className="text-sm font-semibold flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                          <User className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                          <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                         </div>
                         Display Name <span className="text-destructive ml-0.5">*</span>
                       </label>
@@ -392,8 +393,8 @@ export function Onboarding() {
 
                     <div className="space-y-2">
                       <label className="text-sm font-semibold flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                          <AtSign className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                          <AtSign className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                         </div>
                         Username <span className="text-destructive ml-0.5">*</span>
                       </label>
@@ -409,7 +410,7 @@ export function Onboarding() {
                           )}
                         />
                         {isCheckingUsername && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-violet-500" />
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
                         )}
                       </div>
                       {usernameError ? (
@@ -426,8 +427,8 @@ export function Onboarding() {
 
                     <div className="space-y-2">
                       <label className="text-sm font-semibold flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                          <FileText className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                        <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                          <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                         </div>
                         Bio
                       </label>
@@ -455,14 +456,14 @@ export function Onboarding() {
                   </div>
 
                   <div className="relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-violet-500/5 to-purple-500/5 rounded-xl" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 rounded-xl" />
                     <div className="relative bg-card/50 backdrop-blur-sm rounded-xl p-6 border-2 border-border/50 shadow-lg">
                       <div className="flex flex-col items-center gap-4">
-                        <Avatar className="w-20 h-20 border-4 border-background shadow-xl ring-4 ring-violet-500/10">
+                        <Avatar className="w-20 h-20 border-4 border-background shadow-xl ring-4 ring-blue-500/10">
                           {avatarUrl ? (
                             <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                            <div className="w-full h-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-2xl font-bold">
                               {displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
                             </div>
                           )}
@@ -487,10 +488,10 @@ export function Onboarding() {
                   </div>
 
                   <div className="relative overflow-hidden rounded-lg">
-                    <div className="absolute inset-0 bg-gradient-to-r from-violet-500/10 to-purple-500/10" />
-                    <div className="relative px-4 py-3 text-center border-2 border-violet-500/20">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-indigo-500/10" />
+                    <div className="relative px-4 py-3 text-center border-2 border-blue-500/20">
                       <p className="text-xs font-medium">
-                        <span className="text-violet-600 dark:text-violet-400">💡</span> You can always update your profile later in settings
+                        <span className="text-blue-600 dark:text-blue-400">💡</span> You can always update your profile later in settings
                       </p>
                     </div>
                   </div>
@@ -532,8 +533,8 @@ export function Onboarding() {
                   className={cn(
                     "gap-2 px-6 h-10 font-semibold shadow-lg transition-all",
                     currentStep === STEPS.length - 1
-                      ? "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-violet-500/30 hover:shadow-violet-500/40 hover:scale-105"
-                      : "bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white border-0 shadow-violet-500/20"
+                      ? "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-blue-500/30 hover:shadow-blue-500/40 hover:scale-105"
+                      : "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-blue-500/20"
                   )}
                   size="sm"
                 >

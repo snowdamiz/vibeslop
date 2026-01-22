@@ -100,7 +100,7 @@ export function NewMessageDialog({ open, onOpenChange, onSelectUser }: NewMessag
                 >
                   <Avatar className="w-10 h-10 flex-shrink-0">
                     <AvatarImage src={user.avatar_url} alt={user.display_name} />
-                    <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
                       {getInitials(user.display_name)}
                     </AvatarFallback>
                   </Avatar>

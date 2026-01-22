@@ -8,6 +8,7 @@ defmodule Backend.Search do
   alias Backend.Repo
   alias Backend.Accounts.User
   alias Backend.Content.{Post, Project}
+  alias Backend.Gigs.Gig
 
   @doc """
   Parse search query and extract operators.
@@ -83,11 +84,13 @@ defmodule Backend.Search do
     users = search_users(parsed, limit: 3)
     projects = search_projects(parsed, limit: 5, current_user_id: current_user_id)
     posts = search_posts(parsed, limit: 12, current_user_id: current_user_id)
+    gigs = search_gigs(parsed, limit: 5)
 
     %{
       users: users,
       projects: projects,
-      posts: posts
+      posts: posts,
+      gigs: gigs
     }
   end
 
@@ -404,6 +407,67 @@ defmodule Backend.Search do
   end
 
   @doc """
+  Search for gigs by title or description.
+  """
+  def search_gigs(%{} = parsed, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    query_string = parsed.query
+    like_pattern = "%#{query_string}%"
+
+    query =
+      from g in Gig,
+        join: u in assoc(g, :user),
+        where: g.status == "open",
+        select: %{
+          gig: g,
+          user: u
+        },
+        limit: ^limit,
+        offset: ^offset
+
+    # Apply full-text search + trigram fuzzy matching with relevance ranking
+    # Note: Gig schema doesn't have search_vector yet in the migration I saw, 
+    # but I'll use trigram similarity which is often preferred for titles anyway.
+    query =
+      if query_string != "" do
+        from [g, u] in query,
+          where:
+            ilike(g.title, ^like_pattern) or
+              ilike(g.description, ^like_pattern) or
+              fragment("similarity(?, ?) > 0.2", g.title, ^query_string) or
+              fragment("similarity(?, ?) > 0.15", g.description, ^query_string),
+          order_by: [
+            desc:
+              fragment(
+                "CASE WHEN ? ILIKE ? THEN 1.0 ELSE GREATEST(similarity(?, ?), similarity(?, ?) * 0.8) END",
+                g.title,
+                ^like_pattern,
+                g.title,
+                ^query_string,
+                g.description,
+                ^query_string
+              )
+          ]
+      else
+        from [g, u] in query,
+          order_by: [desc: g.inserted_at]
+      end
+
+    # Apply from_user filter
+    query =
+      if parsed.from_user do
+        from [g, u] in query,
+          where: u.username == ^parsed.from_user
+      else
+        query
+      end
+
+    Repo.all(query)
+  end
+
+  @doc """
   Get quick suggestions for typeahead.
   Returns matching users, projects, and posts.
   """
@@ -411,13 +475,14 @@ defmodule Backend.Search do
     limit = Keyword.get(opts, :limit, 5)
 
     if String.trim(query_string) == "" do
-      %{users: [], projects: [], posts: []}
+      %{users: [], projects: [], posts: [], gigs: []}
     else
       users = search_users(query_string, limit: limit)
       projects = search_projects_titles(query_string, limit: limit)
       posts = search_posts_snippets(query_string, limit: limit)
+      gigs = search_gigs_titles(query_string, limit: limit)
 
-      %{users: users, projects: projects, posts: posts}
+      %{users: users, projects: projects, posts: posts, gigs: gigs}
     end
   end
 
@@ -488,6 +553,45 @@ defmodule Backend.Search do
         select: %{
           id: p.id,
           content: p.content,
+          user: u
+        }
+    )
+  end
+
+  # Helper to search gig titles only (for quick suggestions)
+  defp search_gigs_titles(query_string, opts) do
+    limit = Keyword.get(opts, :limit, 5)
+    like_pattern = "%#{query_string}%"
+
+    # Use ILIKE for prefix/contains matching plus trigram fuzzy matching
+    Repo.all(
+      from g in Gig,
+        join: u in assoc(g, :user),
+        where:
+          g.status == "open" and
+            (ilike(g.title, ^like_pattern) or
+               ilike(g.description, ^like_pattern) or
+               fragment("similarity(?, ?) > 0.2", g.title, ^query_string) or
+               fragment("similarity(?, ?) > 0.15", g.description, ^query_string)),
+        order_by: [
+          desc:
+            fragment(
+              "CASE WHEN ? ILIKE ? THEN 1.0 ELSE GREATEST(similarity(?, ?), similarity(?, ?) * 0.8) END",
+              g.title,
+              ^like_pattern,
+              g.title,
+              ^query_string,
+              g.description,
+              ^query_string
+            )
+        ],
+        limit: ^limit,
+        select: %{
+          id: g.id,
+          title: g.title,
+          budget_min: g.budget_min,
+          budget_max: g.budget_max,
+          currency: g.currency,
           user: u
         }
     )

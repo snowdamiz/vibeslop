@@ -240,4 +240,70 @@ defmodule Backend.Accounts do
 
     Repo.all(query)
   end
+
+  @doc """
+  Lists all users with pagination and optional search.
+  Returns users ordered by most recent first.
+  """
+  def list_users(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 50)
+    offset = Keyword.get(opts, :offset, 0)
+    search = Keyword.get(opts, :search)
+
+    query = from u in User,
+      order_by: [desc: u.inserted_at],
+      limit: ^limit,
+      offset: ^offset,
+      select: u
+
+    query = if search && search != "" do
+      search_pattern = "%#{search}%"
+      from u in query,
+        where: ilike(u.username, ^search_pattern) or
+               ilike(u.display_name, ^search_pattern) or
+               ilike(u.email, ^search_pattern)
+    else
+      query
+    end
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Counts total users, optionally filtered by search.
+  """
+  def count_users(opts \\ []) do
+    search = Keyword.get(opts, :search)
+
+    query = from u in User, select: count(u.id)
+
+    query = if search && search != "" do
+      search_pattern = "%#{search}%"
+      from u in query,
+        where: ilike(u.username, ^search_pattern) or
+               ilike(u.display_name, ^search_pattern) or
+               ilike(u.email, ^search_pattern)
+    else
+      query
+    end
+
+    Repo.one(query)
+  end
+
+  @doc """
+  Toggles the verified status of a user.
+  """
+  def toggle_verified(%User{} = user) do
+    user
+    |> User.changeset(%{is_verified: !user.is_verified})
+    |> Repo.update()
+  end
+
+  @doc """
+  Checks if a user is an administrator based on their email.
+  """
+  def is_admin?(user) do
+    admin_email = Application.get_env(:backend, :admin_email)
+    admin_email && user.email == admin_email
+  end
 end

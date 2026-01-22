@@ -464,7 +464,7 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
                         <div className="flex items-center gap-3">
                             <Avatar className="w-9 h-9">
                                 <AvatarImage src={user.avatar_url} alt={user.name} />
-                                <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+                                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
                                     {user.initials}
                                 </AvatarFallback>
                             </Avatar>

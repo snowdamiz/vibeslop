@@ -15,7 +15,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
           {review.reviewer.avatar_url && (
             <AvatarImage src={review.reviewer.avatar_url} alt={review.reviewer.display_name} />
           )}
-          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
             {review.reviewer.display_name.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>

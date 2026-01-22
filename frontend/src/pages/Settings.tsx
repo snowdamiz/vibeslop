@@ -113,6 +113,7 @@ export function Settings() {
         website_url: updatedUser.website_url,
         github_username: updatedUser.github_username,
         is_verified: updatedUser.is_verified,
+        is_admin: updatedUser.is_admin,
         has_onboarded: updatedUser.has_onboarded,
       }
 
@@ -166,7 +167,7 @@ export function Settings() {
               >
                 <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
                   <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xl sm:text-2xl font-semibold">
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl sm:text-2xl font-semibold">
                     {user.initials}
                   </AvatarFallback>
                 </Avatar>
@@ -188,8 +189,8 @@ export function Settings() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                  <User className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 </div>
                 Display Name <span className="text-destructive ml-0.5">*</span>
               </label>
@@ -207,8 +208,8 @@ export function Settings() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                  <AtSign className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <AtSign className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 </div>
                 Username <span className="text-destructive ml-0.5">*</span>
               </label>
@@ -224,7 +225,7 @@ export function Settings() {
                   )}
                 />
                 {isCheckingUsername && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-violet-500" />
+                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
                 )}
               </div>
               {usernameError ? (
@@ -241,8 +242,8 @@ export function Settings() {
 
             <div className="space-y-2">
               <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center">
-                  <FileText className="w-3 h-3 text-violet-600 dark:text-violet-400" />
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
                 </div>
                 Bio
               </label>
@@ -276,7 +277,7 @@ export function Settings() {
             <Button
               onClick={handleSave}
               disabled={!hasChanges || isSubmitting || !!usernameError || isCheckingUsername || !displayName.trim() || !username.trim()}
-              className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white px-8"
+              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-8"
               size="lg"
             >
               {isSubmitting ? (

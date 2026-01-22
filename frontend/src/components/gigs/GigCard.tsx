@@ -60,7 +60,7 @@ export function GigCard({ gig, showBorder = true }: GigCardProps) {
               {gig.user.avatar_url && (
                 <AvatarImage src={gig.user.avatar_url} alt={gig.user.display_name} />
               )}
-              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
                 {gig.user.display_name.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>

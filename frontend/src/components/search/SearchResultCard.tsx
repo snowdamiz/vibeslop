@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { User, FileCode, MessageSquare } from 'lucide-react'
+import { User, FileCode, MessageSquare, Briefcase } from 'lucide-react'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 import type { FeedItem } from '@/components/feed/types'
 import type { SuggestedUser } from '@/lib/api'
 
@@ -26,7 +27,7 @@ export function UserResultCard({ user }: UserResultProps) {
         {user.avatar_url && (
           <AvatarImage src={user.avatar_url} alt={user.display_name} />
         )}
-        <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
+        <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-semibold">
           {initials}
         </AvatarFallback>
       </Avatar>
@@ -114,7 +115,7 @@ export function PostResultCard({ post }: PostResultProps) {
           {post.author?.avatar_url && (
             <AvatarImage src={post.author.avatar_url} alt={post.author.name} />
           )}
-          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-semibold">
             {authorInitials}
           </AvatarFallback>
         </Avatar>
@@ -141,6 +142,79 @@ export function PostResultCard({ post }: PostResultProps) {
                 <span>{post.reposts} reposts</span>
               </>
             )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  )
+}
+interface GigResultProps {
+  gig: any // We'll refine this type if needed
+}
+
+export function GigResultCard({ gig }: GigResultProps) {
+  const authorInitials = gig.author?.display_name
+    ? gig.author.display_name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
+    : 'U'
+
+  const formatBudget = (min?: number, max?: number, currency = 'USD') => {
+    if (!min && !max) return 'Budget not specified'
+
+    const format = (amount: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+      }).format(amount / 100)
+    }
+
+    if (min && max) {
+      if (min === max) return format(min)
+      return `${format(min)} - ${format(max)}`
+    }
+    if (min) return `From ${format(min)}`
+    if (max) return `Up to ${format(max)}`
+    return 'Budget not specified'
+  }
+
+  return (
+    <Link
+      to={`/gigs/${gig.id}`}
+      className="block p-4 hover:bg-muted/50 transition-colors border-b border-border"
+    >
+      <div className="flex gap-3">
+        <Avatar className="w-10 h-10 ring-2 ring-background flex-shrink-0">
+          {gig.author?.avatar_url && (
+            <AvatarImage src={gig.author.avatar_url} alt={gig.author.display_name} />
+          )}
+          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-semibold">
+            {authorInitials}
+          </AvatarFallback>
+        </Avatar>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Briefcase className="w-3.5 h-3.5 text-primary" />
+              <h3 className="font-semibold text-[15px] truncate">{gig.title}</h3>
+            </div>
+            <div className="text-sm font-medium text-foreground">
+              {formatBudget(gig.budget_min, gig.budget_max, gig.currency)}
+            </div>
+          </div>
+          <div className="text-sm text-muted-foreground mb-2 flex items-center gap-1">
+            <span>by @{gig.author?.username}</span>
+            {gig.author?.is_verified && (
+              <Badge variant="secondary" className="text-[10px] h-4 px-1">Verified</Badge>
+            )}
+          </div>
+          <div className="text-sm line-clamp-2 text-muted-foreground [&_p]:mb-0 [&_h2]:text-sm [&_h3]:text-sm [&_strong]:font-semibold">
+            <MarkdownContent content={gig.description} className="prose-sm" hideFirstHeading />
           </div>
         </div>
       </div>

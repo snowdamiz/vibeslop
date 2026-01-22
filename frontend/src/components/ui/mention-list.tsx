@@ -104,7 +104,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
           >
             <Avatar className="w-8 h-8">
               <AvatarImage src={item.avatar_url} alt={item.display_name} />
-              <AvatarFallback className="text-xs bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+              <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
                 {item.display_name
                   .split(' ')
                   .map((n) => n[0])

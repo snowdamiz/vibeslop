@@ -1,3 +1,3 @@
 export { SearchTypeahead } from './SearchTypeahead'
-export { UserResultCard, ProjectResultCard, PostResultCard } from './SearchResultCard'
+export { UserResultCard, ProjectResultCard, PostResultCard, GigResultCard } from './SearchResultCard'
 export { AdvancedSearchModal } from './AdvancedSearchModal'

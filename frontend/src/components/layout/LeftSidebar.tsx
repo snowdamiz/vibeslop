@@ -23,6 +23,7 @@ import {
   Moon,
   Sun,
   Briefcase,
+  Shield,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -143,6 +144,37 @@ export function LeftSidebar() {
           )
         })}
 
+        {/* Admin Link */}
+        {user?.is_admin && (
+          <Link
+            to="/admin"
+            className={cn(
+              'group flex items-center justify-center xl:justify-start gap-4',
+              'w-11 h-11 xl:w-full xl:h-auto xl:px-3 xl:py-3',
+              'rounded-full xl:rounded-xl flex-shrink-0',
+              location.pathname === '/admin'
+                ? 'bg-primary/10 text-foreground'
+                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
+            )}
+          >
+            <div className="flex items-center justify-center w-6 h-6">
+              <Shield
+                className={cn(
+                  'w-[22px] h-[22px]',
+                  location.pathname === '/admin' && 'text-primary'
+                )}
+                strokeWidth={location.pathname === '/admin' ? 2.5 : 2}
+              />
+            </div>
+            <span className={cn(
+              'text-[15px] hidden xl:block',
+              location.pathname === '/admin' ? 'font-semibold' : 'font-medium'
+            )}>
+              Admin
+            </span>
+          </Link>
+        )}
+
         {/* Profile Link */}
         {user && (
           <Link
@@ -195,7 +227,7 @@ export function LeftSidebar() {
               <button className="flex items-center gap-3 p-0 xl:p-2.5 rounded-full xl:rounded-xl hover:bg-muted/60 xl:w-full text-left flex-shrink-0">
                 <Avatar className="w-10 h-10 ring-2 ring-border/50 flex-shrink-0">
                   <AvatarImage src={user.avatar_url} alt={user.name} />
-                  <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
+                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-semibold">
                     {user.initials}
                   </AvatarFallback>
                 </Avatar>

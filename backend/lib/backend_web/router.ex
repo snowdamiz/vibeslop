@@ -121,6 +121,15 @@ defmodule BackendWeb.Router do
     get "/my/bids", GigController, :my_bids
   end
 
+  # Admin routes
+  scope "/api/admin", BackendWeb do
+    pipe_through [:api, :authenticated]
+
+    get "/users", AdminController, :list_users
+    post "/users/:id/toggle-verified", AdminController, :toggle_verified
+    delete "/users/:id", AdminController, :delete_user
+  end
+
   # Public API routes with optional auth
   scope "/api", BackendWeb do
     pipe_through [:api, :optional_auth]

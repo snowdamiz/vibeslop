@@ -31,7 +31,7 @@ defmodule BackendWeb.SearchController do
       case type do
         "top" ->
           results = Search.unified_search(query, limit: limit, current_user_id: current_user_id)
-          total = length(results.users) + length(results.projects) + length(results.posts)
+          total = length(results.users) + length(results.projects) + length(results.posts) + length(results.gigs)
 
           # Format results for JSON serialization
           formatted_users =
@@ -82,8 +82,32 @@ defmodule BackendWeb.SearchController do
               }
             end)
 
+          formatted_gigs =
+            Enum.map(results.gigs, fn %{gig: gig, user: user} ->
+              %{
+                id: gig.id,
+                title: gig.title,
+                description: truncate_text(gig.description, 200),
+                budget_min: gig.budget_min,
+                budget_max: gig.budget_max,
+                currency: gig.currency,
+                author: %{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                  avatar_url: user.avatar_url,
+                  is_verified: user.is_verified
+                }
+              }
+            end)
+
           json(conn, %{
-            data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts},
+            data: %{
+              users: formatted_users,
+              projects: formatted_projects,
+              posts: formatted_posts,
+              gigs: formatted_gigs
+            },
             meta: %{query: query, total_results: total}
           })
 
@@ -123,10 +147,40 @@ defmodule BackendWeb.SearchController do
           |> put_view(json: BackendWeb.PostJSON)
           |> render(:index, posts: posts)
 
+        "gigs" ->
+          parsed = Search.parse_query(query)
+          results = Search.search_gigs(parsed, limit: limit, offset: offset)
+
+          formatted_gigs =
+            Enum.map(results, fn %{gig: gig, user: user} ->
+              %{
+                id: gig.id,
+                title: gig.title,
+                description: truncate_text(gig.description, 200),
+                budget_min: gig.budget_min,
+                budget_max: gig.budget_max,
+                currency: gig.currency,
+                author: %{
+                  id: user.id,
+                  username: user.username,
+                  display_name: user.display_name,
+                  avatar_url: user.avatar_url,
+                  is_verified: user.is_verified
+                }
+              }
+            end)
+
+          json(conn, %{
+            data: formatted_gigs,
+            meta: %{query: query, total_results: length(formatted_gigs)}
+          })
+
         _ ->
           conn
           |> put_status(:bad_request)
-          |> json(%{error: "Invalid search type. Must be one of: top, people, projects, posts"})
+          |> json(%{
+            error: "Invalid search type. Must be one of: top, people, projects, posts, gigs"
+          })
       end
     end
   end
@@ -180,8 +234,24 @@ defmodule BackendWeb.SearchController do
         }
       end)
 
+    # Format gigs for JSON serialization
+    formatted_gigs =
+      Enum.map(results.gigs, fn gig ->
+        %{
+          id: gig.id,
+          title: gig.title,
+          budget_min: gig.budget_min,
+          budget_max: gig.budget_max,
+          currency: gig.currency,
+          user: %{
+            username: gig.user.username,
+            display_name: gig.user.display_name
+          }
+        }
+      end)
+
     json(conn, %{
-      data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts}
+      data: %{users: formatted_users, projects: formatted_projects, posts: formatted_posts, gigs: formatted_gigs}
     })
   end
 

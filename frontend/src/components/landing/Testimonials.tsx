@@ -12,7 +12,7 @@ const testimonials = [
     role: "Weekend Viber",
     initials: "CM",
     projects: 12,
-    color: "from-violet-500 to-purple-600",
+    color: "from-blue-500 to-indigo-600",
   },
   {
     quote: "I landed my first dev job because a recruiter found my hypevibe portfolio. They loved that I showed my process and the prompts I used.",
@@ -52,7 +52,7 @@ const testimonials = [
     role: "Startup Founder",
     initials: "SL",
     projects: 7,
-    color: "from-indigo-500 to-violet-600",
+    color: "from-indigo-500 to-blue-600",
   },
 ]
 

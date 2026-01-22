@@ -170,7 +170,7 @@ export function CommentsSection({
           <div className="flex gap-3">
             <Avatar className="w-10 h-10 flex-shrink-0 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
               <AvatarImage src={user?.avatar_url} alt={user?.name || 'You'} />
-              <AvatarFallback className="text-sm bg-gradient-to-br from-violet-500 to-purple-600 text-white font-medium">
+              <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-medium">
                 {user?.initials || 'U'}
               </AvatarFallback>
             </Avatar>

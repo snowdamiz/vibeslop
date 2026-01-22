@@ -5,16 +5,17 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Search as SearchIcon, ArrowLeft, SlidersHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type SuggestedUser } from '@/lib/api'
-import { UserResultCard, ProjectResultCard, PostResultCard, AdvancedSearchModal } from '@/components/search'
+import { UserResultCard, ProjectResultCard, PostResultCard, GigResultCard, AdvancedSearchModal } from '@/components/search'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
 import type { FeedItem } from '@/components/feed/types'
 
-type SearchTab = 'top' | 'people' | 'projects' | 'posts'
+type SearchTab = 'top' | 'people' | 'projects' | 'posts' | 'gigs'
 
 interface TopResults {
   users: SuggestedUser[]
   projects: Array<FeedItem & { type: 'project' }>
   posts: Array<FeedItem & { type: 'update' }>
+  gigs: any[]
 }
 
 export function Search() {
@@ -28,10 +29,11 @@ export function Search() {
   const [query, setQuery] = useState(queryParam)
   const [activeTab, setActiveTab] = useState<SearchTab>(typeParam)
   const [isLoading, setIsLoading] = useState(false)
-  const [topResults, setTopResults] = useState<TopResults>({ users: [], projects: [], posts: [] })
+  const [topResults, setTopResults] = useState<TopResults>({ users: [], projects: [], posts: [], gigs: [] })
   const [peopleResults, setPeopleResults] = useState<SuggestedUser[]>([])
   const [projectResults, setProjectResults] = useState<Array<FeedItem & { type: 'project' }>>([])
   const [postResults, setPostResults] = useState<Array<FeedItem & { type: 'update' }>>([])
+  const [gigResults, setGigResults] = useState<any[]>([])
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
 
   // Track the last query we added to history to avoid duplicates
@@ -41,10 +43,11 @@ export function Search() {
   useEffect(() => {
     const performSearch = async () => {
       if (!queryParam) {
-        setTopResults({ users: [], projects: [], posts: [] })
+        setTopResults({ users: [], projects: [], posts: [], gigs: [] })
         setPeopleResults([])
         setProjectResults([])
         setPostResults([])
+        setGigResults([])
         return
       }
 
@@ -66,6 +69,8 @@ export function Search() {
           setProjectResults(response.data as Array<FeedItem & { type: 'project' }>)
         } else if (activeTab === 'posts') {
           setPostResults(response.data as Array<FeedItem & { type: 'update' }>)
+        } else if (activeTab === 'gigs') {
+          setGigResults(response.data as any[])
         }
 
         // Add to search history only once per unique query
@@ -100,12 +105,14 @@ export function Search() {
   }
 
   const hasResults = activeTab === 'top'
-    ? topResults.users.length > 0 || topResults.projects.length > 0 || topResults.posts.length > 0
+    ? topResults.users.length > 0 || topResults.projects.length > 0 || topResults.posts.length > 0 || topResults.gigs.length > 0
     : activeTab === 'people'
       ? peopleResults.length > 0
       : activeTab === 'projects'
         ? projectResults.length > 0
-        : postResults.length > 0
+        : activeTab === 'posts'
+          ? postResults.length > 0
+          : gigResults.length > 0
 
   return (
     <div className="min-h-screen">
@@ -126,7 +133,7 @@ export function Search() {
                 <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   type="text"
-                  placeholder="Search for people, projects, or posts..."
+                  placeholder="Search for people, projects, posts, or gigs..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   className="pl-10 pr-4 bg-muted/50 border border-border/50 focus-visible:ring-1 focus-visible:ring-primary focus-visible:border-primary/30 rounded-xl h-10"
@@ -147,7 +154,7 @@ export function Search() {
 
           {/* Tabs */}
           <div className="flex">
-            {(['top', 'people', 'projects', 'posts'] as const).map((tab) => (
+            {(['top', 'people', 'projects', 'posts', 'gigs'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => handleTabChange(tab)}
@@ -177,7 +184,7 @@ export function Search() {
             <SearchIcon className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">Search Vibeslop</h3>
             <p className="text-muted-foreground">
-              Find people, projects, and posts
+              Find people, projects, posts, and gigs
             </p>
           </div>
         ) : !hasResults ? (
@@ -194,7 +201,7 @@ export function Search() {
               <>
                 {topResults.users.length > 0 && (
                   <div className="mb-6">
-                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2 bg-muted/30">
+                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2">
                       People
                     </h2>
                     {topResults.users.map((user) => (
@@ -205,7 +212,7 @@ export function Search() {
 
                 {topResults.projects.length > 0 && (
                   <div className="mb-6">
-                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2 bg-muted/30">
+                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2">
                       Projects
                     </h2>
                     {topResults.projects.map((project) => (
@@ -216,11 +223,22 @@ export function Search() {
 
                 {topResults.posts.length > 0 && (
                   <div className="mb-6">
-                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2 bg-muted/30">
+                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2">
                       Posts
                     </h2>
                     {topResults.posts.map((post) => (
                       <PostResultCard key={post.id} post={post} />
+                    ))}
+                  </div>
+                )}
+
+                {topResults.gigs.length > 0 && (
+                  <div className="mb-6">
+                    <h2 className="text-sm font-semibold text-muted-foreground px-4 py-2">
+                      Gigs
+                    </h2>
+                    {topResults.gigs.map((gig) => (
+                      <GigResultCard key={gig.id} gig={gig} />
                     ))}
                   </div>
                 )}
@@ -237,6 +255,10 @@ export function Search() {
 
             {activeTab === 'posts' && postResults.map((post) => (
               <PostResultCard key={post.id} post={post} />
+            ))}
+
+            {activeTab === 'gigs' && gigResults.map((gig) => (
+              <GigResultCard key={gig.id} gig={gig} />
             ))}
           </div>
         )}

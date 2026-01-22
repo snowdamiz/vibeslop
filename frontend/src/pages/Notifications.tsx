@@ -152,7 +152,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
                 alt={notification.actor.display_name}
               />
             )}
-            <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-medium">
+            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
               {notification.actor.initials}
             </AvatarFallback>
           </Avatar>

@@ -266,7 +266,7 @@ defmodule Backend.Gigs do
         order_by: [desc: g.inserted_at],
         limit: ^limit,
         offset: ^offset,
-        preload: [:ai_tools, :tech_stacks]
+        preload: [:user, :ai_tools, :tech_stacks]
 
     Repo.all(query)
   end

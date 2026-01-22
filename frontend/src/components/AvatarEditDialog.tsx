@@ -104,6 +104,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
         website_url: updatedUser.website_url,
         github_username: updatedUser.github_username,
         is_verified: updatedUser.is_verified,
+        is_admin: updatedUser.is_admin,
         has_onboarded: updatedUser.has_onboarded,
       }
 
@@ -144,12 +145,12 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
               {avatarUrl ? (
                 <AvatarImage src={avatarUrl} alt="Avatar preview" className="object-cover" />
               ) : (
-                <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-3xl font-bold">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-3xl font-bold">
                   {initials}
                 </AvatarFallback>
               )}
             </Avatar>
-            <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg ring-4 ring-background">
+            <div className="absolute -bottom-1.5 -right-1.5 w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg ring-4 ring-background">
               <ImageIcon className="w-4 h-4 text-white" />
             </div>
           </div>
@@ -157,7 +158,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
           <div
             className={cn(
               "w-full relative group cursor-pointer transition-all rounded-xl border-2 border-dashed min-h-[140px] flex flex-col items-center justify-center",
-              isDragging ? "border-violet-500 bg-violet-500/5 scale-105" : "border-border hover:border-violet-500/50 hover:bg-muted/50"
+              isDragging ? "border-blue-500 bg-blue-500/5 scale-105" : "border-border hover:border-blue-500/50 hover:bg-muted/50"
             )}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
@@ -165,8 +166,8 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
             onClick={() => fileInputRef.current?.click()}
           >
             <div className="flex flex-col items-center justify-center gap-2.5 text-center p-5">
-              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-violet-500/10 to-purple-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <ImageIcon className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+              <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
                 <p className="text-sm font-semibold">Upload a custom avatar</p>
@@ -206,7 +207,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
           <Button
             onClick={handleSave}
             disabled={isSubmitting || avatarUrl === user?.avatar_url}
-            className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 text-white"
+            className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
           >
             {isSubmitting ? (
               <>

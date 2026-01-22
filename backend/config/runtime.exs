@@ -42,6 +42,11 @@ if frontend_url = System.get_env("FRONTEND_URL") do
   config :backend, :frontend_url, frontend_url
 end
 
+# Configure Admin Email
+if admin_email = System.get_env("ADMIN_EMAIL") do
+  config :backend, :admin_email, admin_email
+end
+
 # Configure OpenRouter AI
 if openrouter_api_key = System.get_env("OPENROUTER_API_KEY") do
   config :backend, Backend.AI,

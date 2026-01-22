@@ -48,7 +48,7 @@ const mockPostData = {
     initials: 'SC',
     avatar_url: undefined as string | undefined,
     bio: 'Full-stack developer passionate about developer tools. Building things that make developers\' lives easier.',
-    color: 'from-violet-500 to-purple-600',
+    color: 'from-blue-500 to-indigo-600',
     verified: true,
     followers: 1247,
     following: 89,

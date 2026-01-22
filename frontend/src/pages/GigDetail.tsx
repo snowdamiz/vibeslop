@@ -224,7 +224,7 @@ export function GigDetail() {
               {gig.user.avatar_url && (
                 <AvatarImage src={gig.user.avatar_url} alt={gig.user.display_name} className="object-cover" />
               )}
-              <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xl font-semibold">
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl font-semibold">
                 {gig.user.display_name.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>

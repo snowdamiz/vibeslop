@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Search, Clock, TrendingUp, X, ArrowRight, MessageSquare } from 'lucide-react'
+import { Search, Clock, TrendingUp, X, ArrowRight, MessageSquare, Briefcase } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type SuggestedUser } from '@/lib/api'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
@@ -32,6 +32,17 @@ interface Suggestion {
       display_name: string
     }
   }>
+  gigs: Array<{
+    id: string
+    title: string
+    budget_min?: number
+    budget_max?: number
+    currency: string
+    user: {
+      username: string
+      display_name: string
+    }
+  }>
 }
 
 export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadProps) {
@@ -39,7 +50,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
   const { history, addSearch, removeSearch } = useSearchHistory()
   const [query, setQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
-  const [suggestions, setSuggestions] = useState<Suggestion>({ users: [], projects: [], posts: [] })
+  const [suggestions, setSuggestions] = useState<Suggestion>({ users: [], projects: [], posts: [], gigs: [] })
   const [isLoading, setIsLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -48,7 +59,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
   // Fetch suggestions with debouncing
   const fetchSuggestions = useCallback(async (searchQuery: string) => {
     if (!searchQuery.trim()) {
-      setSuggestions({ users: [], projects: [], posts: [] })
+      setSuggestions({ users: [], projects: [], posts: [], gigs: [] })
       return
     }
 
@@ -58,7 +69,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
       setSuggestions(response.data)
     } catch (error) {
       console.error('Failed to fetch suggestions:', error)
-      setSuggestions({ users: [], projects: [], posts: [] })
+      setSuggestions({ users: [], projects: [], posts: [], gigs: [] })
     } finally {
       setIsLoading(false)
     }
@@ -78,7 +89,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
         fetchSuggestions(value)
       }, 300)
     } else {
-      setSuggestions({ users: [], projects: [], posts: [] })
+      setSuggestions({ users: [], projects: [], posts: [], gigs: [] })
     }
   }
 
@@ -139,7 +150,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
     }, 200)
   }
 
-  const showDropdown = isFocused && (history.length > 0 || suggestions.users.length > 0 || suggestions.projects.length > 0 || suggestions.posts.length > 0 || query.trim())
+  const showDropdown = isFocused && (history.length > 0 || suggestions.users.length > 0 || suggestions.projects.length > 0 || suggestions.posts.length > 0 || suggestions.gigs.length > 0 || query.trim())
 
   return (
     <div className={cn('relative', className)}>
@@ -242,7 +253,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
                       {user.avatar_url && (
                         <AvatarImage src={user.avatar_url} alt={user.display_name} />
                       )}
-                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-xs font-semibold">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-semibold">
                         {initials}
                       </AvatarFallback>
                     </Avatar>
@@ -322,6 +333,47 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
             </div>
           )}
 
+          {/* Gig Suggestions */}
+          {!isLoading && suggestions.gigs.length > 0 && (
+            <div className="border-b border-border">
+              <div className="px-4 py-2 text-xs font-semibold text-muted-foreground">
+                Gigs
+              </div>
+              {suggestions.gigs.map((gig) => {
+                const formatBudget = () => {
+                  if (gig.budget_min && gig.budget_max) {
+                    return `${gig.currency} ${gig.budget_min.toLocaleString()} - ${gig.budget_max.toLocaleString()}`
+                  } else if (gig.budget_min) {
+                    return `${gig.currency} ${gig.budget_min.toLocaleString()}+`
+                  } else if (gig.budget_max) {
+                    return `Up to ${gig.currency} ${gig.budget_max.toLocaleString()}`
+                  }
+                  return 'Budget TBD'
+                }
+
+                return (
+                  <button
+                    key={gig.id}
+                    onClick={() => {
+                      navigate(`/gigs/${gig.id}`)
+                      setIsFocused(false)
+                      setQuery('')
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 transition-colors"
+                  >
+                    <Briefcase className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <div className="flex-1 min-w-0 text-left">
+                      <div className="font-medium text-sm truncate">{gig.title}</div>
+                      <div className="text-xs text-muted-foreground truncate mt-0.5">
+                        {formatBudget()} • by {gig.user.display_name}
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
           {/* Search for query option */}
           {query.trim() && (
             <button
@@ -337,7 +389,7 @@ export function SearchTypeahead({ className, onFocus, onBlur }: SearchTypeaheadP
           )}
 
           {/* No results */}
-          {!isLoading && query.trim() && suggestions.users.length === 0 && suggestions.projects.length === 0 && suggestions.posts.length === 0 && (
+          {!isLoading && query.trim() && suggestions.users.length === 0 && suggestions.projects.length === 0 && suggestions.posts.length === 0 && suggestions.gigs.length === 0 && (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No suggestions found
             </div>

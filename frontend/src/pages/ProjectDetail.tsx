@@ -150,7 +150,7 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
       initials: apiProject.author.initials,
       avatar_url: apiProject.author.avatar_url,
       bio: apiProject.author.bio || '',
-      color: 'from-violet-500 to-purple-600',
+      color: 'from-blue-500 to-indigo-600',
       verified: apiProject.author.is_verified || false,
     },
     techStack: apiProject.tech_stack?.map(t => t.name) || [],
@@ -702,7 +702,7 @@ export function ProjectDetail() {
                           i === 0 && "bg-gradient-to-br from-blue-500 to-cyan-500",
                           i === 1 && "bg-gradient-to-br from-green-500 to-emerald-500",
                           i === 2 && "bg-gradient-to-br from-orange-500 to-amber-500",
-                          i === 3 && "bg-gradient-to-br from-purple-500 to-pink-500"
+                          i === 3 && "bg-gradient-to-br from-indigo-500 to-pink-500"
                         )}>
                           {initials}
                         </AvatarFallback>

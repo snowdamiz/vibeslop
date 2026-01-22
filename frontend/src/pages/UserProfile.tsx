@@ -91,7 +91,7 @@ const mockUserData = {
   twitter: 'sarahcdev',
   github: 'sarahc',
   joinedDate: 'December 2025',
-  color: 'from-violet-500 to-purple-600',
+  color: 'from-blue-500 to-indigo-600',
   specializations: ['Frontend', 'Developer Tools', 'AI Integration', 'React', 'TypeScript'],
   favoriteTools: ['Cursor', 'Claude', 'v0'],
   isVerified: true,
@@ -294,7 +294,7 @@ export function UserProfile() {
           joinedDate: apiData.joined_at
             ? new Date(apiData.joined_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
             : '',
-          color: 'from-violet-500 to-purple-600',
+          color: 'from-blue-500 to-indigo-600',
           specializations: [],
           favoriteTools: [],
           isVerified: apiData.is_verified,

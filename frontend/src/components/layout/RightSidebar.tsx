@@ -37,10 +37,10 @@ export function RightSidebar() {
           sort_by: 'trending',
           limit: 3
         })
-        
+
         if (response.data && (response.data as unknown[]).length > 0) {
           // Backend returns: { id, title, author: { username }, likes, tools: string[] }
-          const formatted = (response.data as Array<{ 
+          const formatted = (response.data as Array<{
             id: string
             title: string
             author?: { username: string }
@@ -53,7 +53,7 @@ export function RightSidebar() {
             likes: item.likes || 0,
             tag: 'Project'
           }))
-          
+
           setTrendingProjects(formatted)
         } else {
           // No data, show empty state
@@ -103,7 +103,7 @@ export function RightSidebar() {
 
     try {
       const isFollowing = followingUsers.has(username)
-      
+
       if (isFollowing) {
         await api.unfollowUser(username)
         setFollowingUsers(prev => {
@@ -128,128 +128,132 @@ export function RightSidebar() {
   }
 
   return (
-    <aside className="hidden lg:block self-stretch w-[340px] border-l border-border/80">
-      {/* Sticky inner wrapper */}
-      <div className="sticky top-0 flex flex-col max-h-screen overflow-y-auto px-5 py-4 gap-5">
-      {/* Search */}
-      <SearchTypeahead />
+    <aside className="hidden lg:block w-[340px] shrink-0">
+      {/* Fixed sidebar container */}
+      <div className="fixed top-0 right-0 w-[340px] h-screen flex flex-col border-l border-border/80 bg-background">
+        {/* Scrollable content area */}
+        <div className="flex-1 px-5 py-4 flex flex-col gap-5 overflow-y-auto">
+          {/* Search */}
+          <SearchTypeahead />
 
-      {/* Trending Projects */}
-      <section className="rounded-2xl bg-muted/30 border border-border/40 overflow-hidden">
-        <div className="px-4 pt-4 pb-3">
-          <h3 className="font-semibold text-[15px] flex items-center gap-2">
-            <TrendingUp className="w-[18px] h-[18px] text-primary" />
-            Trending Projects
-          </h3>
-        </div>
-        <div className="divide-y divide-border/30">
-          {loadingTrending ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading...
+          {/* Trending Projects */}
+          <section className="rounded-2xl bg-muted/30 border border-border/40 overflow-hidden">
+            <div className="px-4 pt-4 pb-3">
+              <h3 className="font-semibold text-[15px] flex items-center gap-2">
+                <TrendingUp className="w-[18px] h-[18px] text-primary" />
+                Trending Projects
+              </h3>
             </div>
-          ) : trendingProjects.length > 0 ? (
-            trendingProjects.map((project, index) => (
-              <Link
-                key={project.id}
-                to={`/project/${project.id}`}
-                className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50"
-              >
-                <span className="text-[13px] font-semibold text-muted-foreground/70 w-5 text-center pt-0.5">
-                  {index + 1}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">
-                    {project.tag}
-                  </span>
-                  <p className="font-medium text-[14px] leading-snug mt-0.5">
-                    {project.title}
-                  </p>
-                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-                    <Heart className="w-3.5 h-3.5" />
-                    <span>{project.likes.toLocaleString()}</span>
-                  </div>
+            <div className="divide-y divide-border/30">
+              {loadingTrending ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  Loading...
                 </div>
-              </Link>
-            ))
-          ) : (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              No trending projects yet
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Who to Follow */}
-      <section className="rounded-2xl bg-muted/30 border border-border/40 overflow-hidden">
-        <div className="px-4 pt-4 pb-3">
-          <h3 className="font-semibold text-[15px] flex items-center gap-2">
-            <Sparkles className="w-[18px] h-[18px] text-primary" />
-            Who to Follow
-          </h3>
-        </div>
-        <div className="divide-y divide-border/30">
-          {loadingSuggested ? (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              Loading...
-            </div>
-          ) : suggestedUsers.length > 0 ? (
-            suggestedUsers.map((user) => {
-              const initials = getInitials(user.display_name)
-              const isFollowing = followingUsers.has(user.username)
-              const isLoading = followLoading.has(user.username)
-              
-              return (
-                <div key={user.username} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
-                  <Link to={`/user/${user.username}`}>
-                    <Avatar className="w-11 h-11 ring-2 ring-background">
-                      {user.avatar_url && (
-                        <AvatarImage src={user.avatar_url} alt={user.display_name} />
-                      )}
-                      <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-white text-sm font-semibold">
-                        {initials}
-                      </AvatarFallback>
-                    </Avatar>
+              ) : trendingProjects.length > 0 ? (
+                trendingProjects.map((project, index) => (
+                  <Link
+                    key={project.id}
+                    to={`/project/${project.id}`}
+                    className="flex items-start gap-3 px-4 py-3 hover:bg-muted/50"
+                  >
+                    <span className="text-[13px] font-semibold text-muted-foreground/70 w-5 text-center pt-0.5">
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-semibold text-primary uppercase tracking-wide">
+                        {project.tag}
+                      </span>
+                      <p className="font-medium text-[14px] leading-snug mt-0.5">
+                        {project.title}
+                      </p>
+                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                        <Heart className="w-3.5 h-3.5" />
+                        <span>{project.likes.toLocaleString()}</span>
+                      </div>
+                    </div>
                   </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      to={`/user/${user.username}`}
-                      className="font-semibold text-[14px] hover:underline truncate block leading-tight"
-                    >
-                      {user.display_name}
-                    </Link>
-                    <p className="text-[13px] text-muted-foreground truncate mt-0.5">@{user.username}</p>
-                  </div>
-                  {isAuthenticated && (
-                    <Button 
-                      size="sm" 
-                      variant={isFollowing ? "default" : "outline"}
-                      className={cn(
-                        "rounded-full text-[13px] h-9 px-4 font-semibold",
-                        isFollowing 
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                          : "border-border/60 hover:bg-foreground hover:text-background hover:border-foreground"
-                      )}
-                      onClick={() => handleFollow(user.username)}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
-                    </Button>
-                  )}
+                ))
+              ) : (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  No trending projects yet
                 </div>
-              )
-            })
-          ) : (
-            <div className="px-4 py-6 text-center text-sm text-muted-foreground">
-              No suggestions available
+              )}
             </div>
-          )}
-        </div>
-      </section>
+          </section>
 
-      {/* Footer */}
-      <div className="mt-auto pt-2 px-1">
-        <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} hypevibe</p>
-      </div>
+          {/* Who to Follow */}
+          <section className="rounded-2xl bg-muted/30 border border-border/40 overflow-hidden">
+            <div className="px-4 pt-4 pb-3">
+              <h3 className="font-semibold text-[15px] flex items-center gap-2">
+                <Sparkles className="w-[18px] h-[18px] text-primary" />
+                Who to Follow
+              </h3>
+            </div>
+            <div className="divide-y divide-border/30">
+              {loadingSuggested ? (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  Loading...
+                </div>
+              ) : suggestedUsers.length > 0 ? (
+                suggestedUsers.map((user) => {
+                  const initials = getInitials(user.display_name)
+                  const isFollowing = followingUsers.has(user.username)
+                  const isLoading = followLoading.has(user.username)
+
+                  return (
+                    <div key={user.username} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
+                      <Link to={`/user/${user.username}`}>
+                        <Avatar className="w-11 h-11 ring-2 ring-background">
+                          {user.avatar_url && (
+                            <AvatarImage src={user.avatar_url} alt={user.display_name} />
+                          )}
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-semibold">
+                            {initials}
+                          </AvatarFallback>
+                        </Avatar>
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <Link
+                          to={`/user/${user.username}`}
+                          className="font-semibold text-[14px] hover:underline truncate block leading-tight"
+                        >
+                          {user.display_name}
+                        </Link>
+                        <p className="text-[13px] text-muted-foreground truncate mt-0.5">@{user.username}</p>
+                      </div>
+                      {isAuthenticated && (
+                        <Button
+                          size="sm"
+                          variant={isFollowing ? "default" : "outline"}
+                          className={cn(
+                            "rounded-full text-[13px] h-9 px-4 font-semibold",
+                            isFollowing
+                              ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                              : "border-border/60 hover:bg-foreground hover:text-background hover:border-foreground"
+                          )}
+                          onClick={() => handleFollow(user.username)}
+                          disabled={isLoading}
+                        >
+                          {isLoading ? '...' : isFollowing ? 'Following' : 'Follow'}
+                        </Button>
+                      )}
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="px-4 py-6 text-center text-sm text-muted-foreground">
+                  No suggestions available
+                </div>
+              )}
+            </div>
+          </section>
+
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-border/40">
+          <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} hypevibe</p>
+        </div>
       </div>
     </aside>
   )

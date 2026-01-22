@@ -228,7 +228,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
               <AvatarFallback
                 className={cn(
                   'text-white text-sm font-medium',
-                  item.author.color || 'bg-gradient-to-br from-violet-500 to-purple-600'
+                  item.author.color || 'bg-gradient-to-br from-blue-500 to-indigo-600'
                 )}
               >
                 {item.author.initials}

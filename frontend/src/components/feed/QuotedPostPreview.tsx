@@ -43,7 +43,7 @@ export function QuotedPostPreview({ item, onClick, className }: QuotedPostPrevie
         <div className="flex items-center gap-2 mb-2">
           <Avatar className="w-5 h-5">
             <AvatarImage src={item.author.avatar_url} alt={item.author.name} />
-            <AvatarFallback className="text-[10px] bg-gradient-to-br from-violet-500 to-purple-600 text-white">
+            <AvatarFallback className="text-[10px] bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
               {item.author.initials}
             </AvatarFallback>
           </Avatar>
