@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Sparkles, Github, Twitter, Send, Zap, CheckCircle2 } from 'lucide-react'
+import { Github, Twitter, Send, Zap, CheckCircle2 } from 'lucide-react'
+import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -84,9 +85,7 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
-              <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-lg">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
+              <HypeVibeLogo className="w-8 h-8" />
               <span className="text-lg font-bold tracking-tight">
                 hype<span className="text-primary">vibe</span>
               </span>

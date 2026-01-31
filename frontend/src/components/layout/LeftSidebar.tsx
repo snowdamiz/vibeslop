@@ -17,7 +17,6 @@ import {
   User,
   Settings,
   LogOut,
-  Sparkles,
   PenSquare,
   MoreHorizontal,
   Moon,
@@ -25,6 +24,7 @@ import {
   Briefcase,
   Shield,
 } from 'lucide-react'
+import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useCompose } from '@/context/ComposeContext'
@@ -95,7 +95,7 @@ export function LeftSidebar() {
       {/* Logo */}
       <Link to="/" className="flex items-center gap-1 pb-1 justify-center xl:justify-start xl:px-1">
         <div className="flex items-center justify-center w-10 h-10">
-          <Sparkles className="w-5 h-5 text-primary" />
+          <HypeVibeLogo className="w-5 h-5 text-primary" />
         </div>
         <span className="text-xl font-bold tracking-tight hidden xl:block">
           hype<span className="text-primary">vibe</span>

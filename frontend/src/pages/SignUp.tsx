@@ -3,7 +3,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { motion } from 'framer-motion'
-import { Sparkles, Github, Zap, Users, Share2 } from 'lucide-react'
+import { Github, Zap, Users, Share2, Sparkles } from 'lucide-react'
+import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
 import { useAuth } from '@/context/AuthContext'
 
 const features = [
@@ -64,7 +65,7 @@ export function SignUp() {
             whileHover={{ scale: 1.05, rotate: 5 }}
             whileTap={{ scale: 0.95 }}
           >
-            <Sparkles className="w-5 h-5 text-primary" />
+            <HypeVibeLogo className="w-5 h-5 text-primary" />
           </motion.div>
           <span className="text-2xl font-bold tracking-tight">
             hype<span className="text-primary">vibe</span>

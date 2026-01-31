@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, Sparkles, Zap, Users } from 'lucide-react'
+import { ArrowRight, Sparkles, Zap } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 const rotatingWords = ['AI-native', 'vibe coding', 'prompt-driven', 'AI-powered']
@@ -68,70 +68,9 @@ export function Hero() {
             backgroundSize: '40px 40px',
           }}
         />
-
-        {/* Floating decorative elements */}
-        <motion.div
-          className="absolute top-1/3 right-[12%] hidden lg:block"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{
-            opacity: 1,
-            y: [0, -6, 0],
-          }}
-          transition={{
-            opacity: { duration: 0.8, delay: 0.8 },
-            y: { duration: 6, repeat: Infinity, ease: "easeInOut" },
-          }}
-        >
-          <div className="bg-card/95 border border-border/80 rounded-xl px-4 py-2.5 shadow-md backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-green-500" />
-              <span className="text-sm font-medium">Built with Cursor</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="absolute top-1/2 left-[8%] hidden lg:block"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{
-            opacity: 1,
-            y: [0, -5, 0],
-          }}
-          transition={{
-            opacity: { duration: 0.8, delay: 1 },
-            y: { duration: 7, repeat: Infinity, ease: "easeInOut", delay: 0.5 },
-          }}
-        >
-          <div className="bg-card/95 border border-border/80 rounded-xl px-4 py-2.5 shadow-md backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">AI-powered</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          className="absolute bottom-1/3 right-[8%] hidden xl:block"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{
-            opacity: 1,
-            y: [0, -4, 0],
-          }}
-          transition={{
-            opacity: { duration: 0.8, delay: 1.2 },
-            y: { duration: 8, repeat: Infinity, ease: "easeInOut", delay: 1 },
-          }}
-        >
-          <div className="bg-card/95 border border-border/80 rounded-xl px-4 py-2.5 shadow-md backdrop-blur-sm">
-            <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-amber-500" />
-              <span className="text-sm font-medium">Ship faster</span>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+      <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-26 sm:py-28">
         <div className="text-center max-w-4xl mx-auto">
           {/* Badge */}
           <Badge variant="secondary" className="mb-6 px-3 py-1 text-sm font-medium">
@@ -177,43 +116,6 @@ export function Hero() {
                 View Projects
               </Link>
             </Button>
-          </div>
-
-          {/* Social Proof */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-8 text-sm text-muted-foreground pt-8">
-            <div className="flex items-center gap-3">
-              <div className="flex -space-x-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 rounded-full bg-gradient-to-br from-muted to-muted/80 border-2 border-background flex items-center justify-center text-xs font-medium text-muted-foreground shadow-sm"
-                  >
-                    {String.fromCharCode(64 + i)}
-                  </div>
-                ))}
-              </div>
-              <span>
-                <strong className="text-foreground font-semibold">2,000+</strong> creators
-              </span>
-            </div>
-            <div className="hidden sm:block w-px h-5 bg-border/60" />
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <span>
-                <strong className="text-foreground font-semibold">5,000+</strong> projects
-              </span>
-            </div>
-            <div className="hidden sm:block w-px h-5 bg-border/60" />
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Users className="w-3.5 h-3.5 text-primary" />
-              </div>
-              <span>
-                <strong className="text-foreground font-semibold">50+</strong> AI tools
-              </span>
-            </div>
           </div>
         </div>
 

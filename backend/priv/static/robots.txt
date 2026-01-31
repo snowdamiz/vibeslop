@@ -1,5 +1,18 @@
-# See https://www.robotstxt.org/robotstxt.html for documentation on how to use the robots.txt file
-#
-# To ban all spiders from the entire site uncomment the next two lines:
-# User-agent: *
-# Disallow: /
+# HypeVibe robots.txt
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+
+# Disallow private and API routes
+Disallow: /api/
+Disallow: /admin/
+Disallow: /settings
+Disallow: /auth/
+Disallow: /onboarding
+Disallow: /messages
+Disallow: /notifications
+Disallow: /bookmarks
+
+# Sitemap
+Sitemap: https://hypevibe.com/sitemap.xml

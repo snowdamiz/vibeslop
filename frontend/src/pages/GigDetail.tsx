@@ -21,6 +21,7 @@ import { MarkdownContent } from '@/components/ui/markdown-content'
 import { api, type Gig, type Bid, type GigReview } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
+import { useSEO } from '@/hooks/useSEO'
 
 type GigTab = 'details' | 'bids' | 'reviews'
 
@@ -42,6 +43,14 @@ export function GigDetail() {
   const canBid = isAuthenticated && !isOwner && gig?.status === 'open'
   const canComplete = isOwner && gig?.status === 'in_progress'
   const canReview = gig?.status === 'completed' && (isOwner || isHiredFreelancer)
+
+  // Dynamic SEO for gig page
+  useSEO(gig ? {
+    title: `${gig.title} | Gigs`,
+    description: gig.description.slice(0, 160),
+    url: `https://hypevibe.com/gigs/${id}`,
+    type: 'website',
+  } : {})
 
   useEffect(() => {
     const fetchGigDetails = async () => {

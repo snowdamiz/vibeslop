@@ -10,6 +10,7 @@ import { CommentsSection } from '@/components/comments'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { MarkdownContent } from '@/components/ui/markdown-content'
+import { useSEO } from '@/hooks/useSEO'
 import {
   Heart,
   MessageCircle,
@@ -266,6 +267,15 @@ export function ProjectDetail() {
   const [copiedShare, setCopiedShare] = useState(false)
   const [comments, setComments] = useState<NormalizedProject['comments']>([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
+
+  // Dynamic SEO for this project
+  useSEO(project ? {
+    title: project.title,
+    description: project.description.slice(0, 160),
+    image: project.images[0] || undefined,
+    url: `https://hypevibe.com/project/${id}`,
+    type: 'article',
+  } : {})
 
   // Fetch project data
   useEffect(() => {

@@ -10,7 +10,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
-import { Menu, X, Sparkles, Search, User, Settings, LogOut, Plus, Moon, Sun } from 'lucide-react'
+import { Menu, X, Search, User, Settings, LogOut, Plus, Moon, Sun } from 'lucide-react'
+import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -43,17 +44,17 @@ export function Header() {
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 glass transition-all duration-200 ${scrolled ? 'border-b border-border/60' : 'border-b border-transparent'}`}>
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
+        <div className="relative flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-primary" />
+            <HypeVibeLogo className="w-6 h-6 text-primary" />
             <span className="text-xl font-bold tracking-tight">
               hype<span className="text-primary">vibe</span>
             </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center gap-1">
+          {/* Desktop Navigation - Centered in viewport */}
+          <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
             <Button variant="nav" size="sm" asChild>
               <a href="#projects">Projects</a>
             </Button>
@@ -67,34 +68,6 @@ export function Header() {
 
           {/* Right Side Actions */}
           <div className="hidden md:flex items-center gap-2">
-            {/* Search */}
-            <AnimatePresence>
-              {searchOpen && (
-                <motion.div
-                  initial={{ width: 0, opacity: 0 }}
-                  animate={{ width: 200, opacity: 1 }}
-                  exit={{ width: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className="overflow-hidden"
-                >
-                  <Input
-                    placeholder="Search projects..."
-                    className="h-9"
-                    autoFocus
-                    onBlur={() => setSearchOpen(false)}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search className="h-4 w-4" />
-            </Button>
-
             {/* Theme Toggle */}
             <Button
               variant="ghost"

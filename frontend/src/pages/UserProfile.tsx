@@ -28,6 +28,7 @@ import { useAuth } from '@/context/AuthContext'
 import { AvatarEditDialog } from '@/components/AvatarEditDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ReviewCard } from '@/components/gigs'
+import { useSEO } from '@/hooks/useSEO'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -240,6 +241,15 @@ export function UserProfile() {
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [isReporting, setIsReporting] = useState(false)
   const [reviews, setReviews] = useState<GigReview[]>([])
+
+  // Dynamic SEO for user profile
+  useSEO(user ? {
+    title: `@${user.username}`,
+    description: user.bio || `Check out ${user.name}'s projects and posts on HypeVibe`,
+    image: user.avatar_url || undefined,
+    url: `https://hypevibe.com/user/${username}`,
+    type: 'profile',
+  } : {})
 
   // Fetch user data
   useEffect(() => {
