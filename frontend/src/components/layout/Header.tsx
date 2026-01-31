@@ -45,14 +45,8 @@ export function Header() {
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <motion.div
-              className="flex items-center justify-center w-9 h-9 bg-primary/10 rounded-lg"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              <Sparkles className="w-5 h-5 text-primary" />
-            </motion.div>
+          <Link to="/" className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-primary" />
             <span className="text-xl font-bold tracking-tight">
               hype<span className="text-primary">vibe</span>
             </span>
