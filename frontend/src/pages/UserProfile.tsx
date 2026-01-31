@@ -276,6 +276,8 @@ export function UserProfile() {
           developer_score?: number
           developer_score_updated_at?: string
           github_stats?: GitHubStatsBreakdown
+          favorite_ai_tools?: Array<{ id: string; name: string; slug: string }>
+          preferred_tech_stacks?: Array<{ id: string; name: string; slug: string; category?: string }>
           stats?: {
             followers_count?: number
             following_count?: number
@@ -305,8 +307,8 @@ export function UserProfile() {
             ? new Date(apiData.joined_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
             : '',
           color: 'from-blue-500 to-indigo-600',
-          specializations: [],
-          favoriteTools: [],
+          specializations: apiData.preferred_tech_stacks?.map(t => t.name) || [],
+          favoriteTools: apiData.favorite_ai_tools?.map(t => t.name) || [],
           isVerified: apiData.is_verified,
           developerScore: apiData.developer_score || 0,
           githubStats: apiData.github_stats || null,
@@ -811,6 +813,29 @@ export function UserProfile() {
         {/* Bio - Full Width Below */}
         {user.bio && (
           <p className="mt-4 text-[15px] leading-relaxed whitespace-pre-wrap">{user.bio}</p>
+        )}
+
+        {/* Preferred Technologies */}
+        {(user.favoriteTools.length > 0 || user.specializations.length > 0) && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {user.favoriteTools.map((tool) => (
+              <span
+                key={`tool-${tool}`}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20"
+              >
+                <Sparkles className="w-3 h-3 mr-1" />
+                {tool}
+              </span>
+            ))}
+            {user.specializations.map((tech) => (
+              <span
+                key={`tech-${tech}`}
+                className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border"
+              >
+                {tech}
+              </span>
+            ))}
+          </div>
         )}
       </div>
 

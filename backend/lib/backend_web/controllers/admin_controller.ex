@@ -71,4 +71,91 @@ defmodule BackendWeb.AdminController do
       updated_at: user.updated_at
     }
   end
+
+  # AI Tools CRUD
+  def create_ai_tool(conn, %{"name" => name}) do
+    alias Backend.Catalog.AiTool
+    slug = slugify(name)
+
+    changeset = AiTool.changeset(%AiTool{}, %{name: name, slug: slug})
+
+    case Backend.Repo.insert(changeset) do
+      {:ok, tool} ->
+        conn
+        |> put_status(:created)
+        |> json(%{data: %{id: tool.id, name: tool.name, slug: tool.slug}})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def delete_ai_tool(conn, %{"id" => id}) do
+    alias Backend.Catalog.AiTool
+
+    case Backend.Repo.get(AiTool, id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "AI tool not found"})
+
+      tool ->
+        {:ok, _} = Backend.Repo.delete(tool)
+        send_resp(conn, :no_content, "")
+    end
+  end
+
+  # Tech Stacks CRUD
+  def create_tech_stack(conn, %{"name" => name} = params) do
+    alias Backend.Catalog.TechStack
+    slug = slugify(name)
+    category = Map.get(params, "category", "other")
+
+    changeset = TechStack.changeset(%TechStack{}, %{name: name, slug: slug, category: category})
+
+    case Backend.Repo.insert(changeset) do
+      {:ok, stack} ->
+        conn
+        |> put_status(:created)
+        |> json(%{data: %{id: stack.id, name: stack.name, slug: stack.slug, category: stack.category}})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def delete_tech_stack(conn, %{"id" => id}) do
+    alias Backend.Catalog.TechStack
+
+    case Backend.Repo.get(TechStack, id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Tech stack not found"})
+
+      stack ->
+        {:ok, _} = Backend.Repo.delete(stack)
+        send_resp(conn, :no_content, "")
+    end
+  end
+
+  defp format_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+  end
+
+  defp slugify(name) do
+    name
+    |> String.downcase()
+    |> String.replace(~r/[^a-z0-9\s-]/, "")
+    |> String.replace(~r/\s+/, "-")
+    |> String.trim("-")
+  end
 end

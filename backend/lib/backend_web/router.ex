@@ -46,6 +46,7 @@ defmodule BackendWeb.Router do
     put "/me", AuthController, :update
     get "/me/counts", AuthController, :counts
     put "/me/onboard", AuthController, :onboard
+    put "/me/preferences", AuthController, :update_preferences
 
     # Posts
     post "/posts", PostController, :create
@@ -128,6 +129,12 @@ defmodule BackendWeb.Router do
     get "/users", AdminController, :list_users
     post "/users/:id/toggle-verified", AdminController, :toggle_verified
     delete "/users/:id", AdminController, :delete_user
+
+    # Catalog management
+    post "/ai-tools", AdminController, :create_ai_tool
+    delete "/ai-tools/:id", AdminController, :delete_ai_tool
+    post "/tech-stacks", AdminController, :create_tech_stack
+    delete "/tech-stacks/:id", AdminController, :delete_tech_stack
   end
 
   # Public API routes with optional auth

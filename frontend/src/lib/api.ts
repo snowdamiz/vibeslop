@@ -537,6 +537,16 @@ class ApiClient {
     return this.get('/stacks')
   }
 
+  async updatePreferences(data: {
+    ai_tool_ids: string[]
+    tech_stack_ids: string[]
+  }): Promise<{
+    favorite_ai_tools: Array<{ id: string; name: string; slug: string }>
+    preferred_tech_stacks: Array<{ id: string; name: string; slug: string; category?: string }>
+  }> {
+    return this.put('/me/preferences', { preferences: data })
+  }
+
   // Notifications
   async getNotifications(params?: { limit?: number; offset?: number }): Promise<NotificationResponse> {
     const queryParams = new URLSearchParams()
@@ -686,6 +696,22 @@ class ApiClient {
 
   async deleteUser(userId: string): Promise<void> {
     return this.delete(`/admin/users/${userId}`)
+  }
+
+  async createAiTool(name: string): Promise<{ data: { id: string; name: string; slug: string } }> {
+    return this.post('/admin/ai-tools', { name })
+  }
+
+  async deleteAiTool(id: string): Promise<void> {
+    return this.delete(`/admin/ai-tools/${id}`)
+  }
+
+  async createTechStack(name: string, category?: string): Promise<{ data: { id: string; name: string; slug: string; category: string } }> {
+    return this.post('/admin/tech-stacks', { name, category: category || 'other' })
+  }
+
+  async deleteTechStack(id: string): Promise<void> {
+    return this.delete(`/admin/tech-stacks/${id}`)
   }
 
   /**

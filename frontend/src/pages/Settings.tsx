@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -15,6 +15,8 @@ import {
   Loader2,
   Camera,
   Save,
+  Sparkles,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -28,6 +30,81 @@ export function Settings() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showAvatarDialog, setShowAvatarDialog] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
+
+  // Technology preferences state
+  const [aiTools, setAiTools] = useState<Array<{ id: string; name: string; slug: string }>>([])
+  const [techStacks, setTechStacks] = useState<Array<{ id: string; name: string; slug: string; category?: string }>>([])
+  const [selectedTools, setSelectedTools] = useState<string[]>([])
+  const [selectedStacks, setSelectedStacks] = useState<string[]>([])
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false)
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+
+  // Load catalog data on mount
+  useEffect(() => {
+    async function loadCatalog() {
+      try {
+        const [toolsRes, stacksRes] = await Promise.all([
+          api.getTools(),
+          api.getStacks(),
+        ])
+        setAiTools(toolsRes.data as Array<{ id: string; name: string; slug: string }>)
+        setTechStacks(stacksRes.data as Array<{ id: string; name: string; slug: string; category?: string }>)
+      } catch (error) {
+        console.error('Failed to load catalog:', error)
+      }
+    }
+    loadCatalog()
+  }, [])
+
+  // Load current user preferences
+  useEffect(() => {
+    async function loadPreferences() {
+      if (!user || prefsLoaded) return
+      try {
+        const response = await api.getUser(user.username) as {
+          data: {
+            favorite_ai_tools?: Array<{ id: string }>
+            preferred_tech_stacks?: Array<{ id: string }>
+          }
+        }
+        setSelectedTools(response.data.favorite_ai_tools?.map(t => t.id) || [])
+        setSelectedStacks(response.data.preferred_tech_stacks?.map(t => t.id) || [])
+        setPrefsLoaded(true)
+      } catch (error) {
+        console.error('Failed to load preferences:', error)
+      }
+    }
+    loadPreferences()
+  }, [user, prefsLoaded])
+
+  const handleSavePreferences = async () => {
+    setIsSavingPrefs(true)
+    try {
+      await api.updatePreferences({
+        ai_tool_ids: selectedTools,
+        tech_stack_ids: selectedStacks,
+      })
+      setSuccessMessage('Preferences saved!')
+      setTimeout(() => setSuccessMessage(''), 3000)
+    } catch (error) {
+      console.error('Failed to save preferences:', error)
+      alert('Failed to save preferences. Please try again.')
+    } finally {
+      setIsSavingPrefs(false)
+    }
+  }
+
+  const toggleTool = (id: string) => {
+    setSelectedTools(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
+  }
+
+  const toggleStack = (id: string) => {
+    setSelectedStacks(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
+  }
 
   // Username validation
   const checkUsernameAvailability = useCallback(async (usernameToCheck: string) => {
@@ -260,6 +337,100 @@ export function Settings() {
               <p className="text-xs text-muted-foreground pl-1">
                 {bio.length}/160 characters
               </p>
+            </div>
+          </div>
+
+          {/* Technology Preferences */}
+          <div className="space-y-6">
+            <h2 className="text-lg font-semibold">Technology Preferences</h2>
+            <p className="text-sm text-muted-foreground -mt-4">
+              Select your favorite AI tools and tech stacks to display on your profile
+            </p>
+
+            {/* AI Tools */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-primary" />
+                </div>
+                Favorite AI Tools
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {aiTools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => toggleTool(tool.id)}
+                    className={cn(
+                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                      selectedTools.includes(tool.id)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {tool.name}
+                    {selectedTools.includes(tool.id) && (
+                      <X className="w-3 h-3 ml-1.5" />
+                    )}
+                  </button>
+                ))}
+                {aiTools.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Loading tools...</p>
+                )}
+              </div>
+            </div>
+
+            {/* Tech Stacks */}
+            <div className="space-y-3">
+              <label className="text-sm font-semibold flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+                </div>
+                Preferred Tech Stacks
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {techStacks.map((stack) => (
+                  <button
+                    key={stack.id}
+                    onClick={() => toggleStack(stack.id)}
+                    className={cn(
+                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all',
+                      selectedStacks.includes(stack.id)
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
+                    )}
+                  >
+                    {stack.name}
+                    {selectedStacks.includes(stack.id) && (
+                      <X className="w-3 h-3 ml-1.5" />
+                    )}
+                  </button>
+                ))}
+                {techStacks.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Loading tech stacks...</p>
+                )}
+              </div>
+            </div>
+
+            {/* Save Preferences Button */}
+            <div className="flex justify-end">
+              <Button
+                onClick={handleSavePreferences}
+                disabled={isSavingPrefs}
+                variant="outline"
+                className="px-6"
+              >
+                {isSavingPrefs ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Save Preferences
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 

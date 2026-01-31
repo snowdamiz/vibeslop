@@ -21,7 +21,9 @@ defmodule BackendWeb.UserJSON do
         stats: stats,
         developer_score: user.developer_score,
         developer_score_updated_at: format_datetime(user.developer_score_updated_at),
-        github_stats: user.github_stats
+        github_stats: user.github_stats,
+        favorite_ai_tools: render_ai_tools(user.favorite_ai_tools),
+        preferred_tech_stacks: render_tech_stacks(user.preferred_tech_stacks)
       }
     }
   end
@@ -142,5 +144,34 @@ defmodule BackendWeb.UserJSON do
       nil -> data
       value -> Map.put(data, field, value)
     end
+  end
+
+  # Render AI tools for profile display
+  defp render_ai_tools(%Ecto.Association.NotLoaded{}), do: []
+  defp render_ai_tools(nil), do: []
+
+  defp render_ai_tools(tools) do
+    Enum.map(tools, fn tool ->
+      %{
+        id: tool.id,
+        name: tool.name,
+        slug: tool.slug
+      }
+    end)
+  end
+
+  # Render tech stacks for profile display
+  defp render_tech_stacks(%Ecto.Association.NotLoaded{}), do: []
+  defp render_tech_stacks(nil), do: []
+
+  defp render_tech_stacks(stacks) do
+    Enum.map(stacks, fn stack ->
+      %{
+        id: stack.id,
+        name: stack.name,
+        slug: stack.slug,
+        category: stack.category
+      }
+    end)
   end
 end

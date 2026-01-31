@@ -16,6 +16,8 @@ defmodule BackendWeb.UserController do
         |> render(:"404")
 
       user ->
+        # Preload preferred technologies for profile display
+        user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
         stats = Social.get_user_stats(user.id)
 
         # Add counts for posts and projects

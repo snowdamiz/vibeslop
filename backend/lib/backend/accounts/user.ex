@@ -31,6 +31,14 @@ defmodule Backend.Accounts.User do
     has_many :follower_relationships, Backend.Social.Follow, foreign_key: :following_id
     has_many :following_relationships, Backend.Social.Follow, foreign_key: :follower_id
 
+    many_to_many :favorite_ai_tools, Backend.Catalog.AiTool,
+      join_through: "user_favorite_tools",
+      on_replace: :delete
+
+    many_to_many :preferred_tech_stacks, Backend.Catalog.TechStack,
+      join_through: "user_tech_stacks",
+      on_replace: :delete
+
     timestamps(type: :utc_datetime)
   end
 

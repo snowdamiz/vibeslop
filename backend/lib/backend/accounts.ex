@@ -306,4 +306,31 @@ defmodule Backend.Accounts do
     admin_email = Application.get_env(:backend, :admin_email)
     admin_email && user.email == admin_email
   end
+
+  @doc """
+  Updates a user's preferred technologies (AI tools and tech stacks).
+  """
+  def update_preferences(%User{} = user, attrs) do
+    alias Backend.Catalog.{AiTool, TechStack}
+
+    Repo.transaction(fn ->
+      # Preload existing associations
+      user = Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+
+      # Get AI tools by IDs
+      ai_tool_ids = Map.get(attrs, "ai_tool_ids", Map.get(attrs, :ai_tool_ids, []))
+      ai_tools = if ai_tool_ids != [], do: Repo.all(from t in AiTool, where: t.id in ^ai_tool_ids), else: []
+
+      # Get tech stacks by IDs
+      tech_stack_ids = Map.get(attrs, "tech_stack_ids", Map.get(attrs, :tech_stack_ids, []))
+      tech_stacks = if tech_stack_ids != [], do: Repo.all(from t in TechStack, where: t.id in ^tech_stack_ids), else: []
+
+      # Update associations using put_assoc
+      user
+      |> Ecto.Changeset.change()
+      |> Ecto.Changeset.put_assoc(:favorite_ai_tools, ai_tools)
+      |> Ecto.Changeset.put_assoc(:preferred_tech_stacks, tech_stacks)
+      |> Repo.update!()
+    end)
+  end
 end

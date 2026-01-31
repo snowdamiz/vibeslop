@@ -238,6 +238,40 @@ defmodule BackendWeb.AuthController do
     })
   end
 
+  @doc """
+  Updates the current user's technology preferences.
+  """
+  def update_preferences(conn, %{"preferences" => prefs}) do
+    current_user = conn.assigns.current_user
+
+    case Accounts.update_preferences(current_user, prefs) do
+      {:ok, user} ->
+        user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+
+        conn
+        |> put_status(:ok)
+        |> json(%{
+          favorite_ai_tools:
+            Enum.map(user.favorite_ai_tools, fn t ->
+              %{id: t.id, name: t.name, slug: t.slug}
+            end),
+          preferred_tech_stacks:
+            Enum.map(user.preferred_tech_stacks, fn t ->
+              %{id: t.id, name: t.name, slug: t.slug, category: t.category}
+            end)
+        })
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{
+          error: "update_failed",
+          message: "Failed to update preferences",
+          details: inspect(reason)
+        })
+    end
+  end
+
   defp get_frontend_url do
     Application.get_env(:backend, :frontend_url) ||
       System.get_env("FRONTEND_URL") ||
