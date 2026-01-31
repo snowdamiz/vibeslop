@@ -87,7 +87,7 @@ export function Testimonials() {
     <section className="py-20 sm:py-28 overflow-hidden">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <motion.div 
+        <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -106,20 +106,20 @@ export function Testimonials() {
         </motion.div>
 
         {/* Testimonials Carousel */}
-        <div 
+        <div
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
         >
           {/* Navigation Buttons */}
-          <button 
+          <button
             onClick={prevSlide}
             className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors hidden md:flex"
             aria-label="Previous testimonial"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <button 
+          <button
             onClick={nextSlide}
             className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors hidden md:flex"
             aria-label="Next testimonial"
@@ -133,15 +133,14 @@ export function Testimonials() {
               {getVisibleTestimonials().map((testimonial, index) => (
                 <motion.div
                   key={`${testimonial.author}-${currentIndex}-${index}`}
-                  initial={{ opacity: 0, x: 50 }}
+                  initial={{ opacity: 0, x: 30 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -50 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ duration: 0.35, ease: 'easeOut', delay: index * 0.08 }}
                 >
-                  <Card 
-                    className={`relative overflow-hidden border-border bg-card hover:border-primary/30 transition-all duration-300 h-full ${
-                      index === 1 ? 'md:-translate-y-2 ring-1 ring-primary/20' : ''
-                    }`}
+                  <Card
+                    className={`relative overflow-hidden border-border bg-card hover:border-primary/30 transition-all duration-300 h-full ${index === 1 ? 'md:-translate-y-1 ring-1 ring-primary/15' : ''
+                      }`}
                   >
                     <CardContent className="p-6">
                       {/* Stars */}
@@ -150,12 +149,12 @@ export function Testimonials() {
                           <Star key={i} className="w-4 h-4 fill-primary text-primary" />
                         ))}
                       </div>
-                      
+
                       {/* Quote */}
-                      <p className="text-foreground mb-6 leading-relaxed">
+                      <p className="text-foreground mb-6 leading-relaxed tracking-[-0.01em]">
                         "{testimonial.quote}"
                       </p>
-                      
+
                       <div className="flex items-center gap-3 pt-4 border-t border-border">
                         <Avatar className="w-10 h-10 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
                           <AvatarImage src={`https://i.pravatar.cc/150?img=${30 + currentIndex}`} alt={testimonial.author} />
@@ -180,16 +179,15 @@ export function Testimonials() {
           </div>
 
           {/* Dots Indicator */}
-          <div className="flex justify-center gap-2 mt-8">
+          <div className="flex justify-center gap-1.5 mt-8">
             {testimonials.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentIndex(index)}
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  index === currentIndex 
-                    ? 'w-6 bg-primary' 
-                    : 'bg-muted-foreground/30 hover:bg-muted-foreground/50'
-                }`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${index === currentIndex
+                    ? 'w-6 bg-primary'
+                    : 'w-1.5 bg-muted-foreground/25 hover:bg-muted-foreground/40'
+                  }`}
                 aria-label={`Go to testimonial ${index + 1}`}
               />
             ))}

@@ -1,6 +1,5 @@
 export { Landing } from './Landing'
 export { Home } from './Home'
-export { About } from './About'
 export { ProjectDetail } from './ProjectDetail'
 export { PostDetail } from './PostDetail'
 export { UserProfile } from './UserProfile'

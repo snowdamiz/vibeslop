@@ -17,12 +17,12 @@ const containerVariants = {
 } as const
 
 const cardVariants = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
+      duration: 0.4,
       ease: 'easeOut' as const,
     },
   },
@@ -99,7 +99,7 @@ const projects = [
 
 export function FeaturedProjects() {
   return (
-    <section className="py-20 sm:py-28 relative bg-muted/50">
+    <section id="projects" className="py-20 sm:py-28 relative bg-muted/50">
       <SectionDivider variant="wave" flip fillClassName="fill-background" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
@@ -117,7 +117,7 @@ export function FeaturedProjects() {
         </div>
 
         {/* Projects Grid */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
           variants={containerVariants}
           initial="hidden"
@@ -126,84 +126,86 @@ export function FeaturedProjects() {
         >
           {projects.map((project, index) => (
             <motion.div key={project.id} variants={cardVariants}>
-              <Card 
-                className={`group border-border bg-card hover:border-primary/30 hover:-translate-y-0.5 transition-all duration-200 h-full py-0 shadow-none hover:shadow-sm ${project.featured ? 'ring-1 ring-primary/20' : ''}`}
+              <Card
+                className={`group border-border bg-card hover:border-primary/40 transition-all duration-300 h-full py-0 shadow-none hover:shadow-md hover:scale-[1.01] ${project.featured ? 'ring-1 ring-primary/20' : ''}`}
               >
-              <CardContent className="p-0">
-                {/* Project Image Area */}
-                <div className="aspect-[16/10] bg-muted relative overflow-hidden">
-                  <img 
-                    src={project.image} 
-                    alt={project.title}
-                    className="w-full h-full object-cover"
-                  />
-                  
-                  {project.featured && (
-                    <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs z-10">
-                      Featured
-                    </Badge>
-                  )}
-                  
-                  {/* Bookmark button */}
-                  <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-background z-10">
-                    <Bookmark className="w-4 h-4 text-foreground" />
-                  </button>
-                  
-                  <Button 
-                    size="sm" 
-                    variant="secondary"
-                    className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-xs z-10"
-                  >
-                    <ExternalLink className="w-3 h-3 mr-1.5" />
-                    View
-                  </Button>
-                </div>
+                <CardContent className="p-0">
+                  {/* Project Image Area */}
+                  <div className="aspect-[16/10] bg-muted relative overflow-hidden">
+                    <img
+                      src={project.image}
+                      alt={project.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    />
+                    {/* Subtle bottom gradient for depth */}
+                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
 
-                {/* Project Info */}
-                <div className="p-5 bg-card">
-                  {/* Author */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <Avatar className="w-6 h-6">
-                      <AvatarImage src={`https://i.pravatar.cc/150?img=${40 + index}`} alt={project.author.name} />
-                      <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                        {project.author.initials}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-sm text-muted-foreground">{project.author.name}</span>
-                  </div>
+                    {project.featured && (
+                      <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs z-10">
+                        Featured
+                      </Badge>
+                    )}
 
-                  {/* Title & Description */}
-                  <h3 className="font-semibold mb-2">
-                    {project.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                    {project.description}
-                  </p>
-
-                  {/* Tools */}
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    {project.tools.map((tool) => (
-                      <span key={tool} className="text-xs bg-muted px-2 py-1 rounded-md text-muted-foreground">
-                        {tool}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Stats */}
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border">
-                    <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                      <Heart className="w-4 h-4" />
-                      {project.likes}
+                    {/* Bookmark button */}
+                    <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-105 z-10">
+                      <Bookmark className="w-4 h-4 text-foreground" />
                     </button>
-                    <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                      <MessageCircle className="w-4 h-4" />
-                      {project.comments}
-                    </button>
+
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 text-xs z-10 shadow-sm"
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1.5" />
+                      View
+                    </Button>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+
+                  {/* Project Info */}
+                  <div className="p-5 bg-card">
+                    {/* Author */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <Avatar className="w-6 h-6">
+                        <AvatarImage src={`https://i.pravatar.cc/150?img=${40 + index}`} alt={project.author.name} />
+                        <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                          {project.author.initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm text-muted-foreground">{project.author.name}</span>
+                    </div>
+
+                    {/* Title & Description */}
+                    <h3 className="font-semibold mb-2">
+                      {project.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                      {project.description}
+                    </p>
+
+                    {/* Tools */}
+                    <div className="flex flex-wrap gap-1.5 mb-4">
+                      {project.tools.map((tool) => (
+                        <span key={tool} className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
+                          {tool}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border">
+                      <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                        <Heart className="w-4 h-4" />
+                        {project.likes}
+                      </button>
+                      <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
+                        <MessageCircle className="w-4 h-4" />
+                        {project.comments}
+                      </button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           ))}
         </motion.div>
 

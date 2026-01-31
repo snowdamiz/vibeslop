@@ -196,7 +196,7 @@ async getPosts(params?: {
 |----------|--------|-----------|
 | **Scoring in SQL** | Hardcoded weights in SQL fragment | Avoids PostgreSQL type casting issues with float parameters |
 | **No Redis caching** | PostgreSQL only | Phase 1 MVP - simpler ops, sufficient for <1M users |
-| **7-day candidate window** | Recent posts only for "For You" | Balances freshness with engagement opportunity |
+| **Progressive time windows** | 7 days → 30 days → no limit | Primary window balances freshness; fallback ensures content always shows |
 | **Diversification limit** | Max 3 consecutive posts from same user | Prevents feed monopolization |
 | **Cursor encoding** | Base64 of "value:id" | URL-safe, contains tiebreaker for consistent ordering |
 

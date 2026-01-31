@@ -29,10 +29,17 @@ defmodule Backend.Feed do
   # How far back to look for candidates (days)
   @candidate_window_days 7
 
+  # Minimum number of items to show in feed before backfilling with older content
+  @minimum_feed_items 30
+
   @doc """
   Returns the "For You" algorithmic feed.
 
   Combines posts and projects, ranked by engagement score with time decay.
+
+  Uses a progressive strategy to ensure sufficient content:
+  1. First fetches recent items (7 days) ranked by engagement + time decay
+  2. If fewer than 30 items, backfills with older items ranked by engagement only (no time decay)
 
   Options:
   - :limit - Number of items to return (default 20)
@@ -44,8 +51,178 @@ defmodule Backend.Feed do
     cursor = Keyword.get(opts, :cursor)
     current_user_id = Keyword.get(opts, :current_user_id)
 
-    cutoff = DateTime.add(DateTime.utc_now(), -@candidate_window_days, :day)
+    # Fetch target: we want at least @minimum_feed_items total, but respect the limit for pagination
+    fetch_target = max(@minimum_feed_items, limit + 1)
 
+    # Fetch recent items with time decay scoring (7 days)
+    primary_cutoff = DateTime.add(DateTime.utc_now(), -@candidate_window_days, :day)
+    {recent_posts, recent_projects} = fetch_scored_items(primary_cutoff, cursor, fetch_target)
+
+    recent_items =
+      (recent_posts ++ recent_projects)
+      |> Enum.sort_by(& &1.score, :desc)
+
+    # Get IDs of already fetched items to exclude from backfill
+    recent_ids = MapSet.new(recent_items, & &1.id)
+
+    # If we have fewer than minimum items, backfill with older items (engagement only, no time decay)
+    all_items =
+      if length(recent_items) < @minimum_feed_items and cursor == nil do
+        needed = @minimum_feed_items - length(recent_items)
+        older_items = fetch_older_items_by_engagement(primary_cutoff, recent_ids, needed)
+        recent_items ++ older_items
+      else
+        recent_items
+      end
+
+    # Take what we need for this page
+    items_for_page = Enum.take(all_items, limit + 1)
+
+    # Apply diversification to avoid too many posts from same user
+    diversified_items = diversify_feed(items_for_page, limit)
+
+    # Paginate
+    paginate_results(diversified_items, limit, current_user_id)
+  end
+
+  # Fetches older items (before cutoff) ranked by pure engagement score (no time decay)
+  defp fetch_older_items_by_engagement(cutoff, exclude_ids, needed) do
+    posts = fetch_older_posts_by_engagement(cutoff, exclude_ids, needed)
+    projects = fetch_older_projects_by_engagement(cutoff, exclude_ids, needed)
+
+    (posts ++ projects)
+    |> Enum.sort_by(& &1.score, :desc)
+    |> Enum.take(needed)
+  end
+
+  defp fetch_older_posts_by_engagement(cutoff, exclude_ids, needed) do
+    query = build_engagement_only_posts_query(cutoff)
+
+    query
+    |> limit(^(needed * 2))
+    |> Repo.all()
+    |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.post.id) end)
+    |> Enum.take(needed)
+    |> Enum.map(fn result ->
+      post =
+        Repo.preload(result.post, [
+          :user,
+          :media,
+          quoted_post: [:user, :media],
+          quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+        ])
+
+      %{
+        id: post.id,
+        type: "post",
+        post: post,
+        user: post.user,
+        score: result.score,
+        sort_date: post.inserted_at
+      }
+    end)
+  end
+
+  defp fetch_older_projects_by_engagement(cutoff, exclude_ids, needed) do
+    query = build_engagement_only_projects_query(cutoff)
+
+    query
+    |> limit(^(needed * 2))
+    |> Repo.all()
+    |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.project.id) end)
+    |> Enum.take(needed)
+    |> Enum.map(fn result ->
+      project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
+
+      %{
+        id: project.id,
+        type: "project",
+        project: project,
+        user: project.user,
+        score: result.score,
+        sort_date: project.published_at || project.inserted_at
+      }
+    end)
+  end
+
+  # Engagement-only scoring for older posts (no time decay)
+  defp build_engagement_only_posts_query(before_cutoff) do
+    from(p in Post,
+      join: u in assoc(p, :user),
+      where: p.inserted_at <= ^before_cutoff,
+      select: %{
+        post: p,
+        user: u,
+        score:
+          fragment(
+            """
+              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+              COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count
+          )
+      },
+      order_by: [
+        desc:
+          fragment(
+            """
+              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+              COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count
+          )
+      ]
+    )
+  end
+
+  # Engagement-only scoring for older projects (no time decay)
+  defp build_engagement_only_projects_query(before_cutoff) do
+    from(proj in Project,
+      join: u in assoc(proj, :user),
+      where: proj.status == "published" and proj.published_at <= ^before_cutoff,
+      select: %{
+        project: proj,
+        user: u,
+        score:
+          fragment(
+            """
+              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+              COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count
+          )
+      },
+      order_by: [
+        desc:
+          fragment(
+            """
+              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+              COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count
+          )
+      ]
+    )
+  end
+
+  # Fetches scored posts and projects with optional time cutoff
+  defp fetch_scored_items(cutoff, cursor, limit) do
     # Build scored posts query
     posts_query = build_scored_posts_query(cutoff)
 
@@ -96,17 +273,7 @@ defmodule Backend.Feed do
         }
       end)
 
-    # Combine and sort by score
-    all_items =
-      (posts ++ projects)
-      |> Enum.sort_by(& &1.score, :desc)
-      |> Enum.take(limit + 1)
-
-    # Apply diversification to avoid too many posts from same user
-    diversified_items = diversify_feed(all_items, limit)
-
-    # Paginate
-    paginate_results(diversified_items, limit, current_user_id)
+    {posts, projects}
   end
 
   @doc """
@@ -197,6 +364,48 @@ defmodule Backend.Feed do
   # Private Functions - Query Building
   # ============================================================================
 
+  # No time cutoff - fetch all posts
+  defp build_scored_posts_query(nil) do
+    from(p in Post,
+      join: u in assoc(p, :user),
+      select: %{
+        post: p,
+        user: u,
+        score:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count,
+            p.inserted_at
+          )
+      },
+      order_by: [
+        desc:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            p.likes_count,
+            p.comments_count,
+            p.reposts_count,
+            p.bookmarks_count,
+            p.quotes_count,
+            p.inserted_at
+          )
+      ]
+    )
+  end
+
+  # With time cutoff - filter posts within the window
   defp build_scored_posts_query(cutoff) do
     # Use hardcoded weights in SQL to avoid type casting issues
     # Weights: likes=1.0, comments=13.5, reposts=20.0, bookmarks=10.0, quotes=15.0
@@ -241,6 +450,49 @@ defmodule Backend.Feed do
     )
   end
 
+  # No time cutoff - fetch all published projects
+  defp build_scored_projects_query(nil) do
+    from(proj in Project,
+      join: u in assoc(proj, :user),
+      where: proj.status == "published",
+      select: %{
+        project: proj,
+        user: u,
+        score:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.published_at
+          )
+      },
+      order_by: [
+        desc:
+          fragment(
+            """
+              (COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 13.5 + COALESCE(?, 0) * 20.0 +
+               COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 15.0) /
+               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.5)
+            """,
+            proj.likes_count,
+            proj.comments_count,
+            proj.reposts_count,
+            proj.bookmarks_count,
+            proj.quotes_count,
+            proj.published_at
+          )
+      ]
+    )
+  end
+
+  # With time cutoff - filter projects within the window
   defp build_scored_projects_query(cutoff) do
     # Use hardcoded weights in SQL to avoid type casting issues
     # Weights: likes=1.0, comments=13.5, reposts=20.0, bookmarks=10.0, quotes=15.0

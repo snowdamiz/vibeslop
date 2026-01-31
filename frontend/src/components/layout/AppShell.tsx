@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LeftSidebar } from './LeftSidebar'
 import { RightSidebar } from './RightSidebar'
@@ -13,11 +12,6 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
-  const location = useLocation()
-
-  // Hide sidebar on project detail pages
-  const isProjectDetailPage = location.pathname.startsWith('/project/')
-  const shouldShowSidebar = showRightSidebar && !isProjectDetailPage
 
   return (
     <ComposeProvider>
@@ -25,18 +19,19 @@ export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
         {/* Left Sidebar - Fixed to left edge */}
         <LeftSidebar />
 
-        {/* Single scroll container for main + right sidebar */}
+        {/* Scrollable area - includes right sidebar so scrollbar is on far right */}
         <div className="flex-1 overflow-y-auto">
-          <div className="flex min-h-full">
+          <div className="flex">
             {/* Main Content Area */}
             <main className="flex-1 min-w-0">
               {children}
             </main>
 
-            {/* Right Sidebar - Animated visibility */}
+            {/* Right Sidebar - Sticky within scroll container */}
             <AnimatePresence mode="wait">
-              {shouldShowSidebar && (
+              {showRightSidebar && (
                 <motion.div
+                  className="hidden lg:block sticky top-0 h-screen shrink-0"
                   initial={{ opacity: 0, x: 50 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 50 }}

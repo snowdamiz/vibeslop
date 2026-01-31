@@ -187,7 +187,11 @@ html {
   }
 
   .glow {
-    box-shadow: 0 4px 20px -4px oklch(0.55 0.25 250 / 0.2);
+    box-shadow: 0 4px 16px -4px oklch(0.55 0.25 250 / 0.15);
+  }
+
+  .glow:hover {
+    box-shadow: 0 6px 20px -4px oklch(0.55 0.25 250 / 0.2);
   }
 
   .glow-accent {

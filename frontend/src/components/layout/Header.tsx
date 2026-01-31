@@ -46,7 +46,7 @@ export function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <motion.div 
+            <motion.div
               className="flex items-center justify-center w-9 h-9 bg-primary/10 rounded-lg"
               whileHover={{ scale: 1.05, rotate: 5 }}
               whileTap={{ scale: 0.95 }}
@@ -61,7 +61,13 @@ export function Header() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-1">
             <Button variant="nav" size="sm" asChild>
-              <Link to="/about">About</Link>
+              <a href="#projects">Projects</a>
+            </Button>
+            <Button variant="nav" size="sm" asChild>
+              <a href="#how-it-works">How It Works</a>
+            </Button>
+            <Button variant="nav" size="sm" asChild>
+              <a href="#tools">Tools</a>
             </Button>
           </div>
 
@@ -77,8 +83,8 @@ export function Header() {
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <Input 
-                    placeholder="Search projects..." 
+                  <Input
+                    placeholder="Search projects..."
                     className="h-9"
                     autoFocus
                     onBlur={() => setSearchOpen(false)}
@@ -86,9 +92,9 @@ export function Header() {
                 </motion.div>
               )}
             </AnimatePresence>
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               className="h-9 w-9"
               onClick={() => setSearchOpen(!searchOpen)}
             >
@@ -213,7 +219,13 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
-                  <Link to="/about">About</Link>
+                  <a href="#projects">Projects</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="#how-it-works">How It Works</a>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href="#tools">Tools</a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {isAuthenticated ? (

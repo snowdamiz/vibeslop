@@ -24,49 +24,49 @@ export function CTA() {
   return (
     <section className="py-20 sm:py-28 bg-muted/50 relative overflow-hidden">
       <SectionDivider variant="wave" flip fillClassName="fill-background" />
-      
+
       {/* Floating background icons */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <motion.div 
-          className="absolute top-20 left-[10%] text-primary/10"
-          animate={{ y: [0, -20, 0], rotate: [0, 10, 0] }}
-          transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+        <motion.div
+          className="absolute top-20 left-[10%] text-primary/[0.06]"
+          animate={{ y: [0, -10, 0] }}
+          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
         >
           <Sparkles className="w-12 h-12" />
         </motion.div>
-        <motion.div 
-          className="absolute top-32 right-[15%] text-accent/10"
-          animate={{ y: [0, 15, 0], rotate: [0, -10, 0] }}
-          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+        <motion.div
+          className="absolute top-32 right-[15%] text-accent/[0.06]"
+          animate={{ y: [0, 8, 0] }}
+          transition={{ duration: 9, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
         >
           <Code2 className="w-16 h-16" />
         </motion.div>
-        <motion.div 
-          className="absolute bottom-24 left-[20%] text-primary/10"
-          animate={{ y: [0, -15, 0], rotate: [0, 15, 0] }}
-          transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 2 }}
+        <motion.div
+          className="absolute bottom-24 left-[20%] text-primary/[0.06]"
+          animate={{ y: [0, -8, 0] }}
+          transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
         >
           <Zap className="w-10 h-10" />
         </motion.div>
-        <motion.div 
-          className="absolute bottom-32 right-[10%] text-accent/10"
-          animate={{ y: [0, 20, 0], rotate: [0, -15, 0] }}
-          transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+        <motion.div
+          className="absolute bottom-32 right-[10%] text-accent/[0.06]"
+          animate={{ y: [0, 10, 0] }}
+          transition={{ duration: 10, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
         >
           <Sparkles className="w-14 h-14" />
         </motion.div>
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative">
-        <motion.div 
-          className="relative mx-auto max-w-3xl text-center bg-card border border-border rounded-2xl p-10 sm:p-14 shadow-xl"
-          initial={{ opacity: 0, y: 30 }}
+        <motion.div
+          className="relative mx-auto max-w-3xl text-center bg-card border border-border rounded-2xl p-10 sm:p-14 shadow-lg"
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
         >
           {/* Joined this week counter */}
-          <motion.div 
+          <motion.div
             className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1.5 rounded-full text-sm font-medium shadow-lg"
             initial={{ opacity: 0, y: 10 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -88,7 +88,7 @@ export function CTA() {
             <span className="gradient-text">vibe?</span>
           </h2>
           <p className="text-muted-foreground max-w-xl mx-auto mb-8 leading-relaxed">
-            Join the community of AI-native builders. Create your portfolio, 
+            Join the community of AI-native builders. Create your portfolio,
             share your process, and connect with fellow vibe coders today.
           </p>
 
@@ -96,18 +96,18 @@ export function CTA() {
           <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mb-6">
             <div className="relative flex-1">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
+              <Input
                 type="email"
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="pl-10 h-12"
+                className="pl-10 h-12 focus:ring-2 focus:ring-primary/20 transition-shadow"
                 required
               />
             </div>
-            <Button 
-              type="submit" 
-              size="lg" 
+            <Button
+              type="submit"
+              size="lg"
               className="h-12 px-6 glow"
               disabled={isSubmitted}
             >

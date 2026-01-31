@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { SectionDivider } from '@/components/ui/section-divider'
 import { ArrowRight } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 const toolsByCategory = {
   'IDE': ['Cursor', 'Copilot', 'Windsurf', 'Replit AI'],
@@ -12,14 +13,36 @@ const toolsByCategory = {
   'Agent': ['Devin'],
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1 },
+  },
+}
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 15 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, ease: 'easeOut' as const },
+  },
+}
+
 export function AITools() {
   return (
-    <section className="py-20 sm:py-28 bg-muted/50 relative">
+    <section id="tools" className="py-20 sm:py-28 bg-muted/50 relative">
       <SectionDivider variant="wave" flip fillClassName="fill-background" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
           {/* Content */}
-          <div>
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+          >
             <Badge variant="secondary" className="mb-4">
               50+ AI Tools
             </Badge>
@@ -28,11 +51,11 @@ export function AITools() {
               <span className="gradient-text">you love</span>
             </h2>
             <p className="text-muted-foreground mb-4 leading-relaxed">
-              Tag your projects with the AI tools you used. Whether it's Cursor, Claude, v0, Bolt, 
+              Tag your projects with the AI tools you used. Whether it's Cursor, Claude, v0, Bolt,
               or any other AI assistant—we celebrate all workflows.
             </p>
             <p className="text-muted-foreground mb-8 leading-relaxed">
-              Discover what others are building with your favorite tools, learn new techniques, 
+              Discover what others are building with your favorite tools, learn new techniques,
               and find the perfect stack for your next project.
             </p>
             <Button className="glow" asChild>
@@ -41,38 +64,47 @@ export function AITools() {
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Link>
             </Button>
-          </div>
+          </motion.div>
 
           {/* Tools by Category */}
-          <div className="space-y-5">
+          <motion.div
+            className="space-y-5"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true }}
+          >
             {Object.entries(toolsByCategory).map(([category, tools]) => (
-              <div key={category}>
-                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+              <motion.div key={category} variants={itemVariants}>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2.5">
                   {category}
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {tools.map((tool) => (
-                    <div
+                    <motion.div
                       key={tool}
-                      className="px-3 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:border-primary/50 hover:text-primary transition-colors cursor-pointer"
+                      className="px-3.5 py-1.5 rounded-lg bg-background border border-border text-sm font-medium hover:border-primary/50 hover:text-primary transition-all duration-200 cursor-pointer"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                     >
                       {tool}
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             ))}
-            
+
             {/* More tools indicator */}
-            <div className="pt-2">
+            <motion.div className="pt-2" variants={itemVariants}>
               <span className="text-sm text-muted-foreground">
                 + 35 more tools supported
               </span>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         </div>
       </div>
       <SectionDivider variant="curve" fillClassName="fill-background" />
     </section>
   )
 }
+

@@ -36,39 +36,39 @@ const containerVariants = {
 } as const
 
 const stepVariants = {
-  hidden: { opacity: 0, y: 30 },
+  hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
+      duration: 0.4,
       ease: 'easeOut' as const,
     },
   },
 }
 
 const iconVariants = {
-  hidden: { scale: 0.8, opacity: 0 },
+  hidden: { scale: 0.9, opacity: 0 },
   visible: {
     scale: 1,
     opacity: 1,
     transition: {
       type: 'spring' as const,
-      stiffness: 200,
-      damping: 15,
+      stiffness: 150,
+      damping: 20,
     },
   },
 }
 
 export function HowItWorks() {
   return (
-    <section className="py-20 sm:py-28 relative">
+    <section id="how-it-works" className="py-20 sm:py-28 relative">
       {/* Subtle background accent */}
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/30 to-transparent pointer-events-none" />
-      
+
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
-        <motion.div 
+        <motion.div
           className="text-center mb-12"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -87,7 +87,7 @@ export function HowItWorks() {
         </motion.div>
 
         {/* Steps */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4"
           variants={containerVariants}
           initial="hidden"
@@ -102,7 +102,7 @@ export function HowItWorks() {
                   {/* Start dot */}
                   <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary/40" />
                   {/* Line */}
-                  <motion.div 
+                  <motion.div
                     className="h-px bg-gradient-to-r from-primary/50 via-primary to-primary/50"
                     initial={{ scaleX: 0 }}
                     whileInView={{ scaleX: 1 }}
@@ -118,21 +118,21 @@ export function HowItWorks() {
               {/* Card with hover effect */}
               <div className="text-center p-6 rounded-2xl transition-all duration-300 hover:bg-muted/50">
                 {/* Icon with integrated number */}
-                <motion.div 
+                <motion.div
                   className="relative inline-flex mb-5"
                   variants={iconVariants}
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 10 }}
+                  whileHover={{ scale: 1.03 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
                   <div className="w-[72px] h-[72px] rounded-xl bg-muted/70 border border-border shadow-sm flex items-center justify-center group-hover:border-primary/50 group-hover:bg-primary/5 transition-colors duration-300">
                     <step.icon className="w-7 h-7 text-foreground group-hover:text-primary transition-colors duration-300" />
                   </div>
-                  <motion.div 
+                  <motion.div
                     className="absolute -top-1.5 -left-1.5 w-6 h-6 rounded-md bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center shadow-sm"
                     initial={{ scale: 0 }}
                     whileInView={{ scale: 1 }}
                     viewport={{ once: true }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 15, delay: index * 0.1 + 0.2 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20, delay: index * 0.1 + 0.2 }}
                   >
                     {index + 1}
                   </motion.div>

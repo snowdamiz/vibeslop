@@ -19,7 +19,6 @@ const footerLinks = {
     { name: 'Changelog', href: '#' },
   ],
   company: [
-    { name: 'About', href: '/about', isInternal: true },
     { name: 'Careers', href: '#' },
     { name: 'Contact', href: '#' },
     { name: 'Press', href: '#' },
