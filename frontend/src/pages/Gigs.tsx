@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Briefcase, Search, SlidersHorizontal, DollarSign, ArrowUpDown, X } from 'lucide-react'
+import { Plus, Briefcase, Search, SlidersHorizontal, DollarSign, ArrowUpDown, X } from 'lucide-react'
 import { GigCard, GigPostForm, BidCard } from '@/components/gigs'
 import { api, type Gig, type Bid } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
@@ -205,8 +205,43 @@ export function Gigs() {
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <div className="max-w-[600px] mx-auto divide-y divide-border">
+            {/* Skeleton gig cards - show 4 for good coverage */}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="px-4 py-4">
+                {/* Author row */}
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+                  <div className="flex-1">
+                    <div className="h-4 w-28 bg-muted rounded animate-pulse mb-1" />
+                    <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                </div>
+
+                {/* Title */}
+                <div className="h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
+
+                {/* Description */}
+                <div className="space-y-2 mb-3">
+                  <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-5/6 bg-muted rounded animate-pulse" />
+                </div>
+
+                {/* Skills tags */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                  <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                  <div className="h-6 w-14 bg-muted rounded-full animate-pulse" />
+                </div>
+
+                {/* Footer: budget and bids */}
+                <div className="flex items-center justify-between">
+                  <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+                  <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div>

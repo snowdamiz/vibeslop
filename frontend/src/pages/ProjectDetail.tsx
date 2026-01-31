@@ -71,6 +71,13 @@ interface ApiProject {
     bio?: string
     is_verified?: boolean
   }
+  recent_likers?: Array<{
+    id: string
+    username: string
+    display_name: string
+    avatar_url?: string
+    initials: string
+  }>
 }
 
 // Normalized project type for component use
@@ -131,6 +138,13 @@ interface NormalizedProject {
   }>
   moreFromAuthor: Array<{ id: string; title: string; image: string; likes: number; views: number }>
   relatedProjects: Array<{ id: string; title: string; image: string; author: string; likes?: number }>
+  recentLikers: Array<{
+    id: string
+    username: string
+    display_name: string
+    avatar_url?: string
+    initials: string
+  }>
 }
 
 // Helper function to normalize API response to component format
@@ -172,6 +186,7 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
     comments: [], // Comments would need to be fetched separately
     moreFromAuthor: [],
     relatedProjects: [],
+    recentLikers: apiProject.recent_likers || [],
   }
 }
 
@@ -225,6 +240,16 @@ function StatItem({
       <span className="text-sm">{label}</span>
     </button>
   )
+}
+
+// Format ISO date string to readable format
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
 }
 
 export function ProjectDetail() {
@@ -305,8 +330,100 @@ export function ProjectDetail() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="relative min-h-screen pb-20">
+        <div className="absolute inset-0 gradient-bg" />
+        <div className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pt-6 pb-6">
+          {/* Back Button Skeleton */}
+          <div className="mb-6">
+            <div className="h-9 w-20 rounded-md bg-muted animate-pulse" />
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* Main Content Skeleton */}
+            <div className="lg:col-span-2">
+              {/* Image Gallery Skeleton */}
+              <div className="rounded-2xl overflow-hidden bg-muted mb-8">
+                <div className="aspect-[16/9] animate-pulse" />
+              </div>
+
+              {/* Title & Actions Skeleton */}
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                <div className="flex-1">
+                  <div className="h-8 w-3/4 bg-muted rounded animate-pulse mb-2" />
+                  <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-9 w-16 bg-muted rounded animate-pulse" />
+                  <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                  <div className="h-9 w-9 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+
+              {/* Stats Bar Skeleton */}
+              <div className="flex flex-wrap items-center gap-6 py-4 mb-4 border-y border-border">
+                <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+                <div className="h-5 w-20 bg-muted rounded animate-pulse" />
+                <div className="h-5 w-24 bg-muted rounded animate-pulse" />
+              </div>
+
+              {/* Description Skeleton */}
+              <div className="space-y-3 mb-6">
+                <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+              </div>
+
+              {/* Links Skeleton */}
+              <div className="flex flex-wrap gap-3 mb-8">
+                <div className="h-10 w-28 bg-muted rounded animate-pulse" />
+                <div className="h-10 w-28 bg-muted rounded animate-pulse" />
+              </div>
+
+              {/* Tabs Skeleton */}
+              <div className="mt-8">
+                <div className="h-10 w-64 bg-muted rounded-lg animate-pulse mb-6" />
+                <div className="h-48 bg-muted rounded-xl animate-pulse" />
+              </div>
+            </div>
+
+            {/* Sidebar Skeleton */}
+            <div className="space-y-6">
+              {/* Author Card Skeleton */}
+              <div className="rounded-xl border border-border bg-card/50 p-5">
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-14 h-14 rounded-full bg-muted animate-pulse" />
+                  <div className="flex-1">
+                    <div className="h-5 w-32 bg-muted rounded animate-pulse mb-2" />
+                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                  </div>
+                </div>
+                <div className="h-4 w-full bg-muted rounded animate-pulse mb-4" />
+                <div className="h-9 w-full bg-muted rounded animate-pulse" />
+              </div>
+
+              {/* Tech Stack Skeleton */}
+              <div className="rounded-xl border border-border bg-card/50 p-5">
+                <div className="h-5 w-24 bg-muted rounded animate-pulse mb-4" />
+                <div className="flex flex-wrap gap-2">
+                  <div className="h-6 w-16 bg-muted rounded-full animate-pulse" />
+                  <div className="h-6 w-20 bg-muted rounded-full animate-pulse" />
+                  <div className="h-6 w-14 bg-muted rounded-full animate-pulse" />
+                  <div className="h-6 w-18 bg-muted rounded-full animate-pulse" />
+                </div>
+              </div>
+
+              {/* Share Card Skeleton */}
+              <div className="rounded-xl border border-border bg-card/50 p-5">
+                <div className="h-5 w-32 bg-muted rounded animate-pulse mb-4" />
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="h-16 bg-muted rounded animate-pulse" />
+                  <div className="h-16 bg-muted rounded animate-pulse" />
+                  <div className="h-16 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -619,7 +736,7 @@ export function ProjectDetail() {
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
-                      {project.created_at}
+                      {formatDate(project.created_at)}
                     </span>
                   </div>
                 </div>
@@ -691,12 +808,12 @@ export function ProjectDetail() {
               </div>
 
               {/* Social Proof - only show if there are likes */}
-              {likeCount > 0 && (
+              {likeCount > 0 && project.recentLikers.length > 0 && (
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex -space-x-2">
-                    {['AR', 'JL', 'MT', 'DK'].slice(0, Math.min(4, likeCount)).map((initials, i) => (
-                      <Avatar key={i} className="w-7 h-7 ring-2 ring-background">
-                        <AvatarImage src={`https://i.pravatar.cc/150?img=${10 + i}`} alt={initials} />
+                    {project.recentLikers.slice(0, 4).map((liker, i) => (
+                      <Avatar key={liker.id} className="w-7 h-7 ring-2 ring-background">
+                        <AvatarImage src={liker.avatar_url} alt={liker.display_name} />
                         <AvatarFallback className={cn(
                           "text-[10px] font-medium text-white",
                           i === 0 && "bg-gradient-to-br from-blue-500 to-cyan-500",
@@ -704,7 +821,7 @@ export function ProjectDetail() {
                           i === 2 && "bg-gradient-to-br from-orange-500 to-amber-500",
                           i === 3 && "bg-gradient-to-br from-indigo-500 to-pink-500"
                         )}>
-                          {initials}
+                          {liker.initials}
                         </AvatarFallback>
                       </Avatar>
                     ))}

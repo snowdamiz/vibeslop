@@ -98,7 +98,17 @@ defmodule BackendWeb.ProjectJSON do
         avatar_url: user.avatar_url,
         bio: user.bio,
         is_verified: user.is_verified
-      }
+      },
+      recent_likers:
+        Enum.map(Map.get(project_data, :recent_likers, []), fn liker ->
+          %{
+            id: liker.id,
+            username: liker.username,
+            display_name: liker.display_name,
+            avatar_url: liker.avatar_url,
+            initials: get_initials(liker.display_name || liker.username)
+          }
+        end)
     }
   end
 

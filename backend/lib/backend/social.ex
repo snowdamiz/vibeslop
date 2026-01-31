@@ -176,6 +176,30 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Gets the most recent users who liked a specific item.
+  Returns a list of user info (up to limit, default 4) for social proof display.
+  """
+  def get_recent_likers(likeable_type, likeable_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 4)
+
+    query =
+      from l in Like,
+        join: u in User,
+        on: l.user_id == u.id,
+        where: l.likeable_type == ^likeable_type and l.likeable_id == ^likeable_id,
+        order_by: [desc: l.inserted_at],
+        limit: ^limit,
+        select: %{
+          id: u.id,
+          username: u.username,
+          display_name: u.display_name,
+          avatar_url: u.avatar_url
+        }
+
+    Repo.all(query)
+  end
+
+  @doc """
   Lists items liked by a user with pagination.
   Returns mixed list of posts and projects.
   """

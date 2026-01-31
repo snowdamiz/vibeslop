@@ -358,8 +358,65 @@ export function Feed({
       {/* Posts Feed */}
       <div>
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <div className="divide-y divide-border">
+            {/* Skeleton feed items - show 4 for good coverage */}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="max-w-[600px] mx-auto px-4 py-3">
+                <div className="flex gap-3">
+                  {/* Avatar skeleton */}
+                  <div className="w-10 h-10 rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+                  {/* Content skeleton */}
+                  <div className="flex-1 min-w-0">
+                    {/* Header skeleton */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-8 bg-muted rounded animate-pulse" />
+                    </div>
+
+                    {/* Title skeleton (for project posts - show on some items) */}
+                    {i % 2 === 0 && (
+                      <div className="h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
+                    )}
+
+                    {/* Content skeleton */}
+                    <div className="space-y-2 mb-3">
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+                    </div>
+
+                    {/* Image skeleton (show on some items) */}
+                    {i % 2 === 0 && (
+                      <div className="aspect-[16/9] w-full bg-muted rounded-2xl animate-pulse mb-3" />
+                    )}
+
+                    {/* Tech tags skeleton (show on project-like items) */}
+                    {i % 2 === 0 && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="h-5 w-16 bg-muted rounded-full animate-pulse" />
+                        <div className="h-5 w-14 bg-muted rounded-full animate-pulse" />
+                        <div className="h-5 w-18 bg-muted rounded-full animate-pulse" />
+                      </div>
+                    )}
+
+                    {/* Engagement actions skeleton */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-8 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-8 bg-muted rounded animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredPosts.length > 0 ? (
           filteredPosts.map((item, index) => (

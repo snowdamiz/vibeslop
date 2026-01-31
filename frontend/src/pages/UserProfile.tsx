@@ -398,8 +398,87 @@ export function UserProfile() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen">
+        {/* Skeleton Header */}
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
+          <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
+            <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+            <div className="flex-1">
+              <div className="h-5 w-32 bg-muted rounded animate-pulse mb-1" />
+              <div className="h-3 w-16 bg-muted rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+
+        {/* Skeleton Profile Section */}
+        <div className="max-w-[600px] mx-auto px-4 py-5">
+          <div className="flex items-start gap-4">
+            {/* Avatar skeleton */}
+            <div className="w-[72px] h-[72px] rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+            {/* Info skeleton */}
+            <div className="flex-1 min-w-0">
+              <div className="h-6 w-40 bg-muted rounded animate-pulse mb-2" />
+              <div className="flex items-center gap-2 mb-2">
+                <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+
+            {/* Action buttons skeleton */}
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+              <div className="w-24 h-10 rounded-full bg-muted animate-pulse" />
+            </div>
+          </div>
+
+          {/* Bio skeleton */}
+          <div className="mt-4 space-y-2">
+            <div className="h-4 w-full bg-muted rounded animate-pulse" />
+            <div className="h-4 w-5/6 bg-muted rounded animate-pulse" />
+            <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+          </div>
+        </div>
+
+        {/* Tabs skeleton */}
+        <div className="border-b border-border">
+          <div className="max-w-[600px] mx-auto flex">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex-1 py-4 flex justify-center">
+                <div className="h-5 w-16 bg-muted rounded animate-pulse" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="max-w-[600px] mx-auto divide-y divide-border">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="px-4 py-3">
+              <div className="flex gap-3">
+                <div className="w-10 h-10 rounded-full bg-muted animate-pulse flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-16 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                    <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                  </div>
+                  {i % 2 === 0 && (
+                    <div className="aspect-[16/9] w-full bg-muted rounded-2xl animate-pulse mb-3" />
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }
@@ -786,8 +865,56 @@ export function UserProfile() {
       {/* Content */}
       <div>
         {tabLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <div className="max-w-[600px] mx-auto divide-y divide-border">
+            {/* Skeleton tab content - show 4 items */}
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="px-4 py-3">
+                <div className="flex gap-3">
+                  {/* Avatar skeleton */}
+                  <div className="w-10 h-10 rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+                  {/* Content skeleton */}
+                  <div className="flex-1 min-w-0">
+                    {/* Header skeleton */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-20 bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-8 bg-muted rounded animate-pulse" />
+                    </div>
+
+                    {/* Title skeleton (for projects) */}
+                    {i % 2 === 0 && (
+                      <div className="h-5 w-3/4 bg-muted rounded animate-pulse mb-2" />
+                    )}
+
+                    {/* Content skeleton */}
+                    <div className="space-y-2 mb-3">
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-full bg-muted rounded animate-pulse" />
+                      <div className="h-4 w-2/3 bg-muted rounded animate-pulse" />
+                    </div>
+
+                    {/* Image skeleton (show on some items) */}
+                    {i % 2 === 0 && (
+                      <div className="aspect-[16/9] w-full bg-muted rounded-2xl animate-pulse mb-3" />
+                    )}
+
+                    {/* Engagement actions skeleton */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-10 bg-muted rounded animate-pulse" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="h-5 w-8 bg-muted rounded animate-pulse" />
+                        <div className="h-5 w-8 bg-muted rounded animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : activeTab === 'reviews' ? (
           reviews.length > 0 ? (

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ConversationList, ChatThread, NewMessageDialog } from '@/components/messages'
 import type { Conversation, ConversationWithMessages } from '@/components/messages'
-import { Mail, Loader2 } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
 
@@ -214,8 +214,46 @@ export function Messages() {
 
   if (loading) {
     return (
-      <div className="h-[calc(100vh-1px)] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+      <div className="h-[calc(100vh-1px)] flex">
+        {/* Conversation List Skeleton */}
+        <div className="w-full md:w-[320px] lg:w-[360px] border-r border-border flex-shrink-0">
+          {/* Header skeleton */}
+          <div className="p-4 border-b border-border">
+            <div className="flex items-center justify-between mb-4">
+              <div className="h-7 w-24 bg-muted rounded animate-pulse" />
+              <div className="h-9 w-9 bg-muted rounded-full animate-pulse" />
+            </div>
+            <div className="h-10 w-full bg-muted rounded-lg animate-pulse" />
+          </div>
+
+          {/* Conversation items skeleton */}
+          <div className="divide-y divide-border">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-start gap-3 p-4">
+                {/* Avatar */}
+                <div className="w-12 h-12 rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="h-4 w-28 bg-muted rounded animate-pulse" />
+                    <div className="h-3 w-8 bg-muted rounded animate-pulse" />
+                  </div>
+                  <div className="h-4 w-3/4 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Empty state skeleton for desktop */}
+        <div className="hidden md:flex flex-1 items-center justify-center">
+          <div className="text-center">
+            <div className="w-20 h-20 rounded-full bg-muted animate-pulse mx-auto mb-4" />
+            <div className="h-6 w-40 bg-muted rounded animate-pulse mx-auto mb-2" />
+            <div className="h-4 w-64 bg-muted rounded animate-pulse mx-auto" />
+          </div>
+        </div>
       </div>
     )
   }
@@ -262,8 +300,42 @@ export function Messages() {
           )}
         >
           {loadingMessages ? (
-            <div className="flex items-center justify-center w-full">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+            <div className="flex flex-col w-full h-full">
+              {/* Chat header skeleton */}
+              <div className="flex items-center gap-3 p-4 border-b border-border">
+                <div className="w-10 h-10 rounded-full bg-muted animate-pulse" />
+                <div className="flex-1">
+                  <div className="h-4 w-32 bg-muted rounded animate-pulse mb-1" />
+                  <div className="h-3 w-20 bg-muted rounded animate-pulse" />
+                </div>
+              </div>
+
+              {/* Messages skeleton */}
+              <div className="flex-1 p-4 space-y-4">
+                {/* Incoming message */}
+                <div className="flex gap-2">
+                  <div className="w-8 h-8 rounded-full bg-muted animate-pulse flex-shrink-0" />
+                  <div className="h-16 w-48 bg-muted rounded-2xl rounded-tl-none animate-pulse" />
+                </div>
+                {/* Outgoing message */}
+                <div className="flex justify-end">
+                  <div className="h-12 w-40 bg-muted rounded-2xl rounded-tr-none animate-pulse" />
+                </div>
+                {/* Incoming message */}
+                <div className="flex gap-2">
+                  <div className="w-8 h-8 rounded-full bg-muted animate-pulse flex-shrink-0" />
+                  <div className="h-10 w-56 bg-muted rounded-2xl rounded-tl-none animate-pulse" />
+                </div>
+                {/* Outgoing message */}
+                <div className="flex justify-end">
+                  <div className="h-20 w-52 bg-muted rounded-2xl rounded-tr-none animate-pulse" />
+                </div>
+              </div>
+
+              {/* Input skeleton */}
+              <div className="p-4 border-t border-border">
+                <div className="h-10 w-full bg-muted rounded-full animate-pulse" />
+              </div>
             </div>
           ) : selectedConversationData ? (
             <div className="w-full">

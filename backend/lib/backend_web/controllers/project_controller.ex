@@ -69,6 +69,10 @@ defmodule BackendWeb.ProjectController do
                 |> Map.put(:bookmarked, false)
               end
 
+            # Add recent likers for social proof
+            recent_likers = Backend.Social.get_recent_likers("Project", id, limit: 4)
+            project_data = Map.put(project_data, :recent_likers, recent_likers)
+
             render(conn, :show, project: project_data)
 
           {:error, :not_found} ->

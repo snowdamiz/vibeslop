@@ -329,8 +329,39 @@ export function Notifications() {
       {/* Notification List */}
       <div className="max-w-[600px] mx-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          <div className="divide-y divide-border">
+            {/* Skeleton notification items - show 6 for good coverage */}
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex gap-3 px-4 py-3">
+                {/* Icon skeleton */}
+                <div className="w-8 h-8 rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+                {/* Content skeleton */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-3">
+                    {/* Avatar skeleton */}
+                    <div className="w-10 h-10 rounded-full bg-muted animate-pulse flex-shrink-0" />
+
+                    {/* Text content skeleton */}
+                    <div className="flex-1 min-w-0">
+                      {/* Name and action text */}
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                        <div className="h-4 w-32 bg-muted rounded animate-pulse" />
+                      </div>
+
+                      {/* Preview content (show on some items) */}
+                      {i % 2 === 0 && (
+                        <div className="h-4 w-3/4 bg-muted rounded animate-pulse mt-1" />
+                      )}
+
+                      {/* Timestamp */}
+                      <div className="h-3 w-8 bg-muted rounded animate-pulse mt-2" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         ) : error ? (
           <div className="text-center py-16 px-4">
