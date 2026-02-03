@@ -14,8 +14,7 @@ defmodule Backend.MixProject do
       releases: [
         backend: [
           include_executables_for: [:unix],
-          applications: [runtime_tools: :permanent],
-          steps: [:assemble, :tar]
+          applications: [runtime_tools: :permanent]
         ]
       ]
     ]
