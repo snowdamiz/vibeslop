@@ -1,12 +1,12 @@
 # fly.toml - Frontend web app configuration
 # See https://fly.io/docs/reference/configuration/ for more info
 
-app = 'onvibe-web'
+app = 'sn0w-onvibe-web'
 primary_region = 'sjc'
 
 [build]
   [build.args]
-    VITE_API_URL = 'https://onvibe-api.fly.dev'
+    VITE_API_URL = 'https://sn0w-onvibe-api.fly.dev'
 
 [http_service]
   internal_port = 8080
