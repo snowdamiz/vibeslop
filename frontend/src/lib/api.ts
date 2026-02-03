@@ -388,7 +388,7 @@ class ApiClient {
    * allowing users to switch GitHub accounts
    */
   loginWithGithub(): void {
-    window.location.href = `${this.baseUrl}/api/auth/github?prompt=select_account`
+    window.location.href = `${this.baseUrl}/auth/github?prompt=select_account`
   }
 
   /**
@@ -396,7 +396,7 @@ class ApiClient {
    */
   async logout(): Promise<void> {
     try {
-      await this.post('/api/auth/logout')
+      await this.post('/auth/logout')
     } finally {
       this.clearToken()
     }
