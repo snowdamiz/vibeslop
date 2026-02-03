@@ -14,7 +14,8 @@ defmodule Backend.MixProject do
       releases: [
         backend: [
           include_executables_for: [:unix],
-          applications: [runtime_tools: :permanent]
+          applications: [runtime_tools: :permanent],
+          validate_compile_env: false
         ]
       ]
     ]
