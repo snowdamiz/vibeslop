@@ -4,6 +4,7 @@ import {
   HowItWorks,
   AITools,
   CTA,
+  Testimonials,
 } from '@/components/landing'
 import { useSEO } from '@/hooks/useSEO'
 import { StructuredData, schemas } from '@/components/seo'
@@ -20,6 +21,7 @@ export function Landing() {
       <FeaturedProjects />
       <HowItWorks />
       <AITools />
+      <Testimonials />
       <CTA />
     </>
   )

@@ -11,11 +11,11 @@ const rotatingWords = ['AI-native', 'vibe coding', 'prompt-driven', 'AI-powered'
 interface HeroProject {
   id: string
   title: string
-  images?: string[]
-  user: {
-    display_name: string
+  image?: string
+  author: {
+    name: string
   }
-  tools?: Array<{ name: string }>
+  tools?: string[]
 }
 
 export function Hero() {
@@ -158,9 +158,9 @@ export function Hero() {
                 {projects[0] && (
                   <Link to={`/projects/${projects[0].id}`} className="md:col-span-2 relative rounded-2xl overflow-hidden bg-card border border-border group">
                     <div className="aspect-[16/9]">
-                      {projects[0].images?.[0] ? (
+                      {projects[0].image ? (
                         <img
-                          src={projects[0].images[0]}
+                          src={projects[0].image}
                           alt={projects[0].title}
                           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                         />
@@ -171,13 +171,13 @@ export function Hero() {
                       <div className="absolute bottom-0 left-0 right-0 p-5">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[10px] font-medium bg-primary/90 text-primary-foreground px-2 py-0.5 rounded-full">Featured</span>
-                          <span className="text-[10px] text-white/70">by {projects[0].user.display_name}</span>
+                          <span className="text-[10px] text-white/70">by {projects[0].author?.name ?? 'Anonymous'}</span>
                         </div>
                         <h3 className="text-white font-semibold text-lg">{projects[0].title}</h3>
                         {projects[0].tools && projects[0].tools.length > 0 && (
                           <div className="flex gap-2 mt-3">
                             {projects[0].tools.slice(0, 2).map((tool) => (
-                              <span key={tool.name} className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-1 rounded-md text-white/90">{tool.name}</span>
+                              <span key={tool} className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-1 rounded-md text-white/90">{tool}</span>
                             ))}
                           </div>
                         )}
@@ -192,9 +192,9 @@ export function Hero() {
                   {projects[1] && (
                     <Link to={`/projects/${projects[1].id}`} className="relative rounded-2xl overflow-hidden bg-card border border-border group">
                       <div className="aspect-[4/3]">
-                        {projects[1].images?.[0] ? (
+                        {projects[1].image ? (
                           <img
-                            src={projects[1].images[0]}
+                            src={projects[1].image}
                             alt={projects[1].title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                           />
@@ -207,7 +207,7 @@ export function Hero() {
                           {projects[1].tools && projects[1].tools.length > 0 && (
                             <div className="flex gap-1.5 mt-1.5">
                               {projects[1].tools.slice(0, 2).map((tool) => (
-                                <span key={tool.name} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool.name}</span>
+                                <span key={tool} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool}</span>
                               ))}
                             </div>
                           )}
@@ -220,9 +220,9 @@ export function Hero() {
                   {projects[2] && (
                     <Link to={`/projects/${projects[2].id}`} className="relative rounded-2xl overflow-hidden bg-card border border-border group">
                       <div className="aspect-[4/3]">
-                        {projects[2].images?.[0] ? (
+                        {projects[2].image ? (
                           <img
-                            src={projects[2].images[0]}
+                            src={projects[2].image}
                             alt={projects[2].title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                           />
@@ -235,7 +235,7 @@ export function Hero() {
                           {projects[2].tools && projects[2].tools.length > 0 && (
                             <div className="flex gap-1.5 mt-1.5">
                               {projects[2].tools.slice(0, 2).map((tool) => (
-                                <span key={tool.name} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool.name}</span>
+                                <span key={tool} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool}</span>
                               ))}
                             </div>
                           )}
