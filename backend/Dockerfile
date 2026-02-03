@@ -27,6 +27,7 @@ RUN mix deps.compile
 # Copy application code
 COPY priv priv
 COPY lib lib
+COPY rel rel
 
 # Compile the release
 RUN mix compile
