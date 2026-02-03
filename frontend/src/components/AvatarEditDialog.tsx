@@ -104,6 +104,7 @@ export function AvatarEditDialog({ open, onOpenChange }: AvatarEditDialogProps) 
         website_url: updatedUser.website_url,
         github_username: updatedUser.github_username,
         is_verified: updatedUser.is_verified,
+        is_premium: updatedUser.is_premium,
         is_admin: updatedUser.is_admin,
         has_onboarded: updatedUser.has_onboarded,
       }
