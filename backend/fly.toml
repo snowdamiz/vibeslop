@@ -10,7 +10,7 @@ primary_region = 'sjc'
   release_command = '/app/bin/migrate'
 
 [env]
-  PHX_HOST = 'onvibe-api.fly.dev'
+  PHX_HOST = 'api.onvibe.dev'
   PORT = '8080'
   ECTO_IPV6 = 'true'
 
