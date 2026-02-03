@@ -5,6 +5,9 @@ defmodule Backend.Application do
 
   use Application
 
+  # Capture Mix.env at compile time since Mix isn't available in releases
+  @env Mix.env()
+
   @impl true
   def start(_type, _args) do
     # Run migrations automatically in development
@@ -57,7 +60,7 @@ defmodule Backend.Application do
 
   defp schedule_initial_score_calculation do
     # Only run in dev and prod, not in test
-    unless Mix.env() == :test do
+    unless @env == :test do
       # Schedule developer score calculation 10 seconds after startup
       # This gives the app time to fully initialize
       Task.start(fn ->

@@ -6,7 +6,7 @@ primary_region = 'sjc'
 
 [build]
   [build.args]
-    VITE_API_URL = 'https://sn0w-onvibe-api.fly.dev'
+    VITE_API_URL = 'https://api.onvibe.dev'
 
 [http_service]
   internal_port = 8080
