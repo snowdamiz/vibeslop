@@ -18,4 +18,4 @@ Thumbs.db
 .env.*.local
 
 .antigravity
-.claude
+.claude.antigravity
