@@ -12,6 +12,7 @@ import { CommentsSection } from '@/components/comments'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { MarkdownContent } from '@/components/ui/markdown-content'
+import { PremiumBadge } from '@/components/PremiumBadge'
 import { useSEO } from '@/hooks/useSEO'
 import {
   DescriptionEditor,
@@ -86,6 +87,7 @@ interface ApiProject {
     avatar_url?: string
     bio?: string
     is_verified?: boolean
+    is_premium?: boolean
   }
   recent_likers?: Array<{
     id: string
@@ -125,6 +127,7 @@ interface NormalizedProject {
     bio: string
     color: string
     verified: boolean
+    is_premium?: boolean
     followers?: number
     following?: number
     projects?: number
@@ -196,6 +199,7 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
       bio: apiProject.author.bio || '',
       color: 'from-blue-500 to-indigo-600',
       verified: apiProject.author.is_verified || false,
+      is_premium: apiProject.author.is_premium || false,
     },
     aiTools: apiProject.ai_tools?.map(t => t.name) || [],
     techStack: apiProject.tech_stack?.map(t => t.name) || [],
@@ -1337,6 +1341,7 @@ export function ProjectDetail() {
                         {project.author.verified && (
                           <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
                         )}
+                        {project.author.is_premium && <PremiumBadge />}
                       </div>
                     </Link>
                     <p className="text-sm text-muted-foreground">@{project.author.username}</p>

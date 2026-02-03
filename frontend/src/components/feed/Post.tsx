@@ -22,6 +22,7 @@ import {
   Trash2,
   Quote,
   Eye,
+  CheckCircle2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api } from '@/lib/api'
@@ -269,6 +270,9 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
                 >
                   {item.author.name}
                 </Link>
+                {item.author.is_verified && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+                )}
                 {item.author.is_premium && <PremiumBadge />}
                 <Link
                   to={`/user/${item.author.username}`}
