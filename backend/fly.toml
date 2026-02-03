@@ -11,6 +11,7 @@ primary_region = 'sjc'
 
 [env]
   PHX_HOST = 'api.onvibe.dev'
+  BACKEND_URL = 'https://api.onvibe.dev'
   PORT = '8080'
   ECTO_IPV6 = 'true'
 
