@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { api } from '@/lib/api'
 import { MarkdownContent } from '@/components/ui/markdown-content'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 // Backup mock post data
 const mockPostData = {
@@ -337,9 +338,10 @@ export function PostDetail() {
                   <Link to={`/user/${post.author.username}`} className="font-semibold hover:underline">
                     {post.author.name}
                   </Link>
-                  {post.author.verified && (
+                  {(post.author.verified || (post.author as { is_verified?: boolean }).is_verified) && (
                     <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
                   )}
+                  {(post.author as { is_premium?: boolean }).is_premium && <PremiumBadge />}
                 </div>
                 <Link to={`/user/${post.author.username}`} className="text-muted-foreground text-sm">
                   @{post.author.username}

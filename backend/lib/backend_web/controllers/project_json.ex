@@ -42,7 +42,8 @@ defmodule BackendWeb.ProjectJSON do
         username: user.username,
         initials: get_initials(user.display_name),
         avatar_url: user.avatar_url,
-        is_verified: user.is_verified
+        is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user)
       }
     }
 
@@ -97,7 +98,8 @@ defmodule BackendWeb.ProjectJSON do
         initials: get_initials(user.display_name),
         avatar_url: user.avatar_url,
         bio: user.bio,
-        is_verified: user.is_verified
+        is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user)
       },
       recent_likers:
         Enum.map(Map.get(project_data, :recent_likers, []), fn liker ->
