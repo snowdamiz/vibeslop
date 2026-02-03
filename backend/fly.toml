@@ -1,7 +1,7 @@
 # fly.toml - Backend API configuration
 # See https://fly.io/docs/reference/configuration/ for more info
 
-app = 'onvibe-api'
+app = 'sn0w-onvibe-api'
 primary_region = 'sjc'
 
 [build]
