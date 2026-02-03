@@ -44,7 +44,7 @@ export function Header() {
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="relative flex h-16 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-1">
             <OnvibeLogo className="w-6 h-6 text-primary" />
             <span className="text-xl font-bold tracking-tight">
               on<span className="text-primary">vibe</span>
