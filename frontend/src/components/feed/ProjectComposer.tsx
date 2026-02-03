@@ -46,11 +46,25 @@ import { AIProjectGenerator, type GeneratedProjectData } from '@/components/ai/A
 import { api } from '@/lib/api'
 import { useCompose } from '@/context/ComposeContext'
 
+export interface ProjectInitialData {
+  id: string
+  title: string
+  description: string
+  images?: string[]
+  tools?: string[]
+  stack?: string[]
+  links?: { live?: string; github?: string }
+  highlights?: string[]
+  timeline?: { date: string; title: string; description?: string }[]
+}
+
 interface ProjectComposerProps {
   onPost: (project: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'>) => void
   onCancel: () => void
   isPosting?: boolean
   postError?: string | null
+  editMode?: boolean
+  initialData?: ProjectInitialData
 }
 
 // Common AI tools and tech stacks for suggestions
@@ -68,10 +82,11 @@ const MANUAL_STEPS = [
 
 type FlowPath = 'selection' | 'ai' | 'manual'
 
-export function ProjectComposer({ onPost, onCancel, isPosting = false, postError = null }: ProjectComposerProps) {
+export function ProjectComposer({ onPost, onCancel, isPosting = false, postError = null, editMode = false, initialData }: ProjectComposerProps) {
   const { user } = useAuth()
   const { setIsAIGeneratorOpen } = useCompose()
-  const [flowPath, setFlowPath] = useState<FlowPath>('selection')
+  // In edit mode, skip selection and go straight to manual flow
+  const [flowPath, setFlowPath] = useState<FlowPath>(editMode ? 'manual' : 'selection')
   const [currentStep, setCurrentStep] = useState(0)
   const [, setEditorState] = useState(0) // Force re-render on editor changes
 
@@ -87,24 +102,26 @@ export function ProjectComposer({ onPost, onCancel, isPosting = false, postError
   const [generatingImage, setGeneratingImage] = useState(false)
   const [imageError, setImageError] = useState<string | null>(null)
 
-  // Core fields
-  const [title, setTitle] = useState('')
-  const [images, setImages] = useState<string[]>([])
+  // Core fields - initialize from initialData if in edit mode
+  const [title, setTitle] = useState(initialData?.title || '')
+  const [images, setImages] = useState<string[]>(initialData?.images || [])
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Essential fields
-  const [selectedTools, setSelectedTools] = useState<string[]>([])
-  const [selectedStack, setSelectedStack] = useState<string[]>([])
+  // Essential fields - initialize from initialData if in edit mode
+  const [selectedTools, setSelectedTools] = useState<string[]>(initialData?.tools || [])
+  const [selectedStack, setSelectedStack] = useState<string[]>(initialData?.stack || [])
   const [customTool, setCustomTool] = useState('')
   const [customStack, setCustomStack] = useState('')
-  const [liveUrl, setLiveUrl] = useState('')
-  const [githubUrl, setGithubUrl] = useState('')
+  const [liveUrl, setLiveUrl] = useState(initialData?.links?.live || '')
+  const [githubUrl, setGithubUrl] = useState(initialData?.links?.github || '')
 
-  // Advanced fields
-  const [highlights, setHighlights] = useState<string[]>([])
+  // Advanced fields - initialize from initialData if in edit mode
+  const [highlights, setHighlights] = useState<string[]>(initialData?.highlights || [])
   const [newHighlight, setNewHighlight] = useState('')
-  const [timeline, setTimeline] = useState<{ date: string; title: string; description: string }[]>([])
+  const [timeline, setTimeline] = useState<{ date: string; title: string; description: string }[]>(
+    initialData?.timeline?.map(t => ({ date: t.date, title: t.title, description: t.description || '' })) || []
+  )
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -123,7 +140,7 @@ export function ProjectComposer({ onPost, onCancel, isPosting = false, postError
         placeholder: 'Describe what you built...',
       }),
     ],
-    content: '',
+    content: initialData?.description || '',
     editorProps: {
       attributes: {
         class: 'prose prose-sm dark:prose-invert max-w-none focus:outline-none min-h-[180px] text-[15px] px-3 py-2.5',
@@ -1273,10 +1290,10 @@ export function ProjectComposer({ onPost, onCancel, isPosting = false, postError
                 {isPosting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Publishing...
+                    {editMode ? 'Updating...' : 'Publishing...'}
                   </>
                 ) : (
-                  'Publish'
+                  editMode ? 'Update' : 'Publish'
                 )}
               </Button>
             </div>
@@ -1320,10 +1337,10 @@ export function ProjectComposer({ onPost, onCancel, isPosting = false, postError
                   isPosting ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Publishing...
+                      {editMode ? 'Updating...' : 'Publishing...'}
                     </>
                   ) : (
-                    'Publish'
+                    editMode ? 'Update' : 'Publish'
                   )
                 ) : (
                   'Continue'
