@@ -1,19 +1,60 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
 import { Home, Bell, Mail, User, PenSquare, Briefcase } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
+import { api } from '@/lib/api'
 
-const navItems = [
-  { icon: Home, label: 'Home', path: '/', badge: undefined },
-  { icon: Bell, label: 'Notifications', path: '/notifications', badge: 3 },
-  { icon: Briefcase, label: 'Gigs', path: '/gigs', badge: undefined },
-  { icon: Mail, label: 'Messages', path: '/messages', badge: 2 },
+interface NavItem {
+  icon: typeof Home
+  label: string
+  path: string
+  badgeKey?: 'notifications' | 'messages'
+}
+
+const navItems: NavItem[] = [
+  { icon: Home, label: 'Home', path: '/' },
+  { icon: Bell, label: 'Notifications', path: '/notifications', badgeKey: 'notifications' },
+  { icon: Briefcase, label: 'Gigs', path: '/gigs' },
+  { icon: Mail, label: 'Messages', path: '/messages', badgeKey: 'messages' },
 ]
 
 export function MobileNav() {
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const [unreadCounts, setUnreadCounts] = useState<{ notifications: number; messages: number }>({
+    notifications: 0,
+    messages: 0,
+  })
+
+  const fetchUnreadCounts = useCallback(async () => {
+    if (!isAuthenticated) return
+    try {
+      const counts = await api.getUnreadCounts()
+      setUnreadCounts(counts)
+    } catch (error) {
+      console.error('Failed to fetch unread counts:', error)
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchUnreadCounts()
+    }, 0)
+
+    const interval = setInterval(fetchUnreadCounts, 30000)
+    return () => {
+      clearTimeout(timer)
+      clearInterval(interval)
+    }
+  }, [fetchUnreadCounts])
+
+  const getBadgeCount = (badgeKey?: 'notifications' | 'messages') => {
+    if (!badgeKey) return undefined
+    const count = unreadCounts[badgeKey]
+    return count > 0 ? count : undefined
+  }
 
   return (
     <>
@@ -30,6 +71,7 @@ export function MobileNav() {
         <div className="flex items-center justify-around h-14">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path
+            const badge = getBadgeCount(item.badgeKey)
             return (
               <Link
                 key={item.path}
@@ -41,9 +83,9 @@ export function MobileNav() {
               >
                 <div className="relative">
                   <item.icon className={cn('w-5 h-5', isActive && 'fill-primary/20')} />
-                  {item.badge && (
+                  {badge && (
                     <span className="absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 bg-primary text-white text-[10px] rounded-full flex items-center justify-center font-medium">
-                      {item.badge}
+                      {badge > 99 ? '99+' : badge}
                     </span>
                   )}
                 </div>

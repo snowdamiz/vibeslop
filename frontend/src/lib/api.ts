@@ -756,6 +756,10 @@ class ApiClient {
     return this.delete(`/admin/tech-stacks/${id}`)
   }
 
+  async syncOpenRouterModels(): Promise<{ success: boolean; created: number; skipped: number; total: number }> {
+    return this.post('/admin/ai-tools/sync-openrouter')
+  }
+
   // Admin Reports
   async getAdminReports(params?: {
     limit?: number
