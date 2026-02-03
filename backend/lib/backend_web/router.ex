@@ -138,6 +138,7 @@ defmodule BackendWeb.Router do
     # Catalog management
     post "/ai-tools", AdminController, :create_ai_tool
     delete "/ai-tools/:id", AdminController, :delete_ai_tool
+    post "/ai-tools/sync-openrouter", AdminController, :sync_openrouter_models
     post "/tech-stacks", AdminController, :create_tech_stack
     delete "/tech-stacks/:id", AdminController, :delete_tech_stack
 

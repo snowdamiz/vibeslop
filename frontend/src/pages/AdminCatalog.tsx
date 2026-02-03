@@ -5,7 +5,7 @@ import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { ArrowLeft, Plus, Trash2, Loader2, Sparkles, Layers } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Loader2, Sparkles, Layers, RefreshCw } from 'lucide-react'
 
 type CatalogType = 'ai-tools' | 'tech-stacks'
 
@@ -25,6 +25,7 @@ export function AdminCatalog() {
     const [newCategory, setNewCategory] = useState('other')
     const [isCreating, setIsCreating] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [isSyncing, setIsSyncing] = useState(false)
 
     // Delete confirmation dialog state
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -104,6 +105,21 @@ export function AdminCatalog() {
         }
     }
 
+    async function handleSyncOpenRouter() {
+        setIsSyncing(true)
+        try {
+            const result = await api.syncOpenRouterModels()
+            alert(`Synced ${result.created} new models (${result.skipped} already existed, ${result.total} total from OpenRouter)`)
+            // Reload the list to show new items
+            loadItems()
+        } catch (error) {
+            console.error('Failed to sync OpenRouter models:', error)
+            alert('Failed to sync OpenRouter models. Check console for details.')
+        } finally {
+            setIsSyncing(false)
+        }
+    }
+
     if (authLoading) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -132,17 +148,34 @@ export function AdminCatalog() {
 
             {/* Sticky Header */}
             <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-                <div className="max-w-[600px] mx-auto flex items-center gap-3 px-4 h-14">
-                    <Link
-                        to="/admin"
-                        className="p-2 -ml-2 rounded-full hover:bg-accent transition-colors"
-                    >
-                        <ArrowLeft className="w-5 h-5" />
-                    </Link>
-                    <div className="flex items-center gap-2">
-                        <Icon className="w-5 h-5 text-primary" />
-                        <h1 className="font-bold text-lg">{title}</h1>
+                <div className="max-w-[600px] mx-auto flex items-center justify-between gap-3 px-4 h-14">
+                    <div className="flex items-center gap-3">
+                        <Link
+                            to="/admin"
+                            className="p-2 -ml-2 rounded-full hover:bg-accent transition-colors"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </Link>
+                        <div className="flex items-center gap-2">
+                            <Icon className="w-5 h-5 text-primary" />
+                            <h1 className="font-bold text-lg">{title}</h1>
+                        </div>
                     </div>
+                    {isAiTools && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSyncOpenRouter}
+                            disabled={isSyncing}
+                        >
+                            {isSyncing ? (
+                                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                            )}
+                            Sync OpenRouter
+                        </Button>
+                    )}
                 </div>
             </div>
 

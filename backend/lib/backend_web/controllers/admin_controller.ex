@@ -1,5 +1,6 @@
 defmodule BackendWeb.AdminController do
   use BackendWeb, :controller
+  import Ecto.Query
   alias Backend.Accounts
 
   plug :require_admin
@@ -244,5 +245,67 @@ defmodule BackendWeb.AdminController do
     |> String.replace(~r/[^a-z0-9\s-]/, "")
     |> String.replace(~r/\s+/, "-")
     |> String.trim("-")
+  end
+
+  # Sync OpenRouter Models
+  def sync_openrouter_models(conn, _params) do
+    alias Backend.Catalog.AiTool
+
+    case fetch_openrouter_models() do
+      {:ok, models} ->
+        # Get existing AI tool slugs to avoid duplicates
+        existing_slugs =
+          Backend.Repo.all(from t in AiTool, select: t.slug)
+          |> MapSet.new()
+
+        # Insert new models
+        {created_count, skipped_count} =
+          Enum.reduce(models, {0, 0}, fn model, {created, skipped} ->
+            name = model["name"] || model["id"]
+            slug = slugify(model["id"] || name)
+
+            if MapSet.member?(existing_slugs, slug) do
+              {created, skipped + 1}
+            else
+              changeset = AiTool.changeset(%AiTool{}, %{name: name, slug: slug})
+
+              case Backend.Repo.insert(changeset) do
+                {:ok, _} -> {created + 1, skipped}
+                {:error, _} -> {created, skipped + 1}
+              end
+            end
+          end)
+
+        json(conn, %{
+          success: true,
+          created: created_count,
+          skipped: skipped_count,
+          total: length(models)
+        })
+
+      {:error, reason} ->
+        conn
+        |> put_status(:bad_gateway)
+        |> json(%{error: "openrouter_fetch_failed", message: reason})
+    end
+  end
+
+  defp fetch_openrouter_models do
+    url = "https://openrouter.ai/api/v1/models"
+
+    case :httpc.request(:get, {String.to_charlist(url), []}, [], []) do
+      {:ok, {{_, 200, _}, _headers, body}} ->
+        case Jason.decode(to_string(body)) do
+          {:ok, %{"data" => models}} -> {:ok, models}
+          {:ok, _} -> {:error, "Unexpected response format"}
+          {:error, _} -> {:error, "Failed to parse JSON response"}
+        end
+
+      {:ok, {{_, status, _}, _, _}} ->
+        {:error, "OpenRouter API returned status #{status}"}
+
+      {:error, reason} ->
+        {:error, "HTTP request failed: #{inspect(reason)}"}
+    end
   end
 end
