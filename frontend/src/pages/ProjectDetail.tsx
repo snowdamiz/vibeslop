@@ -436,8 +436,10 @@ export function ProjectDetail() {
         images: editState.images,
         tools: editState.tools,
         stack: editState.stack,
-        live_url: editState.liveUrl || undefined,
-        github_url: editState.githubUrl || undefined,
+        links: {
+          live: editState.liveUrl || undefined,
+          github: editState.githubUrl || undefined,
+        },
         highlights: editState.highlights,
         timeline: editState.timeline.filter(t => t.date && t.title),
       })
