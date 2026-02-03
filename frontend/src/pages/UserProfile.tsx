@@ -29,6 +29,7 @@ import { AvatarEditDialog } from '@/components/AvatarEditDialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ReviewCard } from '@/components/gigs'
 import { useSEO } from '@/hooks/useSEO'
+import { PremiumBadge } from '@/components/PremiumBadge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,7 @@ const mockUserData = {
   specializations: ['Frontend', 'Developer Tools', 'AI Integration', 'React', 'TypeScript'],
   favoriteTools: ['Cursor', 'Claude', 'v0'],
   isVerified: true,
+  isPremium: false,
   developerScore: 1855,
   githubStats: null as GitHubStatsBreakdown | null,
   stats: {
@@ -245,9 +247,9 @@ export function UserProfile() {
   // Dynamic SEO for user profile
   useSEO(user ? {
     title: `@${user.username}`,
-    description: user.bio || `Check out ${user.name}'s projects and posts on HypeVibe`,
+    description: user.bio || `Check out ${user.name}'s projects and posts on Onvibe`,
     image: user.avatar_url || undefined,
-    url: `https://hypevibe.com/user/${username}`,
+    url: `https://onvibe.dev/user/${username}`,
     type: 'profile',
   } : {})
 
@@ -272,6 +274,7 @@ export function UserProfile() {
           github_username?: string
           avatar_url?: string
           is_verified: boolean
+          is_premium?: boolean
           joined_at?: string
           developer_score?: number
           developer_score_updated_at?: string
@@ -310,6 +313,7 @@ export function UserProfile() {
           specializations: apiData.preferred_tech_stacks?.map(t => t.name) || [],
           favoriteTools: apiData.favorite_ai_tools?.map(t => t.name) || [],
           isVerified: apiData.is_verified,
+          isPremium: apiData.is_premium || false,
           developerScore: apiData.developer_score || 0,
           githubStats: apiData.github_stats || null,
           stats: {
@@ -562,6 +566,7 @@ export function UserProfile() {
               {user.isVerified && (
                 <CheckCircle2 className="w-5 h-5 text-primary fill-primary/20 flex-shrink-0" />
               )}
+              {user.isPremium && <PremiumBadge size="md" />}
             </div>
 
             {/* Username + Integrated Stats */}

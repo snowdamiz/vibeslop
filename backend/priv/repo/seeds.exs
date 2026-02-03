@@ -11,7 +11,7 @@ alias Backend.Repo
 
 defmodule Seeds do
   @moduledoc """
-  Seed data for Vibeslop reference tables.
+  Seed data for onvibe reference tables.
   """
 
   def run do

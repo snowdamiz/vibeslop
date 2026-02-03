@@ -273,7 +273,7 @@ export function ProjectDetail() {
     title: project.title,
     description: project.description.slice(0, 160),
     image: project.images[0] || undefined,
-    url: `https://hypevibe.com/project/${id}`,
+    url: `https://onvibe.dev/project/${id}`,
     type: 'article',
   } : {})
 

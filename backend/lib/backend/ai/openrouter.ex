@@ -258,7 +258,7 @@ defmodule Backend.AI.OpenRouter do
     [
       {"Authorization", "Bearer #{api_key()}"},
       {"HTTP-Referer", frontend_url()},
-      {"X-Title", "Vibeslop"},
+      {"X-Title", "Onvibe"},
       {"Content-Type", "application/json"}
     ]
   end

@@ -1,12 +1,12 @@
-# Vibeslop
+# onvibe
 
 > The social portfolio platform for vibe coders 🎨⚡
 
-Vibeslop is where AI-native builders showcase their work, share their process, and connect with a community that celebrates vibe coding.
+onvibe is where AI-native builders showcase their work, share their process, and connect with a community that celebrates vibe coding.
 
-## What is Vibeslop?
+## What is onvibe?
 
-A social media platform specifically for the vibe coding community—developers and creators who embrace AI-assisted development. Unlike traditional portfolios that hide the "how," Vibeslop makes the AI tools, prompts, and creative process a first-class citizen.
+A social media platform specifically for the vibe coding community—developers and creators who embrace AI-assisted development. Unlike traditional portfolios that hide the "how," onvibe makes the AI tools, prompts, and creative process a first-class citizen.
 
 ### Core Features
 
@@ -16,9 +16,9 @@ A social media platform specifically for the vibe coding community—developers 
 - **👥 Social Feed** - Follow builders, discover projects, engage with the community
 - **🏷️ Technical Specializations** - "AI Prompting for React" is a real skill here
 
-### Why Vibeslop?
+### Why onvibe?
 
-| Problem | Vibeslop Solution |
+| Problem | onvibe Solution |
 |---------|-------------------|
 | GitHub feels too "serious" for experiments | Casual, showcase-friendly environment |
 | Twitter threads disappear | Permanent, searchable portfolio |
@@ -85,7 +85,7 @@ To enable authentication, you need to create a GitHub OAuth App:
 1. Go to https://github.com/settings/developers
 2. Click "New OAuth App"
 3. Fill in the application details:
-   - **Application name**: Vibeslop (Dev)
+   - **Application name**: onvibe (Dev)
    - **Homepage URL**: `http://localhost:5173`
    - **Authorization callback URL**: `http://localhost:4001/api/auth/github/callback`
 4. Click "Register application"

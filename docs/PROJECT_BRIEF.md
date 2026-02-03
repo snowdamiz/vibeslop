@@ -1,4 +1,4 @@
-# Vibeslop - Project Brief
+# onvibe - Project Brief
 
 > A social media platform for showcasing vibe-coded projects
 
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Vibeslop is a social portfolio platform designed specifically for the vibe coding community—developers and creators who embrace AI-assisted development. Users can showcase their projects, share the tools and processes behind them, connect with like-minded builders, and build professional credibility in this emerging space.
+onvibe is a social portfolio platform designed specifically for the vibe coding community—developers and creators who embrace AI-assisted development. Users can showcase their projects, share the tools and processes behind them, connect with like-minded builders, and build professional credibility in this emerging space.
 
 **Target Launch**: Web-first application  
 **Ambition Level**: Potential startup (scalable, monetizable)  
@@ -62,7 +62,7 @@ There's a growing community of builders who want to:
 
 ## Competitive Landscape
 
-| Platform | Focus | Strengths | Why Vibeslop is Different |
+| Platform | Focus | Strengths | Why onvibe is Different |
 |----------|-------|-----------|---------------------------|
 | **Behance/Dribbble** | Visual design portfolios | Beautiful showcases, established communities | Not code-focused, no "how it was built" context |
 | **Cara** | Artist-focused social + portfolio | Anti-AI scraping, community-first | Against AI-generated content (opposite stance) |
@@ -73,7 +73,7 @@ There's a growing community of builders who want to:
 | **GitHub** | Code repositories | Universal for developers | Too technical, not showcase-friendly |
 
 ### Market Gap
-No platform specifically serves vibe coders or celebrates AI-assisted development. Vibeslop fills this gap by being explicitly welcoming to AI-augmented workflows and making the "how" (tools, prompts, process) as important as the "what" (final product).
+No platform specifically serves vibe coders or celebrates AI-assisted development. onvibe fills this gap by being explicitly welcoming to AI-augmented workflows and making the "how" (tools, prompts, process) as important as the "what" (final product).
 
 ---
 

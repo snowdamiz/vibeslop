@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 
-const STORAGE_KEY = 'vibeslop_recent_searches'
+const STORAGE_KEY = 'onvibe_recent_searches'
 const MAX_HISTORY_ITEMS = 10
 
 export interface SearchHistoryItem {

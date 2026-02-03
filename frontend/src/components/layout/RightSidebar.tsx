@@ -250,7 +250,7 @@ export function RightSidebar() {
 
       {/* Footer */}
       <div className="px-5 py-3 border-t border-border/40">
-        <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} hypevibe</p>
+        <p className="text-xs text-muted-foreground/60">© {new Date().getFullYear()} Onvibe</p>
       </div>
     </aside>
   )

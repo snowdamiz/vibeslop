@@ -10,6 +10,9 @@ defmodule Backend.Search do
   alias Backend.Content.{Post, Project}
   alias Backend.Gigs.Gig
 
+  # Premium users get a ranking boost in search results
+  @premium_search_boost 0.3
+
   @doc """
   Parse search query and extract operators.
 
@@ -113,6 +116,8 @@ defmodule Backend.Search do
     else
       # Use combined full-text search + trigram fuzzy matching with relevance ranking
       # Trigram similarity threshold: 0.3 (30% similarity)
+      premium_boost = @premium_search_boost
+
       query =
         from u in User,
           where:
@@ -128,13 +133,15 @@ defmodule Backend.Search do
           order_by: [
             desc:
               fragment(
-                "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?)))",
+                "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?))) + CASE WHEN ? IN ('active', 'trialing') THEN ? ELSE 0 END",
                 u.username,
                 ^query_string,
                 u.display_name,
                 ^query_string,
                 u.search_vector,
-                ^query_string
+                ^query_string,
+                u.subscription_status,
+                ^premium_boost
               ),
             asc: u.username
           ],

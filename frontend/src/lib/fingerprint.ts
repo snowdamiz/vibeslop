@@ -6,7 +6,7 @@
 
 export function generateFingerprint(): string {
   // Check if we already have a stored fingerprint
-  const stored = localStorage.getItem('vibeslop_fingerprint')
+  const stored = localStorage.getItem('onvibe_fingerprint')
   if (stored) {
     return stored
   }
@@ -26,7 +26,7 @@ export function generateFingerprint(): string {
   const fingerprint = simpleHash(components.join('|'))
   
   // Store for future use
-  localStorage.setItem('vibeslop_fingerprint', fingerprint)
+  localStorage.setItem('onvibe_fingerprint', fingerprint)
   
   return fingerprint
 }

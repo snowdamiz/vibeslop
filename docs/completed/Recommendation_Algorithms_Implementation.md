@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the implementation of Vibeslop's sophisticated recommendation algorithms, providing two key discovery features:
+This document describes the implementation of onvibe's sophisticated recommendation algorithms, providing two key discovery features:
 
 1. **Trending Projects**: Algorithmic ranking using Twitter/X-style engagement weights, time decay, and velocity boost
 2. **Who to Follow**: Multi-signal scoring combining social graph analysis, popularity metrics, and interest-based relevance
@@ -429,13 +429,13 @@ iex> Backend.Recommendations.suggested_users("user_id", limit: 10)
 ```elixir
 # Add Telemetry events
 :telemetry.execute(
-  [:vibeslop, :recommendations, :trending],
+  [:onvibe, :recommendations, :trending],
   %{duration: duration, count: count},
   %{source: "api"}
 )
 
 :telemetry.execute(
-  [:vibeslop, :recommendations, :suggested_users],
+  [:onvibe, :recommendations, :suggested_users],
   %{duration: duration, count: count, signal_breakdown: breakdown},
   %{source: "api"}
 )

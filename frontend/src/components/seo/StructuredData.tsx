@@ -127,20 +127,20 @@ export function StructuredData({ schema }: StructuredDataProps) {
 export const schemas = {
     organization: (): OrganizationSchema => ({
         '@type': 'Organization',
-        name: 'HypeVibe',
-        url: 'https://hypevibe.com',
-        logo: 'https://hypevibe.com/logo.svg',
+        name: 'Onvibe',
+        url: 'https://onvibe.dev',
+        logo: 'https://onvibe.dev/logo.svg',
         description:
             'The portfolio platform for AI-native builders. Showcase your projects and connect with fellow vibe coders.',
     }),
 
     website: (): WebSiteSchema => ({
         '@type': 'WebSite',
-        name: 'HypeVibe',
-        url: 'https://hypevibe.com',
+        name: 'Onvibe',
+        url: 'https://onvibe.dev',
         potentialAction: {
             '@type': 'SearchAction',
-            target: 'https://hypevibe.com/search?q={search_term_string}',
+            target: 'https://onvibe.dev/search?q={search_term_string}',
             'query-input': 'required name=search_term_string',
         },
     }),
@@ -161,7 +161,7 @@ export const schemas = {
         author: {
             '@type': 'Person',
             name: data.authorName,
-            url: `https://hypevibe.com/user/${data.authorUsername}`,
+            url: `https://onvibe.dev/user/${data.authorUsername}`,
         },
         datePublished: data.datePublished,
         image: data.image,
@@ -177,7 +177,7 @@ export const schemas = {
     }): PersonSchema => ({
         '@type': 'Person',
         name: data.name,
-        url: `https://hypevibe.com/user/${data.username}`,
+        url: `https://onvibe.dev/user/${data.username}`,
         image: data.avatar,
         description: data.bio,
         sameAs: data.links,

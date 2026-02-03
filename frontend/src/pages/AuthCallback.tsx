@@ -22,7 +22,7 @@ export function AuthCallback() {
         // The user will be available in context after handleAuthCallback
         // We'll check it in a microtask to ensure state is updated
         setTimeout(() => {
-          const userStr = localStorage.getItem('vibeslop_token')
+          const userStr = localStorage.getItem('onvibe_token')
           if (userStr) {
             // Fetch the user to check has_onboarded
             import('@/lib/api').then(({ api }) => {

@@ -57,7 +57,8 @@ defmodule BackendWeb.PostJSON do
         username: user.username,
         initials: get_initials(user.display_name),
         avatar_url: user.avatar_url,
-        is_verified: user.is_verified
+        is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user)
       },
       project: render_project(Map.get(post_data, :project)),
       quoted_post: render_quoted_post(post.quoted_post),
@@ -102,7 +103,8 @@ defmodule BackendWeb.PostJSON do
         username: user.username,
         initials: get_initials(user.display_name),
         avatar_url: user.avatar_url,
-        is_verified: user.is_verified
+        is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user)
       }
     }
 

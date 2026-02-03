@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document outlines the database and infrastructure requirements for building a production-grade feed and recommendations system for Vibeslop. It provides a phased approach to scaling from MVP to enterprise scale, with specific guidance on when to introduce additional technologies like Elasticsearch, vector databases, and caching layers.
+This document outlines the database and infrastructure requirements for building a production-grade feed and recommendations system for onvibe. It provides a phased approach to scaling from MVP to enterprise scale, with specific guidance on when to introduce additional technologies like Elasticsearch, vector databases, and caching layers.
 
 **Key Takeaway**: Elasticsearch is not needed at the current stage. PostgreSQL + Redis is the recommended stack for Phase 1 (MVP → 1M users).
 
@@ -16,7 +16,7 @@ This document outlines the database and infrastructure requirements for building
 
 ## Background / Context
 
-Vibeslop is a social media platform for vibe coders to showcase projects, follow creators, and discover content. The platform requires:
+onvibe is a social media platform for vibe coders to showcase projects, follow creators, and discover content. The platform requires:
 
 1. **Feed Generation**: Personalized "For You" and chronological "Following" feeds
 2. **Trending Algorithm**: Surface popular content based on engagement and recency
@@ -96,8 +96,8 @@ Install dependencies:
 
 Cache strategy:
 ```elixir
-# lib/vibeslop/cache/feed_cache.ex
-defmodule Vibeslop.Cache.FeedCache do
+# lib/onvibe/cache/feed_cache.ex
+defmodule Onvibe.Cache.FeedCache do
   @ttl 300  # 5 minutes
   
   def get_or_compute_feed(user_id, feed_type) do
@@ -124,8 +124,8 @@ end
 **B. Implement Basic Trending Algorithm**
 
 ```elixir
-# lib/vibeslop/content/trending.ex
-defmodule Vibeslop.Content.Trending do
+# lib/onvibe/content/trending.ex
+defmodule Onvibe.Content.Trending do
   import Ecto.Query
   
   def trending_score(post) do
@@ -231,8 +231,8 @@ end
 
 Search implementation:
 ```elixir
-# lib/vibeslop/search.ex
-defmodule Vibeslop.Search do
+# lib/onvibe/search.ex
+defmodule Onvibe.Search do
   import Ecto.Query
   
   def search_posts(query_string, limit \\ 20) do

@@ -75,13 +75,18 @@ defmodule Backend.Gigs do
         query
       end
 
-    # Sort
+    # Sort - premium users' gigs are featured (sorted first) in default sort
     query =
       case sort_by do
         "budget_high" -> order_by(query, [g], desc: g.budget_max, desc: g.inserted_at)
         "budget_low" -> order_by(query, [g], asc: g.budget_min, desc: g.inserted_at)
         "bids" -> order_by(query, [g], desc: g.bids_count, desc: g.inserted_at)
-        _ -> order_by(query, [g], desc: g.inserted_at)
+        _ ->
+          from [g, u] in query,
+            order_by: [
+              desc: fragment("CASE WHEN ? IN ('active', 'trialing') THEN 1 ELSE 0 END", u.subscription_status),
+              desc: g.inserted_at
+            ]
       end
 
     Repo.all(query)

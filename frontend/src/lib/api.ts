@@ -17,9 +17,25 @@ export interface User {
   avatar_url?: string
   banner_url?: string
   is_verified: boolean
+  is_premium: boolean
   is_admin: boolean
   has_onboarded: boolean
   message_privacy?: 'everyone' | 'followers' | 'following'
+  subscription_status?: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled'
+}
+
+export interface BillingStatus {
+  status: string
+  is_premium: boolean
+  current_period_end: string | null
+}
+
+export interface CheckoutResponse {
+  url: string
+}
+
+export interface PortalResponse {
+  url: string
 }
 
 export interface SuggestedUser {
@@ -92,6 +108,7 @@ export interface UserProfile {
   bio?: string
   developer_score?: number
   is_verified: boolean
+  is_premium?: boolean
 }
 
 export interface Gig {
@@ -227,21 +244,21 @@ class ApiClient {
    * Get the stored auth token from localStorage
    */
   getToken(): string | null {
-    return localStorage.getItem('vibeslop_token')
+    return localStorage.getItem('onvibe_token')
   }
 
   /**
    * Store the auth token in localStorage
    */
   setToken(token: string): void {
-    localStorage.setItem('vibeslop_token', token)
+    localStorage.setItem('onvibe_token', token)
   }
 
   /**
    * Remove the auth token from localStorage
    */
   clearToken(): void {
-    localStorage.removeItem('vibeslop_token')
+    localStorage.removeItem('onvibe_token')
   }
 
   /**
@@ -985,6 +1002,22 @@ class ApiClient {
 
   async getMyBids(): Promise<{ data: Bid[] }> {
     return this.get('/my/bids')
+  }
+
+  // ============================================================================
+  // Billing / Subscription
+  // ============================================================================
+
+  async getBillingStatus(): Promise<BillingStatus> {
+    return this.get('/billing/status')
+  }
+
+  async createCheckoutSession(params?: { success_url?: string; cancel_url?: string }): Promise<CheckoutResponse> {
+    return this.post('/billing/checkout', params || {})
+  }
+
+  async createPortalSession(params?: { return_url?: string }): Promise<PortalResponse> {
+    return this.post('/billing/portal', params || {})
   }
 }
 

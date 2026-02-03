@@ -8,7 +8,7 @@
 
 ## Overview
 
-This document describes the implementation of Vibeslop's sophisticated feed algorithm, which provides two distinct feed experiences:
+This document describes the implementation of onvibe's sophisticated feed algorithm, which provides two distinct feed experiences:
 
 1. **For You Feed**: Algorithmic ranking using Twitter/X-style engagement weights combined with time decay
 2. **Following Feed**: Chronological feed showing content from followed users

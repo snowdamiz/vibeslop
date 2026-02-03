@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu'
 import { Menu, X, Search, User, Settings, LogOut, Plus, Moon, Sun } from 'lucide-react'
-import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
+import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -47,9 +47,9 @@ export function Header() {
         <div className="relative flex h-16 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3">
-            <HypeVibeLogo className="w-6 h-6 text-primary" />
+            <OnvibeLogo className="w-6 h-6 text-primary" />
             <span className="text-xl font-bold tracking-tight">
-              hype<span className="text-primary">vibe</span>
+              on<span className="text-primary">vibe</span>
             </span>
           </Link>
 

@@ -108,7 +108,7 @@ export function useImpressionTracker() {
       // Use fetch with keepalive for reliability on page unload
       // This allows us to include Authorization header unlike sendBeacon
       const fingerprint = generateFingerprint()
-      const token = localStorage.getItem('vibeslop_token')
+      const token = localStorage.getItem('onvibe_token')
       const apiUrl = import.meta.env.VITE_API_URL || '/api'
 
       const headers: Record<string, string> = {

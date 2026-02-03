@@ -24,6 +24,12 @@ defmodule Backend.Accounts.User do
     field :github_stats, :map
     field :message_privacy, :string, default: "everyone"
 
+    # Subscription fields
+    field :stripe_customer_id, :string
+    field :subscription_status, :string, default: "free"
+    field :subscription_stripe_id, :string
+    field :subscription_current_period_end, :utc_datetime
+
     has_many :oauth_accounts, Backend.Accounts.OAuthAccount
     has_many :posts, Backend.Content.Post
     has_many :projects, Backend.Content.Project

@@ -5,6 +5,8 @@ export interface PostAuthor {
   initials: string
   color?: string
   avatar_url?: string
+  is_verified?: boolean
+  is_premium?: boolean
 }
 
 // Base shared fields for all feed items

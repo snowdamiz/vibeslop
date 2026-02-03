@@ -2,19 +2,26 @@ defmodule Backend.AI.RateLimiter do
   @moduledoc """
   Rate limiting for AI generation features using Hammer.
   Prevents abuse and manages API costs.
+
+  Free tier limits:
+  - Text generation: 10 requests/hour
+  - Image generation: 5 requests/hour
+
+  Premium tier limits:
+  - Text generation: 50 requests/hour
+  - Image generation: 25 requests/hour
   """
+
+  alias Backend.Billing
 
   @doc """
   Checks if the user can perform AI text generation.
-  Limit: 10 requests per hour per user.
-
   Returns :ok if allowed, {:error, :rate_limited} if rate limit exceeded.
   """
   def check_text_generation(user_id) do
     bucket = "ai_text:#{user_id}"
-    # 1 hour in milliseconds
     scale = 60_000 * 60
-    limit = get_text_limit()
+    limit = get_text_limit(user_id)
 
     case Hammer.check_rate(bucket, scale, limit) do
       {:allow, _count} ->
@@ -27,15 +34,12 @@ defmodule Backend.AI.RateLimiter do
 
   @doc """
   Checks if the user can perform AI image generation.
-  Limit: 5 requests per hour per user.
-
   Returns :ok if allowed, {:error, :rate_limited} if rate limit exceeded.
   """
   def check_image_generation(user_id) do
     bucket = "ai_image:#{user_id}"
-    # 1 hour in milliseconds
     scale = 60_000 * 60
-    limit = get_image_limit()
+    limit = get_image_limit(user_id)
 
     case Hammer.check_rate(bucket, scale, limit) do
       {:allow, _count} ->
@@ -52,7 +56,7 @@ defmodule Backend.AI.RateLimiter do
   def get_text_quota(user_id) do
     bucket = "ai_text:#{user_id}"
     scale = 60_000 * 60
-    limit = get_text_limit()
+    limit = get_text_limit(user_id)
 
     case Hammer.inspect_bucket(bucket, scale, limit) do
       {:ok, {count, _count_remaining, _ms_to_next_bucket, _created_at, _updated_at}} ->
@@ -70,7 +74,7 @@ defmodule Backend.AI.RateLimiter do
   def get_image_quota(user_id) do
     bucket = "ai_image:#{user_id}"
     scale = 60_000 * 60
-    limit = get_image_limit()
+    limit = get_image_limit(user_id)
 
     case Hammer.inspect_bucket(bucket, scale, limit) do
       {:ok, {count, _count_remaining, _ms_to_next_bucket, _created_at, _updated_at}} ->
@@ -84,13 +88,17 @@ defmodule Backend.AI.RateLimiter do
 
   # Private helper functions
 
-  defp get_text_limit do
-    Application.get_env(:backend, Backend.AI)[:text_rate_limit_hourly] ||
+  defp get_text_limit(user_id) do
+    base = Application.get_env(:backend, Backend.AI)[:text_rate_limit_hourly] ||
       String.to_integer(System.get_env("AI_TEXT_RATE_LIMIT_HOURLY") || "10")
+
+    if Billing.premium?(user_id), do: base * 5, else: base
   end
 
-  defp get_image_limit do
-    Application.get_env(:backend, Backend.AI)[:image_rate_limit_hourly] ||
+  defp get_image_limit(user_id) do
+    base = Application.get_env(:backend, Backend.AI)[:image_rate_limit_hourly] ||
       String.to_integer(System.get_env("AI_IMAGE_RATE_LIMIT_HOURLY") || "5")
+
+    if Billing.premium?(user_id), do: base * 5, else: base
   end
 end

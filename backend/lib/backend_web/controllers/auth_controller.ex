@@ -9,6 +9,7 @@ defmodule BackendWeb.AuthController do
   alias Backend.Auth.Token
   alias Backend.Social
   alias Backend.Messaging
+  alias Backend.Billing
 
   @state_param_cookie_name "ueberauth.state_param"
 
@@ -132,7 +133,9 @@ defmodule BackendWeb.AuthController do
       banner_url: user.banner_url,
       is_verified: user.is_verified,
       is_admin: Accounts.is_admin?(user),
-      has_onboarded: user.has_onboarded
+      has_onboarded: user.has_onboarded,
+      is_premium: Billing.premium?(user),
+      subscription_status: user.subscription_status || "free"
     })
   end
 

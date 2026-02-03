@@ -79,7 +79,7 @@ export function HowItWorks() {
             Simple Process
           </Badge>
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
-            How hypevibe Works
+            How onvibe Works
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Share your AI-assisted projects in minutes. No gatekeeping, no judgment—just builders helping builders.

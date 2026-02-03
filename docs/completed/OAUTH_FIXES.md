@@ -30,7 +30,7 @@ end
 **Problem**: Old mock user data persisted in localStorage.
 
 **Solution**: 
-- Added cleanup of old `vibeslop_user` localStorage item in AuthContext
+- Added cleanup of old `onvibe_user` localStorage item in AuthContext
 - Added loading state to App.tsx to prevent showing stale data
 - App now waits for auth check to complete before rendering
 
@@ -75,7 +75,7 @@ npm run dev
 1. Refresh the page (F5)
 2. You should stay logged in (token persists in localStorage)
 3. Open DevTools → Application → Local Storage
-4. You should see `vibeslop_token` with a JWT token
+4. You should see `onvibe_token` with a JWT token
 
 ### 6. Test Logout
 

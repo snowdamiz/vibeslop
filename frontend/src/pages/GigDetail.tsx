@@ -50,7 +50,7 @@ export function GigDetail() {
   useSEO(gig ? {
     title: `${gig.title} | Gigs`,
     description: gig.description.slice(0, 160),
-    url: `https://hypevibe.com/gigs/${id}`,
+    url: `https://onvibe.dev/gigs/${id}`,
     type: 'website',
   } : {})
 

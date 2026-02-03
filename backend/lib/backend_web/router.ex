@@ -120,6 +120,11 @@ defmodule BackendWeb.Router do
 
     get "/my/gigs", GigController, :my_gigs
     get "/my/bids", GigController, :my_bids
+
+    # Billing
+    get "/billing/status", BillingController, :status
+    post "/billing/checkout", BillingController, :create_checkout
+    post "/billing/portal", BillingController, :create_portal
   end
 
   # Admin routes
@@ -179,6 +184,13 @@ defmodule BackendWeb.Router do
 
     # Impressions (with optional auth for user tracking)
     post "/impressions", ImpressionController, :create
+  end
+
+  # Stripe webhook (raw body, no auth)
+  scope "/api", BackendWeb do
+    pipe_through :api
+
+    post "/billing/webhook", BillingController, :webhook
   end
 
   # Public API routes (no auth required)

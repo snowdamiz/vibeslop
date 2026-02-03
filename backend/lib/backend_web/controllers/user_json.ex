@@ -16,6 +16,7 @@ defmodule BackendWeb.UserJSON do
         avatar_url: user.avatar_url,
         banner_url: user.banner_url,
         is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user),
         is_admin: Backend.Accounts.is_admin?(user),
         joined_at: format_datetime(user.inserted_at),
         stats: stats,
@@ -47,6 +48,7 @@ defmodule BackendWeb.UserJSON do
       bio: user.bio,
       avatar_url: user.avatar_url,
       is_verified: user.is_verified,
+      is_premium: Backend.Billing.premium?(user),
       is_admin: Backend.Accounts.is_admin?(user)
     }
   end

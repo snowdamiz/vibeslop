@@ -17,6 +17,12 @@ import {
   Save,
   Sparkles,
   Mail,
+  CreditCard,
+  Crown,
+  Check,
+  ExternalLink,
+  Zap,
+  Briefcase,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SearchableTagSelector } from '@/components/ui/SearchableTagSelector'
@@ -26,6 +32,7 @@ const SETTINGS_TABS = [
   { id: 'profile', label: 'Profile' },
   { id: 'preferences', label: 'Preferences' },
   { id: 'messages', label: 'Messages' },
+  { id: 'billing', label: 'Premium' },
 ] as const
 
 type SettingsTab = typeof SETTINGS_TABS[number]['id']
@@ -298,6 +305,189 @@ function MessagesSettings({
             </div>
           </label>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// BILLING / PREMIUM SETTINGS SECTION
+// ============================================================================
+
+const PREMIUM_FEATURES = [
+  { icon: Zap, label: '5x AI generation limits', description: '50 text / 25 image generations per hour' },
+  { icon: Crown, label: 'Premium badge on profile', description: 'Stand out with a PRO badge next to your name' },
+  { icon: Sparkles, label: 'Boosted visibility', description: 'Your posts and projects rank higher in feeds and search' },
+  { icon: Briefcase, label: 'Featured gig listings', description: 'Your gigs appear first in the marketplace' },
+]
+
+function BillingSettings() {
+  const { user } = useAuth()
+  const [isLoadingCheckout, setIsLoadingCheckout] = useState(false)
+  const [isLoadingPortal, setIsLoadingPortal] = useState(false)
+  const [billingStatus, setBillingStatus] = useState<{
+    status: string
+    is_premium: boolean
+    current_period_end: string | null
+  } | null>(null)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const status = searchParams.get('status')
+    if (status === 'success') {
+      setStatusMessage('Subscription activated! Welcome to Premium.')
+    } else if (status === 'canceled') {
+      setStatusMessage('Checkout was canceled. No charges were made.')
+    }
+  }, [searchParams])
+
+  useEffect(() => {
+    async function loadBillingStatus() {
+      try {
+        const status = await api.getBillingStatus()
+        setBillingStatus(status)
+      } catch (error) {
+        console.error('Failed to load billing status:', error)
+      }
+    }
+    loadBillingStatus()
+  }, [])
+
+  const isPremium = billingStatus?.is_premium || user?.is_premium || false
+
+  const handleSubscribe = async () => {
+    setIsLoadingCheckout(true)
+    try {
+      const { url } = await api.createCheckoutSession()
+      window.location.href = url
+    } catch (error) {
+      console.error('Failed to create checkout session:', error)
+      alert('Failed to start checkout. Please try again.')
+    } finally {
+      setIsLoadingCheckout(false)
+    }
+  }
+
+  const handleManageBilling = async () => {
+    setIsLoadingPortal(true)
+    try {
+      const { url } = await api.createPortalSession()
+      window.location.href = url
+    } catch (error) {
+      console.error('Failed to create portal session:', error)
+      alert('Failed to open billing portal. Please try again.')
+    } finally {
+      setIsLoadingPortal(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Status Message */}
+      {statusMessage && (
+        <div className={cn(
+          'rounded-lg px-4 py-3 border',
+          searchParams.get('status') === 'success'
+            ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400'
+            : 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400'
+        )}>
+          <p className="text-sm font-medium">{statusMessage}</p>
+        </div>
+      )}
+
+      {/* Current Plan */}
+      <div className="rounded-lg border border-border p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Crown className={cn('w-5 h-5', isPremium ? 'text-amber-500' : 'text-muted-foreground')} />
+              {isPremium ? 'Premium Plan' : 'Free Plan'}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isPremium
+                ? 'You have access to all premium features'
+                : 'Upgrade to unlock more AI power and visibility'}
+            </p>
+          </div>
+          {isPremium && (
+            <span className="inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white">
+              PRO
+            </span>
+          )}
+        </div>
+
+        {billingStatus?.current_period_end && isPremium && (
+          <p className="text-xs text-muted-foreground mb-4">
+            Current period ends: {new Date(billingStatus.current_period_end).toLocaleDateString()}
+          </p>
+        )}
+
+        {isPremium ? (
+          <Button
+            onClick={handleManageBilling}
+            disabled={isLoadingPortal}
+            variant="outline"
+            className="w-full sm:w-auto"
+          >
+            {isLoadingPortal ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <ExternalLink className="w-4 h-4 mr-2" />
+            )}
+            Manage Subscription
+          </Button>
+        ) : (
+          <Button
+            onClick={handleSubscribe}
+            disabled={isLoadingCheckout}
+            className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+          >
+            {isLoadingCheckout ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <CreditCard className="w-4 h-4 mr-2" />
+            )}
+            Upgrade to Premium — $9/mo
+          </Button>
+        )}
+      </div>
+
+      {/* Premium Features */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+          {isPremium ? 'Your Premium Perks' : 'What you get with Premium'}
+        </h3>
+        <div className="space-y-3">
+          {PREMIUM_FEATURES.map((feature, i) => (
+            <div
+              key={i}
+              className={cn(
+                'flex items-start gap-3 p-3 rounded-lg border',
+                isPremium
+                  ? 'border-amber-500/20 bg-amber-500/5'
+                  : 'border-border'
+              )}
+            >
+              <div className={cn(
+                'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                isPremium
+                  ? 'bg-amber-500/10 text-amber-500'
+                  : 'bg-muted text-muted-foreground'
+              )}>
+                {isPremium ? (
+                  <Check className="w-4 h-4" />
+                ) : (
+                  <feature.icon className="w-4 h-4" />
+                )}
+              </div>
+              <div>
+                <div className="font-medium text-sm">{feature.label}</div>
+                <div className="text-xs text-muted-foreground">{feature.description}</div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -579,6 +769,10 @@ export function Settings() {
               messagePrivacy={messagePrivacy}
               setMessagePrivacy={setMessagePrivacy}
             />
+          )}
+
+          {activeTab === 'billing' && (
+            <BillingSettings />
           )}
 
           {/* Success Message */}

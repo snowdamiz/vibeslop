@@ -10,7 +10,14 @@ defmodule Backend.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      releases: [
+        backend: [
+          include_executables_for: [:unix],
+          applications: [runtime_tools: :permanent],
+          steps: [:assemble, :tar]
+        ]
+      ]
     ]
   end
 
@@ -58,7 +65,8 @@ defmodule Backend.MixProject do
       {:corsica, "~> 2.1"},
       {:dotenvy, "~> 0.8.0", only: [:dev, :test]},
       {:hammer, "~> 6.2"},
-      {:oban, "~> 2.18"}
+      {:oban, "~> 2.18"},
+      {:stripity_stripe, "~> 3.2"}
     ]
   end
 

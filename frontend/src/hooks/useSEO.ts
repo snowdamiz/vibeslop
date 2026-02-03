@@ -9,10 +9,10 @@ interface SEOProps {
     noindex?: boolean
 }
 
-const DEFAULT_TITLE = 'HypeVibe – Where AI-native builders show their work'
+const DEFAULT_TITLE = 'Onvibe – Where AI-native builders show their work'
 const DEFAULT_DESCRIPTION = 'The portfolio platform for AI-native builders. Showcase your projects, share your process, and connect with fellow vibe coders.'
 const DEFAULT_IMAGE = '/og-image.png'
-const SITE_NAME = 'HypeVibe'
+const SITE_NAME = 'Onvibe'
 
 /**
  * Custom hook for managing SEO meta tags.

@@ -4,7 +4,7 @@ defmodule Backend.Auth.Token do
   @impl true
   def token_config do
     # 7 days
-    default_claims(default_exp: 60 * 60 * 24 * 7, iss: "vibeslop")
+    default_claims(default_exp: 60 * 60 * 24 * 7, iss: "onvibe")
   end
 
   @doc """
@@ -13,7 +13,7 @@ defmodule Backend.Auth.Token do
   def generate_token(user_id) do
     extra_claims = %{
       "user_id" => user_id,
-      "iss" => "vibeslop"
+      "iss" => "onvibe"
     }
 
     generate_and_sign(extra_claims, get_signer())

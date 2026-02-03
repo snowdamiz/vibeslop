@@ -62,7 +62,7 @@
 **JWT:**
 - Token signing: `joken` 2.6 library
 - Secret: `JWT_SECRET` environment variable
-- Storage: localStorage as `vibeslop_token`
+- Storage: localStorage as `onvibe_token`
 - Verification: Via auth plugs (`backend_web/plugs/auth.ex`, `optional_auth.ex`)
 
 ## Monitoring & Observability

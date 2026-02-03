@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Github, Twitter, Send, Zap, CheckCircle2 } from 'lucide-react'
-import { HypeVibeLogo } from '@/components/icons/HypeVibeLogo'
+import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -85,9 +85,9 @@ export function Footer() {
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
-              <HypeVibeLogo className="w-8 h-8" />
+              <OnvibeLogo className="w-8 h-8" />
               <span className="text-lg font-bold tracking-tight">
-                hype<span className="text-primary">vibe</span>
+                on<span className="text-primary">vibe</span>
               </span>
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs mb-4">
@@ -197,7 +197,7 @@ export function Footer() {
 
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} hypevibe. All rights reserved.
+            © {new Date().getFullYear()} Onvibe. All rights reserved.
           </p>
           <div className="flex items-center gap-3">
             <Badge variant="secondary" className="text-xs font-normal">

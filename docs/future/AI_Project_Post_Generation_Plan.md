@@ -134,7 +134,7 @@ Automate the project post creation process by:
          headers: [
            {"Authorization", "Bearer #{api_key()}"},
            {"HTTP-Referer", frontend_url()},
-           {"X-Title", "Vibeslop"}
+           {"X-Title", "Onvibe"}
          ]
        )
      end

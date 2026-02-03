@@ -367,7 +367,7 @@ defmodule Backend.GitHub.Client do
     case Req.get("#{@base_url}/users/#{username}",
            headers: [
              {"Accept", "application/vnd.github.v3+json"},
-             {"User-Agent", "Vibeslop"}
+             {"User-Agent", "Onvibe"}
            ]
          ) do
       {:ok, %{status: 200, body: body}} ->
@@ -595,7 +595,7 @@ defmodule Backend.GitHub.Client do
     [
       {"Authorization", "Bearer #{access_token}"},
       {"Accept", "application/vnd.github.v3+json"},
-      {"User-Agent", "Vibeslop"}
+      {"User-Agent", "Onvibe"}
     ]
   end
 end

@@ -5,7 +5,7 @@
 ## Directory Layout
 
 ```
-vibeslop/
+onvibe/
 ├── backend/                    # Phoenix/Elixir REST API
 │   ├── lib/
 │   │   ├── backend/           # Domain contexts and schemas

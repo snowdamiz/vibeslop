@@ -2,7 +2,7 @@
 
 ## Overview
 
-GitHub OAuth authentication has been successfully implemented for Vibeslop. Users can now sign in using their GitHub accounts, and the authentication state is managed using JWT tokens.
+GitHub OAuth authentication has been successfully implemented for onvibe. Users can now sign in using their GitHub accounts, and the authentication state is managed using JWT tokens.
 
 ## Architecture
 
@@ -127,9 +127,9 @@ Environment variables required:
 
 ## User Data Mapping
 
-GitHub user data is mapped to Vibeslop user model:
+GitHub user data is mapped to onvibe user model:
 
-| GitHub Field | Vibeslop Field |
+| GitHub Field | onvibe Field |
 |--------------|----------------|
 | id | provider_user_id |
 | email | email |
@@ -158,7 +158,7 @@ If username conflicts exist, a random number suffix is added.
    - Loads user into request context
 
 4. **Token Storage**
-   - Stored in localStorage as `vibeslop_token`
+   - Stored in localStorage as `onvibe_token`
    - Automatically included in API requests
    - Cleared on logout
 
@@ -242,4 +242,4 @@ If username conflicts exist, a random number suffix is added.
 
 ## Conclusion
 
-GitHub OAuth authentication is now fully functional in Vibeslop. Users can sign in with their GitHub accounts, and the system maintains authenticated sessions using JWT tokens. The implementation follows security best practices and provides a seamless user experience.
+GitHub OAuth authentication is now fully functional in onvibe. Users can sign in with their GitHub accounts, and the system maintains authenticated sessions using JWT tokens. The implementation follows security best practices and provides a seamless user experience.

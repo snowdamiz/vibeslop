@@ -63,6 +63,11 @@ config :backend, Oban,
   ],
   queues: [default: 10, developer_scores: 2]
 
+# Configure Stripe
+config :stripity_stripe,
+  api_key: System.get_env("STRIPE_SECRET_KEY") || "sk_test_placeholder",
+  signing_secret: System.get_env("STRIPE_WEBHOOK_SECRET") || "whsec_placeholder"
+
 # Import environment specific config. This must remain at the bottom
 # of this file so it overrides the configuration defined above.
 import_config "#{config_env()}.exs"

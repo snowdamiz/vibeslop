@@ -28,6 +28,7 @@ import { api } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { PremiumBadge } from '@/components/PremiumBadge'
 import { QuotedPostPreview } from './QuotedPostPreview'
 import type { FeedItem, ProjectPost, StatusUpdate } from './types'
 import { isProjectPost, isStatusUpdate } from './types'
@@ -268,6 +269,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
                 >
                   {item.author.name}
                 </Link>
+                {item.author.is_premium && <PremiumBadge />}
                 <Link
                   to={`/user/${item.author.username}`}
                   onClick={(e) => e.stopPropagation()}

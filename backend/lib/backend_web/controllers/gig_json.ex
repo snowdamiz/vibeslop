@@ -124,7 +124,8 @@ defmodule BackendWeb.GigJSON do
       avatar_url: user.avatar_url,
       bio: user.bio,
       developer_score: Map.get(user, :developer_score),
-      is_verified: user.is_verified
+      is_verified: user.is_verified,
+      is_premium: Backend.Billing.premium?(user)
     }
   end
 end

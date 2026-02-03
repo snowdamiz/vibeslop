@@ -1,7 +1,7 @@
 # Notification System Implementation Summary
 
 ## Overview
-Successfully implemented a complete notification system for the Vibeslop application, including backend API endpoints and frontend UI integration.
+Successfully implemented a complete notification system for the onvibe application, including backend API endpoints and frontend UI integration.
 
 ## Backend Implementation
 

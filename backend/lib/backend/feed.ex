@@ -63,8 +63,10 @@ defmodule Backend.Feed do
     # Apply preference boost to projects (posts don't have tech associations)
     boosted_projects = apply_preference_boost(recent_projects, ai_tool_ids, tech_stack_ids)
 
+    # Apply premium boost to content from premium users
     recent_items =
       (recent_posts ++ boosted_projects)
+      |> apply_premium_boost()
       |> Enum.sort_by(& &1.score, :desc)
 
     # Get IDs of already fetched items to exclude from backfill
@@ -97,6 +99,9 @@ defmodule Backend.Feed do
 
   # Preference boost multiplier for matching projects
   @preference_boost 1.5
+
+  # Premium users' content gets a boost in the feed
+  @premium_boost 1.3
 
   # Convert Decimal or other numeric types to float
   defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
@@ -159,6 +164,28 @@ defmodule Backend.Feed do
     end)
   end
 
+
+  # Applies premium boost to items from premium users
+  defp apply_premium_boost(items) do
+    # Batch-load premium status for all unique user IDs
+    user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
+
+    premium_user_ids =
+      from(u in Backend.Accounts.User,
+        where: u.id in ^user_ids and u.subscription_status in ["active", "trialing"],
+        select: u.id
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    Enum.map(items, fn item ->
+      if MapSet.member?(premium_user_ids, item.user.id) do
+        %{item | score: to_float(item.score) * @premium_boost}
+      else
+        item
+      end
+    end)
+  end
 
   # Fetches older items (before cutoff) ranked by pure engagement score (no time decay)
   defp fetch_older_items_by_engagement(cutoff, exclude_ids, needed) do

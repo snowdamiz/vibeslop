@@ -16,9 +16,11 @@ interface User {
   website_url?: string
   github_username?: string
   is_verified: boolean
+  is_premium: boolean
   is_admin: boolean
   has_onboarded: boolean
   message_privacy?: 'everyone' | 'followers' | 'following'
+  subscription_status?: 'free' | 'active' | 'trialing' | 'past_due' | 'canceled'
 }
 
 interface AuthContextType {
@@ -53,9 +55,11 @@ function transformApiUser(apiUser: ApiUser): User {
     website_url: apiUser.website_url,
     github_username: apiUser.github_username,
     is_verified: apiUser.is_verified,
+    is_premium: apiUser.is_premium || false,
     is_admin: apiUser.is_admin || false,
     has_onboarded: apiUser.has_onboarded,
     message_privacy: apiUser.message_privacy,
+    subscription_status: apiUser.subscription_status,
   }
 }
 
@@ -66,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing token and fetch user on mount
   useEffect(() => {
     // Clean up any old mock user data
-    localStorage.removeItem('vibeslop_user')
+    localStorage.removeItem('onvibe_user')
 
     const token = api.getToken()
 

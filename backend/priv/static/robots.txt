@@ -1,4 +1,4 @@
-# HypeVibe robots.txt
+# onvibe robots.txt
 # https://www.robotstxt.org/robotstxt.html
 
 User-agent: *
@@ -15,4 +15,4 @@ Disallow: /notifications
 Disallow: /bookmarks
 
 # Sitemap
-Sitemap: https://hypevibe.com/sitemap.xml
+Sitemap: https://onvibe.dev/sitemap.xml
