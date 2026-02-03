@@ -441,7 +441,7 @@ function BillingSettings() {
           <Button
             onClick={handleSubscribe}
             disabled={isLoadingCheckout}
-            className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+            className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white border-0"
           >
             {isLoadingCheckout ? (
               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -786,7 +786,7 @@ export function Settings() {
           )}
 
           {/* Save Button */}
-          <div className="flex justify-end pt-4 border-t border-border">
+          <div className="flex justify-end pt-4">
             <Button
               onClick={handleSave}
               disabled={!hasChanges || isSubmitting || !!usernameError || isCheckingUsername || !displayName.trim() || !username.trim()}

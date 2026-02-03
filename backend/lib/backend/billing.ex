@@ -7,10 +7,13 @@ defmodule Backend.Billing do
   - Managing Stripe Customer Portal sessions
   - Processing webhook events for subscription lifecycle
   - Checking premium status
+
+  Admin users automatically have premium status.
   """
 
   import Ecto.Query, warn: false
   alias Backend.Repo
+  alias Backend.Accounts
   alias Backend.Accounts.User
 
   @premium_price_id Application.compile_env(:backend, :stripe_premium_price_id, "price_placeholder")
@@ -21,11 +24,12 @@ defmodule Backend.Billing do
 
   @doc """
   Checks if a user has an active premium subscription.
+  Admin users automatically have premium status.
   """
   def premium?(nil), do: false
 
-  def premium?(%User{subscription_status: status}) do
-    status in ["active", "trialing"]
+  def premium?(%User{subscription_status: status} = user) do
+    Accounts.is_admin?(user) || status in ["active", "trialing"]
   end
 
   def premium?(user_id) when is_binary(user_id) do
