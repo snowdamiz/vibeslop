@@ -4,6 +4,7 @@ defmodule Backend.AI.ProjectGenerator do
   """
 
   alias Backend.AI.OpenRouter
+  alias Backend.AI.ColorExtractor
 
   @doc """
   Generates project post content from repository details.
@@ -36,33 +37,55 @@ defmodule Backend.AI.ProjectGenerator do
   def generate_image(project_data, repo_info \\ nil) do
     require Logger
 
-    # If repo info provided, try to find logos
-    reference_images =
+    # If repo info provided, try to find logos and README
+    {reference_images, readme} =
       case repo_info do
         %{access_token: token, owner: owner, repo: repo} ->
           Logger.info("Attempting to find logos for #{owner}/#{repo}")
 
-          case Backend.GitHub.Client.find_logos(token, owner, repo) do
-            {:ok, [_ | _] = logos} ->
-              Logger.info("Found #{length(logos)} logo(s)")
-              logos
+          logos =
+            case Backend.GitHub.Client.find_logos(token, owner, repo) do
+              {:ok, [_ | _] = found_logos} ->
+                Logger.info("Found #{length(found_logos)} logo(s)")
+                found_logos
 
-            {:ok, []} ->
-              Logger.info("No logos found in repository")
-              []
+              {:ok, []} ->
+                Logger.info("No logos found in repository")
+                []
 
-            {:error, reason} ->
-              Logger.warning("Logo search failed: #{inspect(reason)}")
-              []
-          end
+              {:error, reason} ->
+                Logger.warning("Logo search failed: #{inspect(reason)}")
+                []
+            end
+
+          # Fetch README for color extraction
+          readme_content =
+            case Backend.GitHub.Client.get_readme(token, owner, repo) do
+              {:ok, content} ->
+                Logger.info("Fetched README for color extraction")
+                content
+
+              {:error, reason} ->
+                Logger.warning("README fetch failed: #{inspect(reason)}")
+                nil
+            end
+
+          {logos, readme_content}
 
         _ ->
           Logger.info("No repo info provided")
-          []
+          {[], nil}
       end
 
-    # Build prompt (includes logo instructions if logos were found)
-    prompt = build_image_prompt(project_data, reference_images)
+    # Extract project colors from logos and README
+    {:ok, project_colors} = ColorExtractor.extract_project_colors(reference_images, readme)
+
+    if project_colors.source do
+      Logger.info("Detected project colors from #{project_colors.source}: #{inspect(project_colors.palette)}")
+    end
+
+    # Build prompt (includes logo instructions if logos were found, and colors if detected)
+    prompt = build_image_prompt(project_data, reference_images, project_colors)
     Logger.info("Generating image with #{length(reference_images)} reference image(s)")
 
     # Single unified call - Gemini handles both cases
@@ -184,14 +207,32 @@ defmodule Backend.AI.ProjectGenerator do
     """
   end
 
-  defp build_image_prompt(project_data, reference_images) do
+  defp build_image_prompt(project_data, reference_images, project_colors) do
     title = project_data["title"] || "Software Project"
     description = project_data["description"] || project_data["overview"] || ""
     stack = project_data["stack"] || []
     has_logo = reference_images != []
+    has_colors = project_colors.palette != [] and project_colors.source != nil
 
-    # Determine visual theme based on stack
-    theme = determine_theme(stack)
+    # Build color or theme section
+    color_section =
+      if has_colors do
+        palette_str = Enum.join(project_colors.palette, ", ")
+        source_desc = if project_colors.source == :logo, do: "project logo", else: "README"
+
+        """
+        BRAND COLORS (detected from #{source_desc}):
+        Primary: #{project_colors.primary || "N/A"}
+        Secondary: #{project_colors.secondary || "N/A"}
+        Palette: #{palette_str}
+
+        Use these as the PRIMARY color palette - these are the project's actual brand colors.
+        """
+      else
+        # Fall back to tech-stack based theme
+        theme = determine_theme(stack)
+        "Visual Theme: #{theme}"
+      end
 
     # Build the base prompt
     base_prompt = """
@@ -201,13 +242,13 @@ defmodule Backend.AI.ProjectGenerator do
     #{description}
 
     Tech Stack: #{Enum.join(stack, ", ")}
-    Visual Theme: #{theme}
+    #{color_section}
 
     DESIGN REQUIREMENTS:
     - The visual design MUST be inspired by what the project does (read the description above)
     - Create an abstract, modern composition that represents the project's purpose
     - Use geometric shapes, flowing gradients, or tech patterns that evoke the project's functionality
-    - Color palette should complement #{if has_logo, do: "the attached logo and ", else: ""}the tech stack theme
+    #{if has_colors, do: "- Use the BRAND COLORS listed above as the primary color palette", else: "- Color palette should complement #{if has_logo, do: "the attached logo and ", else: ""}the tech stack theme"}
     - Clean, minimalist, professional aesthetic suitable for social media
     - Do NOT include any text in the image
     """
@@ -223,7 +264,7 @@ defmodule Backend.AI.ProjectGenerator do
         - The logo should be small (approximately 10-15% of the image width)
         - Keep the logo SOLID and fully opaque (not transparent)
         - The logo serves as branding - the main focus should be the abstract background design
-        - Match the overall color scheme to complement the logo
+        - Match the overall color scheme to complement the logo#{if has_colors, do: " using the brand colors", else: ""}
         """
       else
         ""

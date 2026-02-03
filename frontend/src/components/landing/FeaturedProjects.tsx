@@ -12,17 +12,17 @@ import { api } from '@/lib/api'
 interface Project {
   id: string
   title: string
-  description: string
-  images?: string[]
-  user: {
+  content: string
+  image?: string
+  author: {
     username: string
-    display_name: string
+    name: string
     avatar_url?: string
   }
-  tools?: Array<{ name: string }>
-  stack?: Array<{ name: string }>
-  likes_count: number
-  comments_count: number
+  tools?: string[]
+  stack?: string[]
+  likes: number
+  comments: number
 }
 
 const containerVariants = {
@@ -135,9 +135,9 @@ export function FeaturedProjects() {
                     <CardContent className="p-0">
                       {/* Project Image Area */}
                       <div className="aspect-[16/10] bg-muted relative overflow-hidden">
-                        {project.images?.[0] ? (
+                        {project.image ? (
                           <img
-                            src={project.images[0]}
+                            src={project.image}
                             alt={project.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                           />
@@ -178,12 +178,12 @@ export function FeaturedProjects() {
                         {/* Author */}
                         <div className="flex items-center gap-2 mb-3">
                           <Avatar className="w-6 h-6">
-                            <AvatarImage src={project.user.avatar_url} alt={project.user.display_name} />
+                            <AvatarImage src={project.author?.avatar_url} alt={project.author?.name ?? 'Anonymous'} />
                             <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                              {getInitials(project.user.display_name)}
+                              {getInitials(project.author?.name ?? 'Anonymous')}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm text-muted-foreground">{project.user.display_name}</span>
+                          <span className="text-sm text-muted-foreground">{project.author?.name ?? 'Anonymous'}</span>
                         </div>
 
                         {/* Title & Description */}
@@ -191,15 +191,15 @@ export function FeaturedProjects() {
                           {project.title}
                         </h3>
                         <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                          {project.description}
+                          {project.content}
                         </p>
 
                         {/* Tools */}
                         {(project.tools && project.tools.length > 0) && (
                           <div className="flex flex-wrap gap-1.5 mb-4">
                             {project.tools.slice(0, 3).map((tool) => (
-                              <span key={tool.name} className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
-                                {tool.name}
+                              <span key={tool} className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
+                                {tool}
                               </span>
                             ))}
                             {project.tools.length > 3 && (
@@ -214,11 +214,11 @@ export function FeaturedProjects() {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border">
                           <span className="flex items-center gap-1.5">
                             <Heart className="w-4 h-4" />
-                            {project.likes_count}
+                            {project.likes}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <MessageCircle className="w-4 h-4" />
-                            {project.comments_count}
+                            {project.comments}
                           </span>
                         </div>
                       </div>

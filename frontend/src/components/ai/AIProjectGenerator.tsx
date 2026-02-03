@@ -243,8 +243,8 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-primary" />
+          <DialogTitle className="flex items-center gap-2 text-sm">
+            <Sparkles className="w-4 h-4 text-primary" />
             Generate Project from GitHub
           </DialogTitle>
           <VisuallyHidden.Root>
@@ -290,7 +290,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
         </div>
 
         {/* Footer Actions */}
-        <div className="flex items-center justify-between pt-4 border-t border-border">
+        <div className="flex items-center justify-between pt-4 -mb-2 -mx-6 px-4 border-t border-border">
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
