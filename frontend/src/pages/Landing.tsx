@@ -3,7 +3,6 @@ import {
   FeaturedProjects,
   HowItWorks,
   AITools,
-  Testimonials,
   CTA,
 } from '@/components/landing'
 import { useSEO } from '@/hooks/useSEO'
@@ -21,7 +20,6 @@ export function Landing() {
       <FeaturedProjects />
       <HowItWorks />
       <AITools />
-      <Testimonials />
       <CTA />
     </>
   )

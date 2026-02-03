@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
@@ -5,6 +7,23 @@ import { Button } from '@/components/ui/button'
 import { SectionDivider } from '@/components/ui/section-divider'
 import { Heart, MessageCircle, ExternalLink, ArrowRight, Bookmark } from 'lucide-react'
 import { motion } from 'framer-motion'
+import { api } from '@/lib/api'
+
+interface Project {
+  id: string
+  title: string
+  description: string
+  images?: string[]
+  user: {
+    username: string
+    display_name: string
+    avatar_url?: string
+  }
+  tools?: Array<{ name: string }>
+  stack?: Array<{ name: string }>
+  likes_count: number
+  comments_count: number
+}
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -28,76 +47,38 @@ const cardVariants = {
   },
 }
 
-const projects = [
-  {
-    id: 1,
-    title: 'AI-Powered Code Review Dashboard',
-    description: 'A real-time dashboard that uses Claude to analyze pull requests and provide actionable feedback.',
-    image: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&h=400&fit=crop',
-    author: { name: 'Sarah Chen', initials: 'SC' },
-    tools: ['Cursor', 'Claude', 'React'],
-    likes: 234,
-    comments: 45,
-    featured: true,
-  },
-  {
-    id: 2,
-    title: 'Conversational Data Explorer',
-    description: 'Chat with your data using natural language. Built in a weekend with v0 and GPT-4.',
-    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=600&h=400&fit=crop',
-    author: { name: 'Marcus Johnson', initials: 'MJ' },
-    tools: ['v0', 'GPT-4', 'Next.js'],
-    likes: 189,
-    comments: 32,
-    featured: false,
-  },
-  {
-    id: 3,
-    title: 'Generative Art Studio',
-    description: 'Create stunning visuals with AI. A creative playground combining multiple AI tools.',
-    image: 'https://images.unsplash.com/photo-1549490349-8643362247b5?w=600&h=400&fit=crop',
-    author: { name: 'Luna Park', initials: 'LP' },
-    tools: ['Midjourney', 'Claude', 'Svelte'],
-    likes: 312,
-    comments: 67,
-    featured: true,
-  },
-  {
-    id: 4,
-    title: 'Smart Budget Tracker',
-    description: 'Personal finance app that categorizes expenses using AI and provides spending insights.',
-    image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?w=600&h=400&fit=crop',
-    author: { name: 'Alex Rivera', initials: 'AR' },
-    tools: ['Bolt', 'GPT-4', 'Vue'],
-    likes: 156,
-    comments: 28,
-    featured: false,
-  },
-  {
-    id: 5,
-    title: 'Documentation Generator',
-    description: 'Automatically generate beautiful docs from your codebase. Just point and click.',
-    image: 'https://images.unsplash.com/photo-1456324504439-367cee3b3c32?w=600&h=400&fit=crop',
-    author: { name: 'Jordan Lee', initials: 'JL' },
-    tools: ['Cursor', 'Claude', 'Astro'],
-    likes: 278,
-    comments: 51,
-    featured: true,
-  },
-  {
-    id: 6,
-    title: 'Recipe Remix App',
-    description: 'Upload any recipe and get variations based on dietary preferences, ingredients on hand, or cuisine style.',
-    image: 'https://images.unsplash.com/photo-1466637574441-749b8f19452f?w=600&h=400&fit=crop',
-    author: { name: 'Mia Thompson', initials: 'MT' },
-    tools: ['Replit AI', 'Claude', 'React'],
-    likes: 145,
-    comments: 23,
-    featured: false,
-  },
-]
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
 
 export function FeaturedProjects() {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const response = await api.getProjects({ limit: 6, sort_by: 'popular' })
+        setProjects(response.data as Project[])
+      } catch (error) {
+        console.error('Failed to fetch projects:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProjects()
+  }, [])
+
+  // Don't render section if no projects
+  if (!loading && projects.length === 0) {
+    return null
+  }
+
   return (
     <section id="projects" className="py-20 sm:py-28 relative bg-muted/50">
       <SectionDivider variant="wave" flip fillClassName="fill-background" />
@@ -116,104 +97,146 @@ export function FeaturedProjects() {
           </p>
         </div>
 
-        {/* Projects Grid */}
-        <motion.div
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
-          variants={containerVariants}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, margin: "-100px" }}
-        >
-          {projects.map((project, index) => (
-            <motion.div key={project.id} variants={cardVariants}>
-              <Card
-                className={`group border-border bg-card hover:border-primary/40 transition-all duration-300 h-full py-0 shadow-none hover:shadow-md hover:scale-[1.01] ${project.featured ? 'ring-1 ring-primary/20' : ''}`}
-              >
+        {/* Loading State */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="border-border bg-card h-full py-0 shadow-none">
                 <CardContent className="p-0">
-                  {/* Project Image Area */}
-                  <div className="aspect-[16/10] bg-muted relative overflow-hidden">
-                    <img
-                      src={project.image}
-                      alt={project.title}
-                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    />
-                    {/* Subtle bottom gradient for depth */}
-                    <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
-
-                    {project.featured && (
-                      <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs z-10">
-                        Featured
-                      </Badge>
-                    )}
-
-                    {/* Bookmark button */}
-                    <button className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-105 z-10">
-                      <Bookmark className="w-4 h-4 text-foreground" />
-                    </button>
-
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 text-xs z-10 shadow-sm"
-                    >
-                      <ExternalLink className="w-3 h-3 mr-1.5" />
-                      View
-                    </Button>
-                  </div>
-
-                  {/* Project Info */}
-                  <div className="p-5 bg-card">
-                    {/* Author */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Avatar className="w-6 h-6">
-                        <AvatarImage src={`https://i.pravatar.cc/150?img=${40 + index}`} alt={project.author.name} />
-                        <AvatarFallback className="text-xs bg-muted text-muted-foreground">
-                          {project.author.initials}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-muted-foreground">{project.author.name}</span>
-                    </div>
-
-                    {/* Title & Description */}
-                    <h3 className="font-semibold mb-2">
-                      {project.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                      {project.description}
-                    </p>
-
-                    {/* Tools */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {project.tools.map((tool) => (
-                        <span key={tool} className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
-                          {tool}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border">
-                      <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                        <Heart className="w-4 h-4" />
-                        {project.likes}
-                      </button>
-                      <button className="flex items-center gap-1.5 hover:text-primary transition-colors">
-                        <MessageCircle className="w-4 h-4" />
-                        {project.comments}
-                      </button>
+                  <div className="aspect-[16/10] bg-muted animate-pulse" />
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 bg-muted rounded animate-pulse w-1/3" />
+                    <div className="h-5 bg-muted rounded animate-pulse w-3/4" />
+                    <div className="h-4 bg-muted rounded animate-pulse w-full" />
+                    <div className="flex gap-2">
+                      <div className="h-6 bg-muted rounded animate-pulse w-16" />
+                      <div className="h-6 bg-muted rounded animate-pulse w-16" />
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+            ))}
+          </div>
+        ) : (
+          /* Projects Grid */
+          <motion.div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+            variants={containerVariants}
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+          >
+            {projects.map((project, index) => (
+              <motion.div key={project.id} variants={cardVariants}>
+                <Link to={`/projects/${project.id}`}>
+                  <Card
+                    className={`group border-border bg-card hover:border-primary/40 transition-all duration-300 h-full py-0 shadow-none hover:shadow-md hover:scale-[1.01] ${index === 0 ? 'ring-1 ring-primary/20' : ''}`}
+                  >
+                    <CardContent className="p-0">
+                      {/* Project Image Area */}
+                      <div className="aspect-[16/10] bg-muted relative overflow-hidden">
+                        {project.images?.[0] ? (
+                          <img
+                            src={project.images[0]}
+                            alt={project.title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                            <span className="text-4xl font-bold text-primary/30">{project.title[0]}</span>
+                          </div>
+                        )}
+                        {/* Subtle bottom gradient for depth */}
+                        <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/10 to-transparent pointer-events-none" />
+
+                        {index === 0 && (
+                          <Badge className="absolute top-3 left-3 bg-primary text-primary-foreground text-xs z-10">
+                            Featured
+                          </Badge>
+                        )}
+
+                        {/* Bookmark button */}
+                        <button
+                          className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-background hover:scale-105 z-10"
+                          onClick={(e) => e.preventDefault()}
+                        >
+                          <Bookmark className="w-4 h-4 text-foreground" />
+                        </button>
+
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-all duration-200 text-xs z-10 shadow-sm"
+                        >
+                          <ExternalLink className="w-3 h-3 mr-1.5" />
+                          View
+                        </Button>
+                      </div>
+
+                      {/* Project Info */}
+                      <div className="p-5 bg-card">
+                        {/* Author */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <Avatar className="w-6 h-6">
+                            <AvatarImage src={project.user.avatar_url} alt={project.user.display_name} />
+                            <AvatarFallback className="text-xs bg-muted text-muted-foreground">
+                              {getInitials(project.user.display_name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm text-muted-foreground">{project.user.display_name}</span>
+                        </div>
+
+                        {/* Title & Description */}
+                        <h3 className="font-semibold mb-2">
+                          {project.title}
+                        </h3>
+                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                          {project.description}
+                        </p>
+
+                        {/* Tools */}
+                        {(project.tools && project.tools.length > 0) && (
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {project.tools.slice(0, 3).map((tool) => (
+                              <span key={tool.name} className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
+                                {tool.name}
+                              </span>
+                            ))}
+                            {project.tools.length > 3 && (
+                              <span className="text-xs bg-muted/80 px-2.5 py-1 rounded-md text-muted-foreground font-medium border border-border/50">
+                                +{project.tools.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground pt-3 border-t border-border">
+                          <span className="flex items-center gap-1.5">
+                            <Heart className="w-4 h-4" />
+                            {project.likes_count}
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <MessageCircle className="w-4 h-4" />
+                            {project.comments_count}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
 
         {/* View All Button */}
         <div className="text-center mt-10">
-          <Button variant="outline" size="lg">
-            View All Projects
-            <ArrowRight className="ml-2 h-4 w-4" />
+          <Button variant="outline" size="lg" asChild>
+            <Link to="/explore">
+              View All Projects
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Link>
           </Button>
         </div>
       </div>
