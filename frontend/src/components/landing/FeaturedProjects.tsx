@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { SectionDivider } from '@/components/ui/section-divider'
-import { Heart, MessageCircle, ExternalLink, ArrowRight, Bookmark } from 'lucide-react'
+import { Heart, MessageCircle, ExternalLink, ArrowRight, Bookmark, CheckCircle2 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { api } from '@/lib/api'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 interface Project {
   id: string
@@ -18,6 +19,8 @@ interface Project {
     username: string
     name: string
     avatar_url?: string
+    is_verified?: boolean
+    is_premium?: boolean
   }
   tools?: string[]
   stack?: string[]
@@ -176,7 +179,7 @@ export function FeaturedProjects() {
                       {/* Project Info */}
                       <div className="p-5 bg-card">
                         {/* Author */}
-                        <div className="flex items-center gap-2 mb-3">
+                        <div className="flex items-center gap-1.5 mb-3">
                           <Avatar className="w-6 h-6">
                             <AvatarImage src={project.author?.avatar_url} alt={project.author?.name ?? 'Anonymous'} />
                             <AvatarFallback className="text-xs bg-muted text-muted-foreground">
@@ -184,6 +187,10 @@ export function FeaturedProjects() {
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-sm text-muted-foreground">{project.author?.name ?? 'Anonymous'}</span>
+                          {project.author?.is_verified && (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+                          )}
+                          {project.author?.is_premium && <PremiumBadge />}
                         </div>
 
                         {/* Title & Description */}

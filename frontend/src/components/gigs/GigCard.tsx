@@ -2,10 +2,11 @@ import { Link } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 
-import { Clock, DollarSign, Users } from 'lucide-react'
+import { Clock, DollarSign, Users, CheckCircle2 } from 'lucide-react'
 import { GigStatusBadge } from './GigStatusBadge'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import type { Gig } from '@/lib/api'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 interface GigCardProps {
   gig: Gig
@@ -66,8 +67,12 @@ export function GigCard({ gig, showBorder = true }: GigCardProps) {
             </Avatar>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-1.5 mb-1">
                 <span className="font-medium text-sm">{gig.user.display_name}</span>
+                {gig.user.is_verified && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+                )}
+                {gig.user.is_premium && <PremiumBadge />}
                 <span className="text-muted-foreground text-sm">@{gig.user.username}</span>
                 <GigStatusBadge status={gig.status} />
               </div>

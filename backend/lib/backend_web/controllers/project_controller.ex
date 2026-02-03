@@ -150,9 +150,20 @@ defmodule BackendWeb.ProjectController do
   def update(conn, %{"id" => id, "project" => project_params}) do
     current_user = conn.assigns[:current_user]
 
-    # Only check NEW images (base64) for NSFW content - existing URLs were already checked
+    # Get existing image URLs from the database to compare
+    existing_image_urls =
+      case Content.get_project!(id) do
+        {:error, :not_found} -> []
+        {:ok, %{project: project}} -> Enum.map(project.images || [], & &1.url)
+      end
+
+    # Only check NEW images for NSFW content - images already in DB were already checked
     images = Map.get(project_params, "images", []) || []
-    new_images = Enum.filter(images, &(is_binary(&1) and String.starts_with?(&1, "data:")))
+    new_images = Enum.filter(images, fn image ->
+      is_binary(image) and
+        String.starts_with?(image, "data:") and
+        image not in existing_image_urls
+    end)
 
     case moderate_images(new_images) do
       :ok ->

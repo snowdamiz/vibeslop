@@ -2,8 +2,9 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Clock, DollarSign, CheckCircle } from 'lucide-react'
+import { Clock, DollarSign, CheckCircle, CheckCircle2 } from 'lucide-react'
 import type { Bid } from '@/lib/api'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 interface BidCardProps {
   bid: Bid
@@ -52,8 +53,12 @@ export function BidCard({ bid, onHire, canHire, showBorder = true }: BidCardProp
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-2">
               <div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <span className="font-semibold">{bid.user.display_name}</span>
+                  {bid.user.is_verified && (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+                  )}
+                  {bid.user.is_premium && <PremiumBadge />}
                   <Badge variant="default" className={status.className}>
                     {status.label}
                   </Badge>
