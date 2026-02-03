@@ -483,6 +483,19 @@ class ApiClient {
     return this.post('/projects', { project: data })
   }
 
+  async updateProject(id: string, data: {
+    title?: string
+    description?: string
+    images?: string[]
+    tools?: string[]
+    stack?: string[]
+    links?: { live?: string; github?: string }
+    highlights?: string[]
+    timeline?: { date: string; title: string; description?: string }[]
+  }): Promise<{ data: unknown }> {
+    return this.put(`/projects/${id}`, { project: data })
+  }
+
   async deleteProject(id: string): Promise<void> {
     return this.delete(`/projects/${id}`)
   }

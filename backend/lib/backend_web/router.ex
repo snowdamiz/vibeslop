@@ -54,6 +54,7 @@ defmodule BackendWeb.Router do
 
     # Projects
     post "/projects", ProjectController, :create
+    put "/projects/:id", ProjectController, :update
     delete "/projects/:id", ProjectController, :delete
 
     # Comments

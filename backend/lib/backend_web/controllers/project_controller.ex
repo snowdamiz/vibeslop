@@ -147,6 +147,54 @@ defmodule BackendWeb.ProjectController do
 
   defp moderate_images(_), do: :ok
 
+  def update(conn, %{"id" => id, "project" => project_params}) do
+    current_user = conn.assigns[:current_user]
+
+    # Only check NEW images (base64) for NSFW content - existing URLs were already checked
+    images = Map.get(project_params, "images", []) || []
+    new_images = Enum.filter(images, &(is_binary(&1) and String.starts_with?(&1, "data:")))
+
+    case moderate_images(new_images) do
+      :ok ->
+        case Content.update_project(id, current_user.id, project_params) do
+          {:ok, project} ->
+            # Get project with stats for rendering
+            project_data = %{
+              project: project,
+              likes_count: project.likes_count || 0,
+              comments_count: project.comments_count || 0
+            }
+
+            conn
+            |> put_status(:ok)
+            |> render(:show_feed, project: project_data)
+
+          {:error, :not_found} ->
+            conn
+            |> put_status(:not_found)
+            |> put_view(json: BackendWeb.ErrorJSON)
+            |> render(:"404")
+
+          {:error, :unauthorized} ->
+            conn
+            |> put_status(:forbidden)
+            |> put_view(json: BackendWeb.ErrorJSON)
+            |> render(:"403")
+
+          {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> put_view(json: BackendWeb.ChangesetJSON)
+            |> render(:error, changeset: changeset)
+        end
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "content_policy_violation", message: reason})
+    end
+  end
+
   def delete(conn, %{"id" => id}) do
     current_user = conn.assigns[:current_user]
 

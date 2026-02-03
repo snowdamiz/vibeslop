@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -11,6 +13,16 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import { useSEO } from '@/hooks/useSEO'
+import {
+  DescriptionEditor,
+  TagSelector,
+  HighlightsEditor,
+  TimelineEditor,
+  EditActionBar,
+  AI_TOOLS_SUGGESTIONS,
+  TECH_STACK_SUGGESTIONS,
+  type TimelineEntry,
+} from '@/components/project-editor'
 import {
   Heart,
   MessageCircle,
@@ -36,6 +48,9 @@ import {
   Linkedin,
   BadgeCheck,
   Loader2,
+  Pencil,
+  Image as ImageIcon,
+  Plus,
 } from 'lucide-react'
 
 // Animation variants
@@ -81,6 +96,19 @@ interface ApiProject {
   }>
 }
 
+// Edit state interface
+interface ProjectEditState {
+  title: string
+  description: string
+  images: string[]
+  tools: string[]
+  stack: string[]
+  liveUrl: string
+  githubUrl: string
+  highlights: string[]
+  timeline: TimelineEntry[]
+}
+
 // Normalized project type for component use
 interface NormalizedProject {
   id: string
@@ -101,6 +129,7 @@ interface NormalizedProject {
     following?: number
     projects?: number
   }
+  aiTools: string[]
   techStack: string[]
   links: {
     live?: string
@@ -168,6 +197,7 @@ function normalizeProject(apiProject: ApiProject): NormalizedProject {
       color: 'from-blue-500 to-indigo-600',
       verified: apiProject.author.is_verified || false,
     },
+    aiTools: apiProject.ai_tools?.map(t => t.name) || [],
     techStack: apiProject.tech_stack?.map(t => t.name) || [],
     links: {
       live: apiProject.live_url,
@@ -255,7 +285,9 @@ const formatDate = (dateString: string) => {
 
 export function ProjectDetail() {
   const { id } = useParams()
+  const { user } = useAuth()
   const [project, setProject] = useState<NormalizedProject | null>(null)
+  const [authorId, setAuthorId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -267,6 +299,13 @@ export function ProjectDetail() {
   const [copiedShare, setCopiedShare] = useState(false)
   const [comments, setComments] = useState<NormalizedProject['comments']>([])
   const [isLoadingComments, setIsLoadingComments] = useState(false)
+
+  // Edit mode state
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editState, setEditState] = useState<ProjectEditState | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [editImageIndex, setEditImageIndex] = useState(0)
 
   // Dynamic SEO for this project
   useSEO(project ? {
@@ -290,6 +329,8 @@ export function ProjectDetail() {
         const apiData = response.data as ApiProject
         const normalized = normalizeProject(apiData)
         setProject(normalized)
+        // Save author ID for edit button check
+        setAuthorId(apiData.author.id)
         // Initialize engagement state from API response
         setIsLiked(apiData.liked ?? false)
         setIsBookmarked(apiData.bookmarked ?? false)
@@ -337,6 +378,127 @@ export function ProjectDetail() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
+
+  // Check for unsaved changes (defined first so it can be used by handlers)
+  const hasUnsavedChanges = useMemo(() => {
+    if (!project || !editState) return false
+    return (
+      editState.title !== project.title ||
+      editState.description !== project.longDescription ||
+      JSON.stringify(editState.images) !== JSON.stringify(project.images) ||
+      JSON.stringify(editState.tools) !== JSON.stringify(project.aiTools) ||
+      JSON.stringify(editState.stack) !== JSON.stringify(project.techStack) ||
+      editState.liveUrl !== (project.links.live || '') ||
+      editState.githubUrl !== (project.links.github || '') ||
+      JSON.stringify(editState.highlights) !== JSON.stringify(project.highlights) ||
+      JSON.stringify(editState.timeline) !== JSON.stringify(project.timeline)
+    )
+  }, [project, editState])
+
+  // Edit mode handlers
+  const handleEnterEditMode = useCallback(() => {
+    if (!project) return
+    setEditState({
+      title: project.title,
+      description: project.longDescription,
+      images: [...project.images],
+      tools: [...project.aiTools],
+      stack: [...project.techStack],
+      liveUrl: project.links.live || '',
+      githubUrl: project.links.github || '',
+      highlights: [...project.highlights],
+      timeline: project.timeline.map(t => ({ ...t })),
+    })
+    setEditImageIndex(0)
+    setSaveError(null)
+    setIsEditMode(true)
+  }, [project])
+
+  const handleCancelEdit = useCallback(() => {
+    if (hasUnsavedChanges && !window.confirm('Discard unsaved changes?')) {
+      return
+    }
+    setIsEditMode(false)
+    setEditState(null)
+    setSaveError(null)
+  }, [hasUnsavedChanges])
+
+  const handleSave = useCallback(async () => {
+    if (!id || !editState) return
+
+    setIsSaving(true)
+    setSaveError(null)
+
+    try {
+      await api.updateProject(id, {
+        title: editState.title,
+        description: editState.description,
+        images: editState.images,
+        tools: editState.tools,
+        stack: editState.stack,
+        live_url: editState.liveUrl || undefined,
+        github_url: editState.githubUrl || undefined,
+        highlights: editState.highlights,
+        timeline: editState.timeline.filter(t => t.date && t.title),
+      })
+
+      // Refetch and update view
+      const response = await api.getProject(id)
+      const apiData = response.data as ApiProject
+      const normalized = normalizeProject(apiData)
+      setProject(normalized)
+      setIsEditMode(false)
+      setEditState(null)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save changes')
+    } finally {
+      setIsSaving(false)
+    }
+  }, [id, editState])
+
+  // Image handling for edit mode
+  const handleImageUpload = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0 || !editState) return
+
+    const fileToBase64 = (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        if (!file.type.startsWith('image/')) {
+          reject(new Error('File must be an image'))
+          return
+        }
+        const maxSize = 5 * 1024 * 1024
+        if (file.size > maxSize) {
+          reject(new Error('Image must be less than 5MB'))
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result as string)
+        reader.onerror = reject
+        reader.readAsDataURL(file)
+      })
+    }
+
+    try {
+      const fileArray = Array.from(files)
+      const base64Images = await Promise.all(fileArray.map(fileToBase64))
+      setEditState(prev => prev ? {
+        ...prev,
+        images: [...prev.images, ...base64Images]
+      } : null)
+    } catch (error) {
+      console.error('Error uploading images:', error)
+      alert(error instanceof Error ? error.message : 'Failed to upload images')
+    }
+  }, [editState])
+
+  const removeEditImage = useCallback((index: number) => {
+    setEditState(prev => {
+      if (!prev) return null
+      const newImages = prev.images.filter((_, i) => i !== index)
+      return { ...prev, images: newImages }
+    })
+    setEditImageIndex(prev => Math.max(0, Math.min(prev, (editState?.images.length || 1) - 2)))
+  }, [editState?.images.length])
 
   if (isLoading) {
     return (
@@ -576,78 +738,176 @@ export function ProjectDetail() {
               transition={{ duration: 0.5 }}
               className="mb-8"
             >
-              {/* Main Image */}
-              <div
-                className="relative rounded-2xl overflow-hidden bg-muted group cursor-pointer"
-                onMouseEnter={() => setIsImageHovered(true)}
-                onMouseLeave={() => setIsImageHovered(false)}
-                onClick={() => setIsFullscreen(true)}
-              >
-                <div className="aspect-[16/9] relative overflow-hidden">
-                  <motion.img
-                    key={currentImageIndex}
-                    src={project.images[currentImageIndex]}
-                    alt={`${project.title} screenshot ${currentImageIndex + 1}`}
-                    className={cn(
-                      "w-full h-full object-cover transition-transform duration-500",
-                      isImageHovered && "scale-105"
-                    )}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.3 }}
-                  />
+              {isEditMode && editState ? (
+                /* Edit Mode Image Gallery */
+                <div className="relative rounded-2xl overflow-hidden bg-muted">
+                  {editState.images.length > 0 ? (
+                    <div className="relative">
+                      <div className="aspect-[16/9] relative overflow-hidden">
+                        <img
+                          src={editState.images[editImageIndex]}
+                          alt={`Project screenshot ${editImageIndex + 1}`}
+                          className="w-full h-full object-contain bg-muted/30"
+                        />
 
-                  {/* Overlay on hover */}
-                  <div className={cn(
-                    "absolute inset-0 bg-black/20 flex items-center justify-center transition-opacity duration-300",
-                    isImageHovered ? "opacity-100" : "opacity-0"
-                  )}>
-                    <div className="flex items-center gap-2 text-white bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
-                      <Maximize2 className="w-4 h-4" />
-                      <span className="text-sm font-medium">Click to expand</span>
+                        {/* Delete button */}
+                        <button
+                          onClick={() => removeEditImage(editImageIndex)}
+                          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90 transition-colors shadow-lg"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+
+                        {/* Image counter badge */}
+                        <div className="absolute top-4 left-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
+                          {editImageIndex + 1} / {editState.images.length}
+                        </div>
+
+                        {/* Navigation Arrows */}
+                        {editState.images.length > 1 && (
+                          <>
+                            <button
+                              onClick={() => setEditImageIndex(prev => (prev - 1 + editState.images.length) % editState.images.length)}
+                              className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg"
+                            >
+                              <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => setEditImageIndex(prev => (prev + 1) % editState.images.length)}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg"
+                            >
+                              <ChevronRight className="w-5 h-5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Thumbnail strip */}
+                      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 p-1.5 bg-background/90 backdrop-blur-sm rounded-lg border border-border/50 overflow-x-auto max-w-[90%]">
+                        {editState.images.map((img, idx) => (
+                          <div key={idx} className="relative flex-shrink-0 group/thumb">
+                            <button
+                              onClick={() => setEditImageIndex(idx)}
+                              className={cn(
+                                "w-10 h-7 rounded-md overflow-hidden ring-2 transition-all",
+                                idx === editImageIndex ? "ring-primary" : "ring-transparent opacity-60 hover:opacity-100"
+                              )}
+                            >
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                            </button>
+                            <button
+                              onClick={() => removeEditImage(idx)}
+                              className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                            >
+                              <X className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <label className="w-10 h-7 rounded-md border border-dashed border-border bg-muted/50 flex items-center justify-center hover:bg-muted text-muted-foreground transition-colors cursor-pointer">
+                          <Plus className="w-3.5 h-3.5" />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => handleImageUpload(e.target.files)}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="aspect-[16/9] flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium">Click to upload images</p>
+                        <p className="text-xs text-muted-foreground">PNG, JPG up to 5MB each</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleImageUpload(e.target.files)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              ) : (
+                /* View Mode Image Gallery */
+                <div
+                  className="relative rounded-2xl overflow-hidden bg-muted group cursor-pointer"
+                  onMouseEnter={() => setIsImageHovered(true)}
+                  onMouseLeave={() => setIsImageHovered(false)}
+                  onClick={() => setIsFullscreen(true)}
+                >
+                  <div className="aspect-[16/9] relative overflow-hidden">
+                    <motion.img
+                      key={currentImageIndex}
+                      src={project.images[currentImageIndex]}
+                      alt={`${project.title} screenshot ${currentImageIndex + 1}`}
+                      className={cn(
+                        "w-full h-full object-cover transition-transform duration-500",
+                        isImageHovered && "scale-105"
+                      )}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+
+                    {/* Overlay on hover */}
+                    <div className={cn(
+                      "absolute inset-0 bg-black/20 flex items-center justify-center transition-opacity duration-300",
+                      isImageHovered ? "opacity-100" : "opacity-0"
+                    )}>
+                      <div className="flex items-center gap-2 text-white bg-black/50 px-4 py-2 rounded-full backdrop-blur-sm">
+                        <Maximize2 className="w-4 h-4" />
+                        <span className="text-sm font-medium">Click to expand</span>
+                      </div>
+                    </div>
+
+                    {/* Image counter badge */}
+                    <div className="absolute top-4 right-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
+                      {currentImageIndex + 1} / {project.images.length}
+                    </div>
+
+                    {/* Navigation Arrows */}
+                    {project.images.length > 1 && (
+                      <>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); prevImage() }}
+                          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); nextImage() }}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                      </>
+                    )}
+
+                    {/* Image Indicators */}
+                    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+                      {project.images.map((_: string, index: number) => (
+                        <button
+                          key={index}
+                          onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index) }}
+                          className={cn(
+                            "w-2.5 h-2.5 rounded-full transition-all",
+                            index === currentImageIndex
+                              ? 'bg-white scale-110 shadow-lg'
+                              : 'bg-white/50 hover:bg-white/75'
+                          )}
+                        />
+                      ))}
                     </div>
                   </div>
-
-                  {/* Image counter badge */}
-                  <div className="absolute top-4 right-4 bg-black/60 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm font-medium">
-                    {currentImageIndex + 1} / {project.images.length}
-                  </div>
-
-                  {/* Navigation Arrows */}
-                  {project.images.length > 1 && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); prevImage() }}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100"
-                      >
-                        <ChevronLeft className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); nextImage() }}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center hover:bg-background hover:scale-110 transition-all shadow-lg opacity-0 group-hover:opacity-100"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                      </button>
-                    </>
-                  )}
-
-                  {/* Image Indicators */}
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    {project.images.map((_: string, index: number) => (
-                      <button
-                        key={index}
-                        onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(index) }}
-                        className={cn(
-                          "w-2.5 h-2.5 rounded-full transition-all",
-                          index === currentImageIndex
-                            ? 'bg-white scale-110 shadow-lg'
-                            : 'bg-white/50 hover:bg-white/75'
-                        )}
-                      />
-                    ))}
-                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
 
             {/* Fullscreen Lightbox */}
@@ -741,8 +1001,17 @@ export function ProjectDetail() {
             >
               {/* Title & Actions */}
               <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold mb-2">{project.title}</h1>
+                <div className="flex-1">
+                  {isEditMode && editState ? (
+                    <Input
+                      value={editState.title}
+                      onChange={(e) => setEditState(prev => prev ? { ...prev, title: e.target.value } : null)}
+                      className="text-2xl sm:text-3xl font-bold h-auto py-1 px-2 mb-2"
+                      placeholder="Project title"
+                    />
+                  ) : (
+                    <h1 className="text-2xl sm:text-3xl font-bold mb-2">{project.title}</h1>
+                  )}
                   <div className="flex items-center gap-4 text-sm text-muted-foreground">
                     <span className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
@@ -751,6 +1020,18 @@ export function ProjectDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* Edit button - only show for project owner */}
+                  {user && authorId === user.id && !isEditMode && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleEnterEditMode}
+                      className="gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Edit
+                    </Button>
+                  )}
                   <Button
                     variant={isLiked ? 'default' : 'outline'}
                     size="sm"
@@ -847,12 +1128,29 @@ export function ProjectDetail() {
               )}
 
               {/* Description */}
-              <div className="text-muted-foreground mb-6 leading-relaxed text-base">
-                <MarkdownContent content={project.description} />
+              <div className="mb-6">
+                {isEditMode && editState ? (
+                  <DescriptionEditor
+                    content={editState.description}
+                    onChange={(content) => setEditState(prev => prev ? { ...prev, description: content } : null)}
+                    placeholder="Describe your project..."
+                  />
+                ) : (
+                  <div className="text-muted-foreground leading-relaxed text-base">
+                    <MarkdownContent content={project.description} />
+                  </div>
+                )}
               </div>
 
-              {/* Key Highlights - only show if there are highlights */}
-              {project.highlights.length > 0 && (
+              {/* Key Highlights */}
+              {isEditMode && editState ? (
+                <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
+                  <HighlightsEditor
+                    highlights={editState.highlights}
+                    onChange={(highlights) => setEditState(prev => prev ? { ...prev, highlights } : null)}
+                  />
+                </div>
+              ) : project.highlights.length > 0 && (
                 <div className="mb-6 p-4 rounded-lg bg-gradient-to-br from-primary/5 to-accent/5 border border-primary/10">
                   <h4 className="font-semibold mb-3 flex items-center gap-2 text-sm">
                     <Sparkles className="w-4 h-4 text-primary" />
@@ -869,8 +1167,33 @@ export function ProjectDetail() {
                 </div>
               )}
 
-              {/* Links - only show if there are links */}
-              {(project.links.live || project.links.github) && (
+              {/* Links */}
+              {isEditMode && editState ? (
+                <div className="flex flex-wrap gap-3 mb-8">
+                  <div className="flex-1 min-w-[200px] space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                      Live Demo URL
+                    </label>
+                    <Input
+                      placeholder="https://your-project.com"
+                      value={editState.liveUrl}
+                      onChange={(e) => setEditState(prev => prev ? { ...prev, liveUrl: e.target.value } : null)}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-[200px] space-y-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Github className="w-3.5 h-3.5 text-muted-foreground" />
+                      GitHub URL
+                    </label>
+                    <Input
+                      placeholder="https://github.com/username/repo"
+                      value={editState.githubUrl}
+                      onChange={(e) => setEditState(prev => prev ? { ...prev, githubUrl: e.target.value } : null)}
+                    />
+                  </div>
+                </div>
+              ) : (project.links.live || project.links.github) && (
                 <div className="flex flex-wrap gap-3 mb-8">
                   {project.links.live && (
                     <a href={project.links.live} target="_blank" rel="noopener noreferrer">
@@ -905,7 +1228,16 @@ export function ProjectDetail() {
                 </TabsList>
 
                 <TabsContent value="timeline">
-                  {project.timeline.length === 0 ? (
+                  {isEditMode && editState ? (
+                    <Card className="border-border !py-0 !gap-0">
+                      <CardContent className="p-5">
+                        <TimelineEditor
+                          timeline={editState.timeline}
+                          onChange={(timeline) => setEditState(prev => prev ? { ...prev, timeline } : null)}
+                        />
+                      </CardContent>
+                    </Card>
+                  ) : project.timeline.length === 0 ? (
                     <Card className="border-border !py-0 !gap-0">
                       <CardContent className="p-8 text-center text-muted-foreground">
                         <Clock className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -1046,30 +1378,78 @@ export function ProjectDetail() {
               </Card>
             </motion.div>
 
-            {/* Built With - only show if there's a tech stack */}
-            {project.techStack.length > 0 && (
+            {/* Built With - Tech Stack and AI Tools */}
+            {isEditMode && editState ? (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: 0.3 }}
               >
                 <Card className="border-border !py-0 !gap-0">
-                  <CardContent className="p-4">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Code2 className="w-4 h-4 text-primary" />
-                      Technologies
-                    </h3>
-                    <div className="flex flex-wrap gap-1.5">
-                      {project.techStack.map((tech: string) => (
-                        <Badge
-                          key={tech}
-                          variant="outline"
-                          className="text-xs"
-                        >
-                          {tech}
-                        </Badge>
-                      ))}
-                    </div>
+                  <CardContent className="p-4 space-y-6">
+                    <TagSelector
+                      selected={editState.tools}
+                      onChange={(tools) => setEditState(prev => prev ? { ...prev, tools } : null)}
+                      suggestions={AI_TOOLS_SUGGESTIONS}
+                      label="AI Tools"
+                      icon={<Sparkles className="w-3.5 h-3.5 text-muted-foreground" />}
+                    />
+                    <TagSelector
+                      selected={editState.stack}
+                      onChange={(stack) => setEditState(prev => prev ? { ...prev, stack } : null)}
+                      suggestions={TECH_STACK_SUGGESTIONS}
+                      label="Technologies"
+                      icon={<Code2 className="w-3.5 h-3.5 text-muted-foreground" />}
+                    />
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (project.techStack.length > 0 || project.aiTools.length > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: 0.3 }}
+              >
+                <Card className="border-border !py-0 !gap-0">
+                  <CardContent className="p-4 space-y-4">
+                    {project.aiTools.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                          AI Tools
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {project.aiTools.map((tool: string) => (
+                            <Badge
+                              key={tool}
+                              variant="outline"
+                              className="text-xs bg-primary/5"
+                            >
+                              {tool}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {project.techStack.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-3 flex items-center gap-2">
+                          <Code2 className="w-4 h-4 text-primary" />
+                          Technologies
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {project.techStack.map((tech: string) => (
+                            <Badge
+                              key={tech}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {tech}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -1213,6 +1593,17 @@ export function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Edit Action Bar */}
+      {isEditMode && editState && (
+        <EditActionBar
+          onSave={handleSave}
+          onCancel={handleCancelEdit}
+          isSaving={isSaving}
+          hasChanges={hasUnsavedChanges}
+          error={saveError}
+        />
+      )}
     </div>
   )
 }

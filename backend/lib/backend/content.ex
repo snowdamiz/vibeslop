@@ -960,6 +960,230 @@ defmodule Backend.Content do
   end
 
   @doc """
+  Updates a project if the user is the owner.
+  """
+  def update_project(project_id, user_id, attrs) do
+    case Repo.get(Project, project_id) do
+      nil ->
+        {:error, :not_found}
+
+      %Project{user_id: ^user_id} = project ->
+        Repo.transaction(fn ->
+          # Extract nested data
+          images = Map.get(attrs, "images", nil) || Map.get(attrs, :images, nil)
+          tools = Map.get(attrs, "tools", nil) || Map.get(attrs, :tools, nil)
+          stacks = Map.get(attrs, "stack", nil) || Map.get(attrs, :stack, nil)
+          highlights = Map.get(attrs, "highlights", nil) || Map.get(attrs, :highlights, nil)
+          timeline = Map.get(attrs, "timeline", nil) || Map.get(attrs, :timeline, nil)
+          links = Map.get(attrs, "links", %{}) || Map.get(attrs, :links, %{})
+
+          # Parse links
+          live_url = Map.get(links, "live") || Map.get(links, :live)
+          github_url = Map.get(links, "github") || Map.get(links, :github)
+
+          # Build project attrs for update
+          project_attrs = %{}
+
+          project_attrs =
+            if Map.has_key?(attrs, "title") || Map.has_key?(attrs, :title) do
+              Map.put(project_attrs, "title", Map.get(attrs, "title") || Map.get(attrs, :title))
+            else
+              project_attrs
+            end
+
+          project_attrs =
+            if Map.has_key?(attrs, "description") || Map.has_key?(attrs, :description) do
+              Map.put(
+                project_attrs,
+                "description",
+                Map.get(attrs, "description") || Map.get(attrs, :description)
+              )
+            else
+              project_attrs
+            end
+
+          project_attrs =
+            if live_url != nil do
+              Map.put(project_attrs, "live_url", live_url)
+            else
+              project_attrs
+            end
+
+          project_attrs =
+            if github_url != nil do
+              Map.put(project_attrs, "github_url", github_url)
+            else
+              project_attrs
+            end
+
+          # Update project
+          project =
+            case Repo.update(Project.changeset(project, project_attrs)) do
+              {:ok, project} -> project
+              {:error, changeset} -> Repo.rollback(changeset)
+            end
+
+          # Update images if provided
+          if images != nil do
+            # Delete existing images
+            from(i in Backend.Content.ProjectImage, where: i.project_id == ^project.id)
+            |> Repo.delete_all()
+
+            # Create new images
+            images
+            |> Enum.with_index()
+            |> Enum.each(fn {image_url, index} ->
+              %Backend.Content.ProjectImage{}
+              |> Backend.Content.ProjectImage.changeset(%{
+                url: image_url,
+                position: index,
+                project_id: project.id
+              })
+              |> Repo.insert!()
+            end)
+          end
+
+          # Update AI tools if provided
+          project =
+            if tools != nil do
+              tool_records =
+                tools
+                |> Enum.map(fn tool_name ->
+                  slug = String.downcase(tool_name) |> String.replace(~r/[^a-z0-9]+/, "-")
+
+                  case Backend.Catalog.get_ai_tool_by_slug(slug) do
+                    nil ->
+                      {:ok, tool} =
+                        Repo.insert(%Backend.Catalog.AiTool{
+                          name: tool_name,
+                          slug: slug
+                        })
+
+                      tool
+
+                    tool ->
+                      tool
+                  end
+                end)
+
+              project
+              |> Repo.preload(:ai_tools)
+              |> Ecto.Changeset.change()
+              |> Ecto.Changeset.put_assoc(:ai_tools, tool_records)
+              |> Repo.update!()
+            else
+              project
+            end
+
+          # Update tech stacks if provided
+          project =
+            if stacks != nil do
+              stack_records =
+                stacks
+                |> Enum.map(fn stack_name ->
+                  slug = String.downcase(stack_name) |> String.replace(~r/[^a-z0-9]+/, "-")
+
+                  case Backend.Catalog.get_tech_stack_by_slug(slug) do
+                    nil ->
+                      {:ok, stack} =
+                        Repo.insert(%Backend.Catalog.TechStack{
+                          name: stack_name,
+                          slug: slug,
+                          category: "other"
+                        })
+
+                      stack
+
+                    stack ->
+                      stack
+                  end
+                end)
+
+              project
+              |> Repo.preload(:tech_stacks)
+              |> Ecto.Changeset.change()
+              |> Ecto.Changeset.put_assoc(:tech_stacks, stack_records)
+              |> Repo.update!()
+            else
+              project
+            end
+
+          # Update highlights if provided
+          if highlights != nil do
+            # Delete existing highlights
+            from(h in Backend.Content.ProjectHighlight, where: h.project_id == ^project.id)
+            |> Repo.delete_all()
+
+            # Create new highlights
+            highlights
+            |> Enum.with_index()
+            |> Enum.each(fn {highlight_text, index} ->
+              %Backend.Content.ProjectHighlight{}
+              |> Backend.Content.ProjectHighlight.changeset(%{
+                content: highlight_text,
+                position: index,
+                project_id: project.id
+              })
+              |> Repo.insert!()
+            end)
+          end
+
+          # Update timeline if provided
+          if timeline != nil do
+            # Delete existing timeline entries
+            from(t in Backend.Content.ProjectTimelineEntry, where: t.project_id == ^project.id)
+            |> Repo.delete_all()
+
+            # Create new timeline entries
+            timeline
+            |> Enum.with_index()
+            |> Enum.each(fn {entry_data, index} ->
+              date_str = Map.get(entry_data, "date") || Map.get(entry_data, :date)
+
+              date =
+                case Date.from_iso8601(date_str) do
+                  {:ok, date} ->
+                    date
+
+                  _ ->
+                    Date.utc_today()
+                end
+
+              entry_attrs = %{
+                occurred_at: date,
+                title: Map.get(entry_data, "title") || Map.get(entry_data, :title),
+                description:
+                  Map.get(entry_data, "description") || Map.get(entry_data, :description),
+                position: index,
+                project_id: project.id
+              }
+
+              %Backend.Content.ProjectTimelineEntry{}
+              |> Backend.Content.ProjectTimelineEntry.changeset(entry_attrs)
+              |> Repo.insert!()
+            end)
+          end
+
+          # Return the project with all associations loaded
+          project
+          |> Repo.preload([
+            :user,
+            :images,
+            :ai_tools,
+            :tech_stacks,
+            :highlights,
+            :timeline_entries,
+            :likes,
+            :comments
+          ])
+        end)
+
+      %Project{} ->
+        {:error, :unauthorized}
+    end
+  end
+
+  @doc """
   Deletes a project if the user is the owner.
   """
   def delete_project(project_id, user_id) do
