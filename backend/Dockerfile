@@ -1,12 +1,5 @@
 # Build stage
-ARG ELIXIR_VERSION=1.17.3
-ARG OTP_VERSION=27.2
-ARG DEBIAN_VERSION=bookworm-20241016-slim
-
-ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
-ARG RUNNER_IMAGE="debian:${DEBIAN_VERSION}"
-
-FROM ${BUILDER_IMAGE} as builder
+FROM hexpm/elixir:1.18.1-erlang-27.2-debian-bookworm-20241202-slim AS builder
 
 # Install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -45,7 +38,7 @@ COPY config/runtime.exs config/
 RUN mix release
 
 # Runner stage
-FROM ${RUNNER_IMAGE}
+FROM debian:bookworm-20241202-slim
 
 RUN apt-get update -y && \
     apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
