@@ -133,7 +133,7 @@ defmodule Backend.Search do
           order_by: [
             desc:
               fragment(
-                "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?))) + CASE WHEN ? IN ('active', 'trialing') THEN ? ELSE 0 END",
+                "GREATEST(similarity(?, ?), similarity(?, ?), ts_rank(?, plainto_tsquery('english', ?))) + CASE WHEN ? IN ('active', 'trialing') THEN ? ELSE 0.0 END",
                 u.username,
                 ^query_string,
                 u.display_name,
