@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Heart, MessageCircle, ChevronDown, ChevronUp, MoreHorizontal, Trash2, Flag } from 'lucide-react'
+import { Heart, MessageCircle, ChevronDown, ChevronUp, MoreHorizontal, Trash2, Flag, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { MarkdownContent } from '@/components/ui/markdown-content'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import type { Comment as CommentType } from './types'
 import { MentionInput } from '@/components/ui/mention-input'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 interface CommentProps {
   comment: CommentType
@@ -117,10 +118,14 @@ export function Comment({
           <div className="flex-1 min-w-0">
             {/* Author and timestamp */}
             <div className="flex items-center justify-between mb-0.5">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <span className="font-medium text-sm hover:underline cursor-pointer">
                   {comment.author.name}
                 </span>
+                {comment.author.is_verified && (
+                  <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+                )}
+                {comment.author.is_premium && <PremiumBadge />}
                 {comment.author.username && (
                   <span className="text-xs text-muted-foreground">
                     @{comment.author.username}

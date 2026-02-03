@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, Sparkles, CheckCircle2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { api } from '@/lib/api'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 const rotatingWords = ['AI-native', 'vibe coding', 'prompt-driven', 'AI-powered']
 
@@ -14,6 +15,8 @@ interface HeroProject {
   image?: string
   author: {
     name: string
+    is_verified?: boolean
+    is_premium?: boolean
   }
   tools?: string[]
 }
@@ -171,7 +174,13 @@ export function Hero() {
                       <div className="absolute bottom-0 left-0 right-0 p-5">
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[10px] font-medium bg-primary/90 text-primary-foreground px-2 py-0.5 rounded-full">Featured</span>
-                          <span className="text-[10px] text-white/70">by {projects[0].author?.name ?? 'Anonymous'}</span>
+                          <span className="flex items-center gap-1 text-[10px] text-white/70">
+                            by {projects[0].author?.name ?? 'Anonymous'}
+                            {projects[0].author?.is_verified && (
+                              <CheckCircle2 className="w-3 h-3 text-primary fill-primary/20" />
+                            )}
+                            {projects[0].author?.is_premium && <PremiumBadge />}
+                          </span>
                         </div>
                         <h3 className="text-white font-semibold text-lg">{projects[0].title}</h3>
                         {projects[0].tools && projects[0].tools.length > 0 && (

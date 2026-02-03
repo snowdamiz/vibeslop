@@ -3,6 +3,8 @@ export interface CommentAuthor {
   initials: string
   username?: string
   avatar_url?: string
+  is_verified?: boolean
+  is_premium?: boolean
 }
 
 export interface Comment {

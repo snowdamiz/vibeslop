@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Code2 } from 'lucide-react'
+import { Code2, CheckCircle2 } from 'lucide-react'
+import { PremiumBadge } from '@/components/PremiumBadge'
 import { cn } from '@/lib/utils'
 import type { QuotedItem, FeedItem } from './types'
 
@@ -40,7 +41,7 @@ export function QuotedPostPreview({ item, onClick, className }: QuotedPostPrevie
     >
       <div className="p-3">
         {/* Author info */}
-        <div className="flex items-center gap-2 mb-2">
+        <div className="flex items-center gap-1.5 mb-2">
           <Avatar className="w-5 h-5">
             <AvatarImage src={item.author.avatar_url} alt={item.author.name} />
             <AvatarFallback className="text-[10px] bg-gradient-to-br from-blue-500 to-indigo-600 text-white">
@@ -48,6 +49,10 @@ export function QuotedPostPreview({ item, onClick, className }: QuotedPostPrevie
             </AvatarFallback>
           </Avatar>
           <span className="text-sm font-medium truncate">{item.author.name}</span>
+          {item.author.is_verified && (
+            <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+          )}
+          {item.author.is_premium && <PremiumBadge />}
           <span className="text-sm text-muted-foreground">@{item.author.username}</span>
         </div>
 

@@ -3,6 +3,8 @@ export interface Participant {
   username: string
   initials: string
   avatarUrl?: string
+  is_verified?: boolean
+  is_premium?: boolean
 }
 
 export interface LastMessage {

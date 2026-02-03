@@ -3,9 +3,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { ArrowLeft, MoreHorizontal, Send, Image, Smile } from 'lucide-react'
+import { ArrowLeft, MoreHorizontal, Send, Image, Smile, CheckCircle2 } from 'lucide-react'
 import { MessageBubble } from './MessageBubble'
 import type { ConversationWithMessages, Participant } from './types'
+import { PremiumBadge } from '@/components/PremiumBadge'
 
 interface ChatThreadProps {
   conversation: ConversationWithMessages
@@ -74,7 +75,13 @@ function ChatHeader({ participant, onBack }: { participant: Participant; onBack:
 
         {/* Name */}
         <div className="flex-1 min-w-0">
-          <h2 className="font-semibold text-[15px] truncate">{participant.name}</h2>
+          <div className="flex items-center gap-1">
+            <h2 className="font-semibold text-[15px] truncate">{participant.name}</h2>
+            {participant.is_verified && (
+              <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+            )}
+            {participant.is_premium && <PremiumBadge />}
+          </div>
           <p className="text-xs text-muted-foreground">@{participant.username}</p>
         </div>
 

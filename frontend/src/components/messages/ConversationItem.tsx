@@ -1,5 +1,7 @@
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { CheckCircle2 } from 'lucide-react'
+import { PremiumBadge } from '@/components/PremiumBadge'
 import type { Conversation } from './types'
 
 interface ConversationItemProps {
@@ -53,12 +55,16 @@ export function ConversationItem({ conversation, isActive, onClick }: Conversati
 
       {/* Content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-center justify-between gap-2">
           <span className={cn(
-            'text-[15px] truncate block',
+            'flex items-center gap-1 text-[15px] truncate',
             hasUnread ? 'font-semibold' : 'font-medium'
           )}>
-            {participant.name}
+            <span className="truncate">{participant.name}</span>
+            {participant.is_verified && (
+              <CheckCircle2 className="w-3.5 h-3.5 text-primary fill-primary/20 flex-shrink-0" />
+            )}
+            {participant.is_premium && <PremiumBadge />}
           </span>
           <span className={cn(
             'text-xs shrink-0',
