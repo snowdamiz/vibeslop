@@ -4,17 +4,41 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { api } from '@/lib/api'
 
 const rotatingWords = ['AI-native', 'vibe coding', 'prompt-driven', 'AI-powered']
 
+interface HeroProject {
+  id: string
+  title: string
+  images?: string[]
+  user: {
+    display_name: string
+  }
+  tools?: Array<{ name: string }>
+}
+
 export function Hero() {
   const [wordIndex, setWordIndex] = useState(0)
+  const [projects, setProjects] = useState<HeroProject[]>([])
 
   useEffect(() => {
     const interval = setInterval(() => {
       setWordIndex((prev) => (prev + 1) % rotatingWords.length)
     }, 3000)
     return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const response = await api.getProjects({ limit: 3, sort_by: 'recent' })
+        setProjects(response.data as HeroProject[])
+      } catch (error) {
+        console.error('Failed to fetch hero projects:', error)
+      }
+    }
+    fetchProjects()
   }, [])
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -120,82 +144,110 @@ export function Hero() {
         </div>
 
         {/* Project Showcase Grid */}
-        <motion.div
-          className="mt-16 relative"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-        >
-          <div className="relative mx-auto max-w-5xl">
-            {/* Simple 3-card grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Featured - Analytics Dashboard */}
-              <div className="md:col-span-2 relative rounded-2xl overflow-hidden bg-card border border-border">
-                <div className="aspect-[16/9]">
-                  <img
-                    src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&h=450&fit=crop"
-                    alt="Analytics Dashboard"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-[10px] font-medium bg-primary/90 text-primary-foreground px-2 py-0.5 rounded-full">Featured</span>
-                      <span className="text-[10px] text-white/70">by Sarah Chen</span>
-                    </div>
-                    <h3 className="text-white font-semibold text-lg">AI Analytics Dashboard</h3>
-                    <p className="text-white/70 text-sm mt-1 hidden sm:block">Real-time insights powered by Claude</p>
-                    <div className="flex gap-2 mt-3">
-                      <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-1 rounded-md text-white/90">Cursor</span>
-                      <span className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-1 rounded-md text-white/90">Claude</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Stacked right column */}
-              <div className="flex flex-col gap-4">
-                {/* Code Review Bot */}
-                <div className="relative rounded-2xl overflow-hidden bg-card border border-border">
-                  <div className="aspect-[4/3]">
-                    <img
-                      src="https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=300&fit=crop"
-                      alt="Code Editor"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <p className="text-white font-medium text-sm">Code Review Bot</p>
-                      <div className="flex gap-1.5 mt-1.5">
-                        <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">GPT-4</span>
-                        <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">Cursor</span>
+        {projects.length > 0 && (
+          <motion.div
+            className="mt-16 relative"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
+            <div className="relative mx-auto max-w-5xl">
+              {/* Simple 3-card grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Featured - First Project */}
+                {projects[0] && (
+                  <Link to={`/projects/${projects[0].id}`} className="md:col-span-2 relative rounded-2xl overflow-hidden bg-card border border-border group">
+                    <div className="aspect-[16/9]">
+                      {projects[0].images?.[0] ? (
+                        <img
+                          src={projects[0].images[0]}
+                          alt={projects[0].title}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30" />
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                      <div className="absolute bottom-0 left-0 right-0 p-5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-medium bg-primary/90 text-primary-foreground px-2 py-0.5 rounded-full">Featured</span>
+                          <span className="text-[10px] text-white/70">by {projects[0].user.display_name}</span>
+                        </div>
+                        <h3 className="text-white font-semibold text-lg">{projects[0].title}</h3>
+                        {projects[0].tools && projects[0].tools.length > 0 && (
+                          <div className="flex gap-2 mt-3">
+                            {projects[0].tools.slice(0, 2).map((tool) => (
+                              <span key={tool.name} className="text-[10px] bg-white/20 backdrop-blur-sm px-2 py-1 rounded-md text-white/90">{tool.name}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </div>
+                  </Link>
+                )}
 
-                {/* Generative Art */}
-                <div className="relative rounded-2xl overflow-hidden bg-card border border-border">
-                  <div className="aspect-[4/3]">
-                    <img
-                      src="https://images.unsplash.com/photo-1549490349-8643362247b5?w=400&h=300&fit=crop"
-                      alt="Generative Art"
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4">
-                      <p className="text-white font-medium text-sm">Art Generator</p>
-                      <div className="flex gap-1.5 mt-1.5">
-                        <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">Midjourney</span>
-                        <span className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">Bolt</span>
+                {/* Stacked right column */}
+                <div className="flex flex-col gap-4">
+                  {/* Second Project */}
+                  {projects[1] && (
+                    <Link to={`/projects/${projects[1].id}`} className="relative rounded-2xl overflow-hidden bg-card border border-border group">
+                      <div className="aspect-[4/3]">
+                        {projects[1].images?.[0] ? (
+                          <img
+                            src={projects[1].images[0]}
+                            alt={projects[1].title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-accent/30 to-primary/30" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <p className="text-white font-medium text-sm">{projects[1].title}</p>
+                          {projects[1].tools && projects[1].tools.length > 0 && (
+                            <div className="flex gap-1.5 mt-1.5">
+                              {projects[1].tools.slice(0, 2).map((tool) => (
+                                <span key={tool.name} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool.name}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </Link>
+                  )}
+
+                  {/* Third Project */}
+                  {projects[2] && (
+                    <Link to={`/projects/${projects[2].id}`} className="relative rounded-2xl overflow-hidden bg-card border border-border group">
+                      <div className="aspect-[4/3]">
+                        {projects[2].images?.[0] ? (
+                          <img
+                            src={projects[2].images[0]}
+                            alt={projects[2].title}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/40" />
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                        <div className="absolute bottom-0 left-0 right-0 p-4">
+                          <p className="text-white font-medium text-sm">{projects[2].title}</p>
+                          {projects[2].tools && projects[2].tools.length > 0 && (
+                            <div className="flex gap-1.5 mt-1.5">
+                              {projects[2].tools.slice(0, 2).map((tool) => (
+                                <span key={tool.name} className="text-[9px] bg-white/20 px-1.5 py-0.5 rounded text-white/80">{tool.name}</span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
     </section>
   )

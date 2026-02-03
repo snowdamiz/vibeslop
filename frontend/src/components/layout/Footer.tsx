@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Github, Twitter, Send, Zap, CheckCircle2 } from 'lucide-react'
+import { Send, Zap, CheckCircle2 } from 'lucide-react'
 import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { Separator } from '@/components/ui/separator'
 import { Input } from '@/components/ui/input'
@@ -10,24 +10,15 @@ import { Badge } from '@/components/ui/badge'
 const footerLinks = {
   product: [
     { name: 'Home', href: '/', isInternal: true },
-    { name: 'AI Tools', href: '#' },
-    { name: 'Collections', href: '#' },
+    { name: 'Explore', href: '/explore', isInternal: true },
+    { name: 'Gigs', href: '/gigs', isInternal: true },
   ],
   resources: [
-    { name: 'Documentation', href: '#' },
-    { name: 'API', href: '#' },
-    { name: 'Blog', href: '#' },
-    { name: 'Changelog', href: '#' },
-  ],
-  company: [
-    { name: 'Careers', href: '#' },
-    { name: 'Contact', href: '#' },
-    { name: 'Press', href: '#' },
+    { name: 'Sign In', href: '/signin', isInternal: true },
   ],
   legal: [
-    { name: 'Privacy', href: '#' },
-    { name: 'Terms', href: '#' },
-    { name: 'Cookies', href: '#' },
+    { name: 'Privacy', href: '/privacy', isInternal: true },
+    { name: 'Terms', href: '/terms', isInternal: true },
   ],
 }
 
@@ -81,7 +72,7 @@ export function Footer() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 lg:gap-12">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand */}
           <div className="col-span-2 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4 w-fit">
@@ -93,20 +84,6 @@ export function Footer() {
             <p className="text-sm text-muted-foreground max-w-xs mb-4">
               The portfolio platform for AI-native builders. Show your work, share your process.
             </p>
-            <div className="flex gap-3">
-              <a
-                href="#"
-                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-              >
-                <Twitter className="w-4 h-4" />
-              </a>
-              <a
-                href="#"
-                className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-              >
-                <Github className="w-4 h-4" />
-              </a>
-            </div>
           </div>
 
           {/* Links */}
@@ -115,62 +92,28 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.product.map((link) => (
                 <li key={link.name}>
-                  {'isInternal' in link && link.isInternal ? (
-                    <Link
-                      to={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  ) : (
-                    <a
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.name}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="font-semibold text-sm mb-3">Resources</h3>
-            <ul className="space-y-2">
-              {footerLinks.resources.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
           </div>
 
           <div>
-            <h3 className="font-semibold text-sm mb-3">Company</h3>
+            <h3 className="font-semibold text-sm mb-3">Account</h3>
             <ul className="space-y-2">
-              {footerLinks.company.map((link) => (
+              {footerLinks.resources.map((link) => (
                 <li key={link.name}>
-                  {'isInternal' in link && link.isInternal ? (
-                    <Link
-                      to={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.name}
-                    </Link>
-                  ) : (
-                    <a
-                      href={link.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {link.name}
-                    </a>
-                  )}
+                  <Link
+                    to={link.href}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {link.name}
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -181,12 +124,12 @@ export function Footer() {
             <ul className="space-y-2">
               {footerLinks.legal.map((link) => (
                 <li key={link.name}>
-                  <a
-                    href={link.href}
+                  <Link
+                    to={link.href}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {link.name}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
