@@ -142,35 +142,44 @@ defmodule BackendWeb.AuthController do
   def update(conn, %{"user" => user_params}) do
     current_user = conn.assigns.current_user
 
-    case Accounts.update_user(current_user, user_params) do
-      {:ok, user} ->
-        conn
-        |> put_status(:ok)
-        |> json(%{
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          display_name: user.display_name,
-          bio: user.bio,
-          location: user.location,
-          website_url: user.website_url,
-          twitter_handle: user.twitter_handle,
-          github_username: user.github_username,
-          avatar_url: user.avatar_url,
-          banner_url: user.banner_url,
-          is_verified: user.is_verified,
-          is_admin: Accounts.is_admin?(user),
-          has_onboarded: user.has_onboarded
-        })
+    # Check avatar for NSFW content if being updated
+    case moderate_avatar(Map.get(user_params, "avatar_url")) do
+      :ok ->
+        case Accounts.update_user(current_user, user_params) do
+          {:ok, user} ->
+            conn
+            |> put_status(:ok)
+            |> json(%{
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              display_name: user.display_name,
+              bio: user.bio,
+              location: user.location,
+              website_url: user.website_url,
+              twitter_handle: user.twitter_handle,
+              github_username: user.github_username,
+              avatar_url: user.avatar_url,
+              banner_url: user.banner_url,
+              is_verified: user.is_verified,
+              is_admin: Accounts.is_admin?(user),
+              has_onboarded: user.has_onboarded
+            })
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+          {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{
+              error: "update_failed",
+              message: "Failed to update profile",
+              errors: format_changeset_errors(changeset)
+            })
+        end
+
+      {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{
-          error: "update_failed",
-          message: "Failed to update profile",
-          errors: format_changeset_errors(changeset)
-        })
+        |> json(%{error: "content_policy_violation", message: reason})
     end
   end
 
@@ -189,35 +198,44 @@ defmodule BackendWeb.AuthController do
   def onboard(conn, %{"user" => user_params}) do
     current_user = conn.assigns.current_user
 
-    case Accounts.complete_onboarding(current_user, user_params) do
-      {:ok, user} ->
-        conn
-        |> put_status(:ok)
-        |> json(%{
-          id: user.id,
-          email: user.email,
-          username: user.username,
-          display_name: user.display_name,
-          bio: user.bio,
-          location: user.location,
-          website_url: user.website_url,
-          twitter_handle: user.twitter_handle,
-          github_username: user.github_username,
-          avatar_url: user.avatar_url,
-          banner_url: user.banner_url,
-          is_verified: user.is_verified,
-          is_admin: Accounts.is_admin?(user),
-          has_onboarded: user.has_onboarded
-        })
+    # Check avatar for NSFW content if being set
+    case moderate_avatar(Map.get(user_params, "avatar_url")) do
+      :ok ->
+        case Accounts.complete_onboarding(current_user, user_params) do
+          {:ok, user} ->
+            conn
+            |> put_status(:ok)
+            |> json(%{
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              display_name: user.display_name,
+              bio: user.bio,
+              location: user.location,
+              website_url: user.website_url,
+              twitter_handle: user.twitter_handle,
+              github_username: user.github_username,
+              avatar_url: user.avatar_url,
+              banner_url: user.banner_url,
+              is_verified: user.is_verified,
+              is_admin: Accounts.is_admin?(user),
+              has_onboarded: user.has_onboarded
+            })
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+          {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{
+              error: "onboarding_failed",
+              message: "Failed to complete onboarding",
+              errors: format_changeset_errors(changeset)
+            })
+        end
+
+      {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> json(%{
-          error: "onboarding_failed",
-          message: "Failed to complete onboarding",
-          errors: format_changeset_errors(changeset)
-        })
+        |> json(%{error: "content_policy_violation", message: reason})
     end
   end
 
@@ -290,5 +308,23 @@ defmodule BackendWeb.AuthController do
         String.replace(acc, "%{#{key}}", to_string(value))
       end)
     end)
+  end
+
+  # Moderate avatar image for NSFW content
+  defp moderate_avatar(nil), do: :ok
+  defp moderate_avatar(""), do: :ok
+
+  defp moderate_avatar(avatar_url) when is_binary(avatar_url) do
+    # Only moderate base64 images (user uploads), not URLs (GitHub avatars)
+    if String.starts_with?(avatar_url, "data:") do
+      alias Backend.AI.ContentModeration
+
+      case ContentModeration.moderate_image(avatar_url) do
+        {:ok, :safe} -> :ok
+        {:error, :nsfw, reason} -> {:error, reason}
+      end
+    else
+      :ok
+    end
   end
 end

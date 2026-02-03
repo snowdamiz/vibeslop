@@ -19,7 +19,7 @@ defmodule BackendWeb.ReportController do
         reportable_type = String.capitalize(type)
 
         # Validate type
-        if reportable_type in ["Comment", "Post", "Project"] do
+        if reportable_type in ["Comment", "Post", "Project", "Gig"] do
           # Check if already reported
           if Social.has_reported?(current_user.id, reportable_type, id) do
             conn
@@ -41,7 +41,7 @@ defmodule BackendWeb.ReportController do
         else
           conn
           |> put_status(:bad_request)
-          |> json(%{error: "Invalid reportable type. Must be 'comment', 'post', or 'project'."})
+          |> json(%{error: "Invalid reportable type. Must be 'comment', 'post', 'project', or 'gig'."})
         end
 
       :error ->

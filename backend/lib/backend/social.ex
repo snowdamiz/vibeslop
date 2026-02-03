@@ -585,6 +585,84 @@ defmodule Backend.Social do
     Repo.one(query) > 0
   end
 
+  @doc """
+  Lists reports with pagination and optional filters.
+  Used by admin dashboard.
+  """
+  def list_reports(opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+    status = Keyword.get(opts, :status)
+    reportable_type = Keyword.get(opts, :type)
+
+    query =
+      from r in Report,
+        join: u in assoc(r, :user),
+        order_by: [desc: r.inserted_at],
+        limit: ^limit,
+        offset: ^offset,
+        preload: [:user]
+
+    query =
+      if status && status != "",
+        do: where(query, [r], r.status == ^status),
+        else: query
+
+    query =
+      if reportable_type && reportable_type != "",
+        do: where(query, [r], r.reportable_type == ^reportable_type),
+        else: query
+
+    Repo.all(query)
+  end
+
+  @doc """
+  Counts total reports with optional filters.
+  """
+  def count_reports(opts \\ []) do
+    status = Keyword.get(opts, :status)
+    reportable_type = Keyword.get(opts, :type)
+
+    query = from r in Report, select: count(r.id)
+
+    query =
+      if status && status != "",
+        do: where(query, [r], r.status == ^status),
+        else: query
+
+    query =
+      if reportable_type && reportable_type != "",
+        do: where(query, [r], r.reportable_type == ^reportable_type),
+        else: query
+
+    Repo.one(query)
+  end
+
+  @doc """
+  Gets a single report by ID with user preloaded.
+  """
+  def get_report(id) do
+    case Repo.get(Report, id) do
+      nil -> {:error, :not_found}
+      report -> {:ok, Repo.preload(report, [:user])}
+    end
+  end
+
+  @doc """
+  Updates a report's status.
+  """
+  def update_report_status(report_id, status) do
+    case Repo.get(Report, report_id) do
+      nil ->
+        {:error, :not_found}
+
+      report ->
+        report
+        |> Report.changeset(%{status: status})
+        |> Repo.update()
+    end
+  end
+
   ## Impressions
 
   @doc """

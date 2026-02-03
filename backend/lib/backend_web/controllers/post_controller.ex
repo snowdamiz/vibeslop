@@ -57,11 +57,15 @@ defmodule BackendWeb.PostController do
               end
 
             _ ->
-              # "for-you" algorithmic feed
+              # "for-you" algorithmic feed with personalization
+              {ai_tool_ids, tech_stack_ids} = get_user_preferences(current_user_id)
+
               Feed.for_you_feed(
                 limit: limit,
                 cursor: cursor,
-                current_user_id: current_user_id
+                current_user_id: current_user_id,
+                ai_tool_ids: ai_tool_ids,
+                tech_stack_ids: tech_stack_ids
               )
           end
 
@@ -79,7 +83,24 @@ defmodule BackendWeb.PostController do
   defp parse_int(value, _default) when is_integer(value), do: value
   defp parse_int(_, default), do: default
 
+  # Fetches user's preferred AI tools and tech stacks for feed personalization
+  defp get_user_preferences(nil), do: {[], []}
+
+  defp get_user_preferences(user_id) do
+    case Backend.Accounts.get_user(user_id) do
+      nil ->
+        {[], []}
+
+      user ->
+        user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+        ai_ids = Enum.map(user.favorite_ai_tools || [], & &1.id)
+        stack_ids = Enum.map(user.preferred_tech_stacks || [], & &1.id)
+        {ai_ids, stack_ids}
+    end
+  end
+
   def show(conn, %{"id" => id}) do
+
     # Validate UUID format before querying
     case Ecto.UUID.cast(id) do
       {:ok, _uuid} ->
@@ -106,15 +127,42 @@ defmodule BackendWeb.PostController do
   def create(conn, %{"post" => post_params}) do
     current_user = conn.assigns[:current_user]
 
-    with {:ok, %Post{} = post} <- Content.create_post(current_user.id, post_params) do
-      # Fetch the post with associations for proper response
-      {:ok, post_data} = Content.get_post!(post.id)
+    # Check media images for NSFW content before creating post
+    media = Map.get(post_params, "media", []) || []
 
-      conn
-      |> put_status(:created)
-      |> render(:show, post: post_data)
+    case moderate_images(media) do
+      :ok ->
+        with {:ok, %Post{} = post} <- Content.create_post(current_user.id, post_params) do
+          # Fetch the post with associations for proper response
+          {:ok, post_data} = Content.get_post!(post.id)
+
+          conn
+          |> put_status(:created)
+          |> render(:show, post: post_data)
+        end
+
+      {:error, reason} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "content_policy_violation", message: reason})
     end
   end
+
+  # Moderate images for NSFW content
+  defp moderate_images([]), do: :ok
+
+  defp moderate_images(images) when is_list(images) do
+    alias Backend.AI.ContentModeration
+
+    Enum.reduce_while(images, :ok, fn image, _acc ->
+      case ContentModeration.moderate_image(image) do
+        {:ok, :safe} -> {:cont, :ok}
+        {:error, :nsfw, reason} -> {:halt, {:error, reason}}
+      end
+    end)
+  end
+
+  defp moderate_images(_), do: :ok
 
   def delete(conn, %{"id" => id}) do
     current_user = conn.assigns[:current_user]

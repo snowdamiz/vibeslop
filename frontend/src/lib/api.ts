@@ -19,6 +19,7 @@ export interface User {
   is_verified: boolean
   is_admin: boolean
   has_onboarded: boolean
+  message_privacy?: 'everyone' | 'followers' | 'following'
 }
 
 export interface SuggestedUser {
@@ -186,6 +187,29 @@ export interface CreateReviewData {
   content?: string
 }
 
+export interface AdminReport {
+  id: string
+  reportable_type: 'Post' | 'Project' | 'Comment' | 'Gig'
+  reportable_id: string
+  status: 'pending' | 'reviewed' | 'resolved' | 'dismissed'
+  inserted_at: string
+  reporter: {
+    id: string
+    username: string
+    display_name: string
+    avatar_url?: string
+  }
+}
+
+export interface AdminReportsResponse {
+  data: AdminReport[]
+  meta: {
+    total: number
+    limit: number
+    offset: number
+  }
+}
+
 interface ApiError {
   error: string
   message: string
@@ -329,6 +353,7 @@ class ApiClient {
     location?: string
     website_url?: string
     twitter_handle?: string
+    message_privacy?: 'everyone' | 'followers' | 'following'
   }): Promise<User> {
     return this.put<User>('/me', { user: data })
   }
@@ -712,6 +737,42 @@ class ApiClient {
 
   async deleteTechStack(id: string): Promise<void> {
     return this.delete(`/admin/tech-stacks/${id}`)
+  }
+
+  // Admin Reports
+  async getAdminReports(params?: {
+    limit?: number
+    offset?: number
+    status?: string
+    type?: string
+  }): Promise<AdminReportsResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.type) queryParams.append('type', params.type)
+    return this.get(`/admin/reports?${queryParams}`)
+  }
+
+  async updateReportStatus(reportId: string, status: string): Promise<{ data: AdminReport }> {
+    return this.put(`/admin/reports/${reportId}`, { status })
+  }
+
+  async deleteReportedContent(reportId: string): Promise<{ success: boolean }> {
+    return this.delete(`/admin/reports/${reportId}/content`)
+  }
+
+  // Reports (user-submitted)
+  async reportPost(id: string): Promise<{ success: boolean }> {
+    return this.post('/reports', { type: 'post', id })
+  }
+
+  async reportGig(id: string): Promise<{ success: boolean }> {
+    return this.post('/reports', { type: 'gig', id })
+  }
+
+  async reportProject(id: string): Promise<{ success: boolean }> {
+    return this.post('/reports', { type: 'project', id })
   }
 
   /**

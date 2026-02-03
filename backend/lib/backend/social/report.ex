@@ -20,7 +20,7 @@ defmodule Backend.Social.Report do
     report
     |> cast(attrs, [:reportable_type, :reportable_id, :status, :user_id])
     |> validate_required([:reportable_type, :reportable_id, :user_id])
-    |> validate_inclusion(:reportable_type, ["Comment", "Post", "Project"])
+    |> validate_inclusion(:reportable_type, ["Comment", "Post", "Project", "Gig"])
     |> validate_inclusion(:status, ["pending", "reviewed", "resolved", "dismissed"])
     |> unique_constraint([:user_id, :reportable_type, :reportable_id])
     |> foreign_key_constraint(:user_id)

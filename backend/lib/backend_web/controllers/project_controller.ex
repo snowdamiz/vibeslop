@@ -94,26 +94,58 @@ defmodule BackendWeb.ProjectController do
   def create(conn, %{"project" => project_params}) do
     user = conn.assigns.current_user
 
-    case Content.create_project(user.id, project_params) do
-      {:ok, project} ->
-        # Get project with stats for feed rendering
-        project_data = %{
-          project: project,
-          likes_count: 0,
-          comments_count: 0
-        }
+    # Check images for NSFW content before creating project
+    images = Map.get(project_params, "images", []) || []
 
-        conn
-        |> put_status(:created)
-        |> render(:show_feed, project: project_data)
+    case moderate_images(images) do
+      :ok ->
+        case Content.create_project(user.id, project_params) do
+          {:ok, project} ->
+            # Get project with stats for feed rendering
+            project_data = %{
+              project: project,
+              likes_count: 0,
+              comments_count: 0
+            }
 
-      {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> put_status(:created)
+            |> render(:show_feed, project: project_data)
+
+          {:error, %Ecto.Changeset{} = changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> put_view(json: BackendWeb.ChangesetJSON)
+            |> render(:error, changeset: changeset)
+        end
+
+      {:error, reason} ->
         conn
         |> put_status(:unprocessable_entity)
-        |> put_view(json: BackendWeb.ChangesetJSON)
-        |> render(:error, changeset: changeset)
+        |> json(%{error: "content_policy_violation", message: reason})
     end
   end
+
+  # Moderate images for NSFW content
+  defp moderate_images([]), do: :ok
+
+  defp moderate_images(images) when is_list(images) do
+    alias Backend.AI.ContentModeration
+
+    Enum.reduce_while(images, :ok, fn image, _acc ->
+      # Only moderate base64 images, not URLs
+      if is_binary(image) and String.starts_with?(image, "data:") do
+        case ContentModeration.moderate_image(image) do
+          {:ok, :safe} -> {:cont, :ok}
+          {:error, :nsfw, reason} -> {:halt, {:error, reason}}
+        end
+      else
+        {:cont, :ok}
+      end
+    end)
+  end
+
+  defp moderate_images(_), do: :ok
 
   def delete(conn, %{"id" => id}) do
     current_user = conn.assigns[:current_user]

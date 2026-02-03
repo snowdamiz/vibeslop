@@ -975,6 +975,36 @@ defmodule Backend.Content do
     end
   end
 
+  @doc """
+  Deletes a post (admin only - bypasses ownership check).
+  """
+  def admin_delete_post(post_id) do
+    case Repo.get(Post, post_id) do
+      nil -> {:error, :not_found}
+      post -> Repo.delete(post)
+    end
+  end
+
+  @doc """
+  Deletes a project (admin only - bypasses ownership check).
+  """
+  def admin_delete_project(project_id) do
+    case Repo.get(Project, project_id) do
+      nil -> {:error, :not_found}
+      project -> Repo.delete(project)
+    end
+  end
+
+  @doc """
+  Deletes a comment (admin only - bypasses ownership check).
+  """
+  def admin_delete_comment(comment_id) do
+    case Repo.get(Comment, comment_id) do
+      nil -> {:error, :not_found}
+      comment -> Repo.delete(comment)
+    end
+  end
+
   ## Comments
 
   @doc """

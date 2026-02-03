@@ -1,6 +1,6 @@
 import { useAuth } from '@/context/AuthContext'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Users, ChevronRight, Sparkles, Layers } from 'lucide-react'
+import { Users, ChevronRight, Sparkles, Layers, Flag } from 'lucide-react'
 
 export function Admin() {
     const { user, isAuthenticated, isLoading } = useAuth()
@@ -26,6 +26,12 @@ export function Admin() {
             title: 'Users',
             description: 'Manage accounts',
             onClick: () => navigate('/admin/users'),
+        },
+        {
+            icon: Flag,
+            title: 'Reports',
+            description: 'Review user reports',
+            onClick: () => navigate('/admin/reports'),
         },
         {
             icon: Sparkles,
@@ -65,7 +71,7 @@ export function Admin() {
                         <button
                             key={tool.title}
                             onClick={tool.onClick}
-                            className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-accent/50 transition-colors"
+                            className="group flex items-center gap-4 p-4 rounded-xl border border-border bg-card hover:bg-border/50 transition-colors"
                         >
                             {/* Icon Container */}
                             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10">

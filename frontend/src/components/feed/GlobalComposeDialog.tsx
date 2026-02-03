@@ -70,6 +70,8 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const [isImproving, setIsImproving] = useState(false)
+    const [isPosting, setIsPosting] = useState(false)
+    const [postError, setPostError] = useState<string | null>(null)
     const [ghostWords, setGhostWords] = useState<string[]>([])
     const [improvedText, setImprovedText] = useState('')
 
@@ -288,6 +290,7 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
         setAttachedImage(null)
         setIsDragging(false)
         setQuotedItem(null)
+        setPostError(null)
     }, [editor, setQuotedItem])
 
     const handleOpenChange = (open: boolean) => {
@@ -301,76 +304,79 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
         const content = getMarkdownContent()
         if (!content.trim() && !attachedImage) return
 
-        if (mode === 'project') {
-            if (!projectTitle.trim()) return
+        setIsPosting(true)
+        setPostError(null)
 
-            const projectPost: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> = {
-                type: 'project',
-                title: projectTitle.trim(),
-                content: content.trim(),
-                tools: selectedTools.length > 0 ? selectedTools : undefined,
-                image: attachedImage || undefined,
-                impressions: 0,
-            }
+        try {
+            if (mode === 'project') {
+                if (!projectTitle.trim()) {
+                    setIsPosting(false)
+                    return
+                }
 
-            if (onPost) {
-                onPost(projectPost)
-            } else {
-                // Call API directly if no onPost handler provided
-                try {
+                const projectPost: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> = {
+                    type: 'project',
+                    title: projectTitle.trim(),
+                    content: content.trim(),
+                    tools: selectedTools.length > 0 ? selectedTools : undefined,
+                    image: attachedImage || undefined,
+                    impressions: 0,
+                }
+
+                if (onPost) {
+                    onPost(projectPost)
+                } else {
                     await api.createProject({
                         title: projectPost.title,
                         description: projectPost.content,
                         tools: projectPost.tools,
                     })
-                } catch (err) {
-                    console.error('Failed to create project:', err)
                 }
-            }
-        } else {
-            const statusUpdate: Omit<StatusUpdate, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> & {
-                quoted_post_id?: string
-                quoted_project_id?: string
-            } = {
-                type: 'update',
-                content: content.trim(),
-                media: attachedImage ? [attachedImage] : undefined,
-                impressions: 0,
-            }
-
-            if (quotedItem) {
-                if (quotedItem.type === 'update') {
-                    statusUpdate.quoted_post_id = quotedItem.id
-                } else if (quotedItem.type === 'project') {
-                    statusUpdate.quoted_project_id = quotedItem.id
-                }
-            }
-
-            if (onPost) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onPost(statusUpdate as any)
             } else {
-                // Call API directly if no onPost handler provided
-                try {
+                const statusUpdate: Omit<StatusUpdate, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'> & {
+                    quoted_post_id?: string
+                    quoted_project_id?: string
+                } = {
+                    type: 'update',
+                    content: content.trim(),
+                    media: attachedImage ? [attachedImage] : undefined,
+                    impressions: 0,
+                }
+
+                if (quotedItem) {
+                    if (quotedItem.type === 'update') {
+                        statusUpdate.quoted_post_id = quotedItem.id
+                    } else if (quotedItem.type === 'project') {
+                        statusUpdate.quoted_project_id = quotedItem.id
+                    }
+                }
+
+                if (onPost) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    onPost(statusUpdate as any)
+                } else {
                     const response = await api.createPost({
                         content: statusUpdate.content,
                         media: statusUpdate.media,
                         quoted_post_id: statusUpdate.quoted_post_id,
                         quoted_project_id: statusUpdate.quoted_project_id,
                     })
-                    // Notify subscribers about the new post
                     if (response?.data) {
                         onNewPostCreated(response.data as FeedItem)
                     }
-                } catch (err) {
-                    console.error('Failed to create post:', err)
-                    return // Don't close on error
                 }
             }
-        }
 
-        resetForm()
-        setIsOpen(false)
+            resetForm()
+            setIsOpen(false)
+        } catch (err) {
+            console.error('Failed to create content:', err)
+            // Extract error message from API response
+            const errorMessage = err instanceof Error ? err.message : 'Failed to post. Please try again.'
+            setPostError(errorMessage)
+        } finally {
+            setIsPosting(false)
+        }
     }
 
     const handleAIImprove = useCallback(async () => {
@@ -510,8 +516,12 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
                             onPost={async (projectPost) => {
                                 if (onPost) {
                                     onPost(projectPost)
+                                    resetForm()
+                                    setIsOpen(false)
                                 } else {
                                     // Call API directly if no onPost handler provided
+                                    setIsPosting(true)
+                                    setPostError(null)
                                     try {
                                         const response = await api.createProject({
                                             title: projectPost.title,
@@ -527,15 +537,20 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
                                         if (response?.data) {
                                             onNewPostCreated(response.data as FeedItem)
                                         }
+                                        resetForm()
+                                        setIsOpen(false)
                                     } catch (err) {
                                         console.error('Failed to create project:', err)
-                                        return // Don't close dialog on error
+                                        const errorMessage = err instanceof Error ? err.message : 'Failed to create project. Please try again.'
+                                        setPostError(errorMessage)
+                                    } finally {
+                                        setIsPosting(false)
                                     }
                                 }
-                                resetForm()
-                                setIsOpen(false)
                             }}
                             onCancel={() => setIsOpen(false)}
+                            isPosting={isPosting}
+                            postError={postError}
                         />
                     ) : (
                         <>
@@ -734,6 +749,11 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
                                 </div>
 
                                 <div className="flex items-center gap-3">
+                                    {postError && (
+                                        <span className="text-xs text-destructive max-w-[200px] truncate" title={postError}>
+                                            {postError}
+                                        </span>
+                                    )}
                                     {charCount > 0 && (
                                         <span className={cn(
                                             "text-xs",
@@ -744,10 +764,17 @@ export function GlobalComposeDialog({ onPost }: GlobalComposeDialogProps) {
                                     )}
                                     <Button
                                         onClick={handlePost}
-                                        disabled={!canPost}
+                                        disabled={!canPost || isPosting}
                                         className="rounded-full px-5"
                                     >
-                                        Post
+                                        {isPosting ? (
+                                            <>
+                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                Posting...
+                                            </>
+                                        ) : (
+                                            'Post'
+                                        )}
                                     </Button>
                                 </div>
                             </div>

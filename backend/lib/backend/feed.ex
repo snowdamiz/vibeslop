@@ -50,6 +50,8 @@ defmodule Backend.Feed do
     limit = Keyword.get(opts, :limit, 20)
     cursor = Keyword.get(opts, :cursor)
     current_user_id = Keyword.get(opts, :current_user_id)
+    ai_tool_ids = Keyword.get(opts, :ai_tool_ids, [])
+    tech_stack_ids = Keyword.get(opts, :tech_stack_ids, [])
 
     # Fetch target: we want at least @minimum_feed_items total, but respect the limit for pagination
     fetch_target = max(@minimum_feed_items, limit + 1)
@@ -58,8 +60,11 @@ defmodule Backend.Feed do
     primary_cutoff = DateTime.add(DateTime.utc_now(), -@candidate_window_days, :day)
     {recent_posts, recent_projects} = fetch_scored_items(primary_cutoff, cursor, fetch_target)
 
+    # Apply preference boost to projects (posts don't have tech associations)
+    boosted_projects = apply_preference_boost(recent_projects, ai_tool_ids, tech_stack_ids)
+
     recent_items =
-      (recent_posts ++ recent_projects)
+      (recent_posts ++ boosted_projects)
       |> Enum.sort_by(& &1.score, :desc)
 
     # Get IDs of already fetched items to exclude from backfill
@@ -70,13 +75,18 @@ defmodule Backend.Feed do
       if length(recent_items) < @minimum_feed_items and cursor == nil do
         needed = @minimum_feed_items - length(recent_items)
         older_items = fetch_older_items_by_engagement(primary_cutoff, recent_ids, needed)
-        recent_items ++ older_items
+        # Also boost older projects
+        boosted_older = apply_preference_boost_to_mixed(older_items, ai_tool_ids, tech_stack_ids)
+        recent_items ++ boosted_older
       else
         recent_items
       end
 
+    # Re-sort after backfill to ensure boosted items float up
+    sorted_items = Enum.sort_by(all_items, & &1.score, :desc)
+
     # Take what we need for this page
-    items_for_page = Enum.take(all_items, limit + 1)
+    items_for_page = Enum.take(sorted_items, limit + 1)
 
     # Apply diversification to avoid too many posts from same user
     diversified_items = diversify_feed(items_for_page, limit)
@@ -84,6 +94,71 @@ defmodule Backend.Feed do
     # Paginate
     paginate_results(diversified_items, limit, current_user_id)
   end
+
+  # Preference boost multiplier for matching projects
+  @preference_boost 1.5
+
+  # Convert Decimal or other numeric types to float
+  defp to_float(%Decimal{} = d), do: Decimal.to_float(d)
+  defp to_float(nil), do: 0.0
+  defp to_float(n) when is_float(n), do: n
+  defp to_float(n) when is_integer(n), do: n * 1.0
+
+  # Applies preference boost to a list of project items
+  # Projects matching user's AI tools or tech stacks get a score multiplier
+  defp apply_preference_boost(projects, [], []), do: projects
+
+  defp apply_preference_boost(projects, ai_tool_ids, tech_stack_ids) do
+    ai_tool_set = MapSet.new(ai_tool_ids)
+    tech_stack_set = MapSet.new(tech_stack_ids)
+
+    Enum.map(projects, fn item ->
+      project = item.project
+      project_ai_ids = Enum.map(project.ai_tools || [], & &1.id) |> MapSet.new()
+      project_stack_ids = Enum.map(project.tech_stacks || [], & &1.id) |> MapSet.new()
+
+      has_matching_tool = not MapSet.disjoint?(ai_tool_set, project_ai_ids)
+      has_matching_stack = not MapSet.disjoint?(tech_stack_set, project_stack_ids)
+
+      if has_matching_tool or has_matching_stack do
+        %{item | score: to_float(item.score) * @preference_boost}
+      else
+        item
+      end
+    end)
+  end
+
+  # Applies preference boost to a mixed list of posts and projects
+  # Only projects are boosted; posts are left unchanged
+  defp apply_preference_boost_to_mixed(items, [], []), do: items
+
+  defp apply_preference_boost_to_mixed(items, ai_tool_ids, tech_stack_ids) do
+    ai_tool_set = MapSet.new(ai_tool_ids)
+    tech_stack_set = MapSet.new(tech_stack_ids)
+
+    Enum.map(items, fn item ->
+      case item.type do
+        "project" ->
+          project = item.project
+          project_ai_ids = Enum.map(project.ai_tools || [], & &1.id) |> MapSet.new()
+          project_stack_ids = Enum.map(project.tech_stacks || [], & &1.id) |> MapSet.new()
+
+          has_matching_tool = not MapSet.disjoint?(ai_tool_set, project_ai_ids)
+          has_matching_stack = not MapSet.disjoint?(tech_stack_set, project_stack_ids)
+
+          if has_matching_tool or has_matching_stack do
+            %{item | score: to_float(item.score) * @preference_boost}
+          else
+            item
+          end
+
+        _ ->
+          # Posts don't have tech associations, leave unchanged
+          item
+      end
+    end)
+  end
+
 
   # Fetches older items (before cutoff) ranked by pure engagement score (no time decay)
   defp fetch_older_items_by_engagement(cutoff, exclude_ids, needed) do

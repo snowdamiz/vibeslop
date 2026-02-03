@@ -254,6 +254,19 @@ defmodule Backend.Gigs do
   end
 
   @doc """
+  Deletes a gig (admin only - bypasses ownership check).
+  """
+  def admin_delete_gig(gig_id) do
+    case Repo.get(Gig, gig_id) do
+      nil ->
+        {:error, :not_found}
+
+      gig ->
+        Repo.delete(gig)
+    end
+  end
+
+  @doc """
   Lists gigs posted by a user.
   """
   def list_user_gigs(user_id, opts \\ []) do

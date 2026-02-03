@@ -143,6 +143,93 @@ defmodule BackendWeb.AdminController do
     end
   end
 
+  # Report Management
+  def list_reports(conn, params) do
+    limit = Map.get(params, "limit", "20") |> String.to_integer()
+    offset = Map.get(params, "offset", "0") |> String.to_integer()
+    status = Map.get(params, "status")
+    type = Map.get(params, "type")
+
+    reports = Backend.Social.list_reports(limit: limit, offset: offset, status: status, type: type)
+    total = Backend.Social.count_reports(status: status, type: type)
+
+    json(conn, %{
+      data: Enum.map(reports, &report_to_json/1),
+      meta: %{total: total, limit: limit, offset: offset}
+    })
+  end
+
+  def update_report(conn, %{"id" => id, "status" => status}) do
+    case Backend.Social.update_report_status(id, status) do
+      {:ok, report} ->
+        report = Backend.Repo.preload(report, [:user])
+        json(conn, %{data: report_to_json(report)})
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Report not found"})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def delete_content(conn, %{"id" => id}) do
+    case Backend.Social.get_report(id) do
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Report not found"})
+
+      {:ok, report} ->
+        # Delete the reported content based on type
+        delete_result =
+          case report.reportable_type do
+            "Post" -> Backend.Content.admin_delete_post(report.reportable_id)
+            "Project" -> Backend.Content.admin_delete_project(report.reportable_id)
+            "Comment" -> Backend.Content.admin_delete_comment(report.reportable_id)
+            "Gig" -> Backend.Gigs.admin_delete_gig(report.reportable_id)
+            _ -> {:error, :unknown_type}
+          end
+
+        case delete_result do
+          {:ok, _} ->
+            # Mark report as resolved
+            Backend.Social.update_report_status(id, "resolved")
+            json(conn, %{success: true})
+
+          {:error, :not_found} ->
+            # Content already deleted, still mark as resolved
+            Backend.Social.update_report_status(id, "resolved")
+            json(conn, %{success: true, message: "Content already deleted"})
+
+          {:error, _reason} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: "delete_failed", message: "Failed to delete content"})
+        end
+    end
+  end
+
+  defp report_to_json(report) do
+    %{
+      id: report.id,
+      reportable_type: report.reportable_type,
+      reportable_id: report.reportable_id,
+      status: report.status,
+      inserted_at: report.inserted_at,
+      reporter: %{
+        id: report.user.id,
+        username: report.user.username,
+        display_name: report.user.display_name,
+        avatar_url: report.user.avatar_url
+      }
+    }
+  end
+
   defp format_errors(changeset) do
     Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
       Enum.reduce(opts, msg, fn {key, value}, acc ->

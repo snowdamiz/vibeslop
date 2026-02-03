@@ -22,6 +22,7 @@ defmodule Backend.Accounts.User do
     field :developer_score, :integer, default: 0
     field :developer_score_updated_at, :utc_datetime
     field :github_stats, :map
+    field :message_privacy, :string, default: "everyone"
 
     has_many :oauth_accounts, Backend.Accounts.OAuthAccount
     has_many :posts, Backend.Content.Post
@@ -58,7 +59,8 @@ defmodule Backend.Accounts.User do
       :banner_url,
       :is_verified,
       :has_onboarded,
-      :github_access_token
+      :github_access_token,
+      :message_privacy
     ])
     |> validate_required([:email, :username, :display_name])
     |> validate_format(:email, ~r/^[^\s]+@[^\s]+$/, message: "must be a valid email")

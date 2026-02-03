@@ -15,6 +15,7 @@ import {
   Star,
   Calendar,
   ExternalLink,
+  Flag,
 } from 'lucide-react'
 import { GigStatusBadge, BidForm, BidCard, ReviewForm, ReviewCard } from '@/components/gigs'
 import { MarkdownContent } from '@/components/ui/markdown-content'
@@ -37,6 +38,7 @@ export function GigDetail() {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<GigTab>('details')
+  const [isReporting, setIsReporting] = useState(false)
 
   const isOwner = user && gig && user.id === gig.user.id
   const isHiredFreelancer = user && gig?.hired_bid && user.id === gig.hired_bid.user.id
@@ -177,6 +179,20 @@ export function GigDetail() {
     })
   }
 
+  const handleReport = async () => {
+    if (!id || isReporting) return
+
+    setIsReporting(true)
+    try {
+      await api.reportGig(id)
+      // Could add a toast here
+    } catch (error) {
+      console.error('Failed to report gig:', error)
+    } finally {
+      setIsReporting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -307,7 +323,18 @@ export function GigDetail() {
               Place a Bid
             </Button>
           )}
-          {!canBid && !canComplete && (
+          {!canBid && !canComplete && !isOwner && (
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={handleReport}
+              disabled={isReporting}
+            >
+              <Flag className="w-4 h-4 mr-1" />
+              {isReporting ? 'Reporting...' : 'Report'}
+            </Button>
+          )}
+          {!canBid && !canComplete && isOwner && (
             <Link to={`/user/${gig.user.username}`} className="flex-1">
               <Button variant="outline" className="w-full rounded-full">
                 <ExternalLink className="w-4 h-4 mr-1" />

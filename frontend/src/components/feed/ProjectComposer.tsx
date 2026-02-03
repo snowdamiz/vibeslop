@@ -49,6 +49,8 @@ import { useCompose } from '@/context/ComposeContext'
 interface ProjectComposerProps {
   onPost: (project: Omit<ProjectPost, 'id' | 'likes' | 'comments' | 'reposts' | 'created_at' | 'author'>) => void
   onCancel: () => void
+  isPosting?: boolean
+  postError?: string | null
 }
 
 // Common AI tools and tech stacks for suggestions
@@ -66,7 +68,7 @@ const MANUAL_STEPS = [
 
 type FlowPath = 'selection' | 'ai' | 'manual'
 
-export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
+export function ProjectComposer({ onPost, onCancel, isPosting = false, postError = null }: ProjectComposerProps) {
   const { user } = useAuth()
   const { setIsAIGeneratorOpen } = useCompose()
   const [flowPath, setFlowPath] = useState<FlowPath>('selection')
@@ -1257,13 +1259,25 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
               >
                 Edit Manually
               </Button>
+              {postError && (
+                <span className="text-xs text-destructive max-w-[200px] truncate" title={postError}>
+                  {postError}
+                </span>
+              )}
               <Button
                 size="sm"
                 onClick={handlePost}
-                disabled={!canPost}
+                disabled={!canPost || isPosting}
                 className="h-9 px-5 bg-primary hover:bg-primary/90"
               >
-                Publish
+                {isPosting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Publishing...
+                  </>
+                ) : (
+                  'Publish'
+                )}
               </Button>
             </div>
           </>
@@ -1290,13 +1304,30 @@ export function ProjectComposer({ onPost, onCancel }: ProjectComposerProps) {
                 </button>
               )}
 
+              {postError && currentStep === MANUAL_STEPS.length - 1 && (
+                <span className="text-xs text-destructive max-w-[200px] truncate" title={postError}>
+                  {postError}
+                </span>
+              )}
+
               <Button
                 size="sm"
                 onClick={currentStep === MANUAL_STEPS.length - 1 ? handlePost : handleNext}
-                disabled={!canProceed()}
+                disabled={!canProceed() || (currentStep === MANUAL_STEPS.length - 1 && isPosting)}
                 className="h-9 px-5"
               >
-                {currentStep === MANUAL_STEPS.length - 1 ? 'Publish' : 'Continue'}
+                {currentStep === MANUAL_STEPS.length - 1 ? (
+                  isPosting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    'Publish'
+                  )
+                ) : (
+                  'Continue'
+                )}
               </Button>
             </div>
           </>

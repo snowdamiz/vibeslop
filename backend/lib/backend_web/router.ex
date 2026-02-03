@@ -135,6 +135,11 @@ defmodule BackendWeb.Router do
     delete "/ai-tools/:id", AdminController, :delete_ai_tool
     post "/tech-stacks", AdminController, :create_tech_stack
     delete "/tech-stacks/:id", AdminController, :delete_tech_stack
+
+    # Report management
+    get "/reports", AdminController, :list_reports
+    put "/reports/:id", AdminController, :update_report
+    delete "/reports/:id/content", AdminController, :delete_content
   end
 
   # Public API routes with optional auth

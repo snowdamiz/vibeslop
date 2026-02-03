@@ -129,6 +129,77 @@ defmodule Backend.AI.OpenRouter do
   end
 
   @doc """
+  Sends a vision analysis request (image + text prompt) to OpenRouter.
+  Used for content moderation, image understanding, and analysis.
+
+  The image can be provided as:
+    - A data URI string (e.g., "data:image/png;base64,...")
+    - A raw base64 string (will be wrapped with image/png mime type)
+
+  Options:
+    - `:model` - Model to use (default: "bytedance-seed/seed-1.6-flash")
+    - `:temperature` - Sampling temperature (default: 0.3 for more consistent results)
+    - `:max_tokens` - Maximum tokens to generate (default: 256)
+  """
+  def vision_analysis(image_data, prompt, opts \\ []) do
+    model = Keyword.get(opts, :model, "bytedance-seed/seed-1.6-flash")
+    temperature = Keyword.get(opts, :temperature, 0.3)
+    max_tokens = Keyword.get(opts, :max_tokens, 256)
+
+    # Normalize image data to data URI format
+    image_url =
+      if String.starts_with?(image_data, "data:") do
+        image_data
+      else
+        "data:image/png;base64,#{image_data}"
+      end
+
+    # Build content array with image and text prompt
+    content = [
+      %{
+        type: "image_url",
+        image_url: %{url: image_url}
+      },
+      %{
+        type: "text",
+        text: prompt
+      }
+    ]
+
+    messages = [
+      %{
+        role: "user",
+        content: content
+      }
+    ]
+
+    body = %{
+      model: model,
+      messages: messages,
+      temperature: temperature,
+      max_tokens: max_tokens
+    }
+
+    case Req.post("#{@base_url}/chat/completions",
+           json: body,
+           headers: headers(),
+           receive_timeout: 30_000
+         ) do
+      {:ok, %{status: 200, body: response}} ->
+        {:ok, response}
+
+      {:ok, %{status: 429, body: body}} ->
+        {:error, "Rate limited by OpenRouter: #{inspect(body)}"}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, "OpenRouter API returned status #{status}: #{inspect(body)}"}
+
+      {:error, error} ->
+        {:error, "Failed to analyze image: #{inspect(error)}"}
+    end
+  end
+
+  @doc """
   Streams a chat completion request from OpenRouter.
   Accepts a callback function that will be called for each chunk.
 

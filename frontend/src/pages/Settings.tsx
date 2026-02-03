@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,12 +16,307 @@ import {
   Camera,
   Save,
   Sparkles,
-  X,
+  Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SearchableTagSelector } from '@/components/ui/SearchableTagSelector'
 
+// Settings tab configuration for extensibility
+const SETTINGS_TABS = [
+  { id: 'profile', label: 'Profile' },
+  { id: 'preferences', label: 'Preferences' },
+  { id: 'messages', label: 'Messages' },
+] as const
+
+type SettingsTab = typeof SETTINGS_TABS[number]['id']
+type MessagePrivacy = 'everyone' | 'followers' | 'following'
+
+// ============================================================================
+// PROFILE SETTINGS SECTION
+// ============================================================================
+interface ProfileSettingsProps {
+  displayName: string
+  setDisplayName: (value: string) => void
+  username: string
+  handleUsernameChange: (value: string) => void
+  usernameError: string
+  isCheckingUsername: boolean
+  bio: string
+  setBio: (value: string) => void
+  setSuccessMessage: (value: string) => void
+  onOpenAvatarDialog: () => void
+  user: NonNullable<ReturnType<typeof useAuth>['user']>
+}
+
+function ProfileSettings({
+  displayName,
+  setDisplayName,
+  username,
+  handleUsernameChange,
+  usernameError,
+  isCheckingUsername,
+  bio,
+  setBio,
+  setSuccessMessage,
+  onOpenAvatarDialog,
+  user,
+}: ProfileSettingsProps) {
+  return (
+    <div className="space-y-8">
+      {/* Avatar Section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold">Profile Picture</h2>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={onOpenAvatarDialog}
+            className="relative group cursor-pointer flex-shrink-0"
+          >
+            <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
+              <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
+              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl sm:text-2xl font-semibold">
+                {user.initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+              <Camera className="w-6 h-6 text-white" />
+            </div>
+          </button>
+          <div className="flex-1">
+            <p className="text-sm text-muted-foreground">
+              Click on your avatar to upload a new profile picture
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Profile Details */}
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold">Profile Details</h2>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+              <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+            </div>
+            Display Name <span className="text-destructive ml-0.5">*</span>
+          </label>
+          <Input
+            placeholder="Your full name"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value)
+              setSuccessMessage('')
+            }}
+            className="h-11 bg-muted/50 border-border/50 focus-visible:bg-background"
+          />
+          <p className="text-xs text-muted-foreground pl-1">This is how your name will appear across the platform</p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+              <AtSign className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+            </div>
+            Username <span className="text-destructive ml-0.5">*</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">@</span>
+            <Input
+              placeholder="your_username"
+              value={username}
+              onChange={(e) => handleUsernameChange(e.target.value)}
+              className={cn(
+                "h-11 pl-7 bg-muted/50 border-border/50 focus-visible:bg-background",
+                usernameError && "border-destructive focus-visible:ring-destructive"
+              )}
+            />
+            {isCheckingUsername && (
+              <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
+            )}
+          </div>
+          {usernameError ? (
+            <p className="text-xs text-destructive pl-1 flex items-center gap-1.5">
+              <span className="w-1 h-1 rounded-full bg-destructive"></span>
+              {usernameError}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground pl-1">
+              Lowercase letters, numbers, and underscores only. This is your unique identifier.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
+              <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
+            </div>
+            Bio
+          </label>
+          <Textarea
+            placeholder="Tell us about yourself..."
+            value={bio}
+            onChange={(e) => {
+              setBio(e.target.value)
+              setSuccessMessage('')
+            }}
+            className="min-h-[100px] resize-none bg-muted/50 border-border/50 focus-visible:bg-background"
+            maxLength={160}
+          />
+          <p className="text-xs text-muted-foreground pl-1">
+            {bio.length}/160 characters
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// PREFERENCES SETTINGS SECTION
+// ============================================================================
+interface PreferencesSettingsProps {
+  aiTools: Array<{ id: string; name: string; slug: string }>
+  techStacks: Array<{ id: string; name: string; slug: string; category?: string }>
+  selectedTools: string[]
+  selectedStacks: string[]
+  toggleTool: (id: string) => void
+  toggleStack: (id: string) => void
+}
+
+function PreferencesSettings({
+  aiTools,
+  techStacks,
+  selectedTools,
+  selectedStacks,
+  toggleTool,
+  toggleStack,
+}: PreferencesSettingsProps) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold">Technology Preferences</h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Select your favorite AI tools and tech stacks to display on your profile
+        </p>
+      </div>
+
+      {/* AI Tools */}
+      <SearchableTagSelector
+        label="Favorite AI Tools"
+        icon={<Sparkles className="w-3 h-3 text-primary" />}
+        items={aiTools}
+        selectedIds={selectedTools}
+        onToggle={toggleTool}
+        placeholder="Search AI tools..."
+      />
+
+      {/* Tech Stacks */}
+      <SearchableTagSelector
+        label="Preferred Tech Stacks"
+        icon={<FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />}
+        items={techStacks}
+        selectedIds={selectedStacks}
+        onToggle={toggleStack}
+        placeholder="Search tech stacks..."
+        groupByCategory
+      />
+    </div>
+  )
+}
+
+// ============================================================================
+// MESSAGES SETTINGS SECTION
+// ============================================================================
+interface MessagesSettingsProps {
+  messagePrivacy: MessagePrivacy
+  setMessagePrivacy: (value: MessagePrivacy) => void
+}
+
+const MESSAGE_PRIVACY_OPTIONS: Array<{
+  value: MessagePrivacy
+  label: string
+  description: string
+}> = [
+    {
+      value: 'everyone',
+      label: 'Everyone',
+      description: 'Anyone can send you a message',
+    },
+    {
+      value: 'followers',
+      label: 'Followers only',
+      description: 'Only people who follow you can message you',
+    },
+    {
+      value: 'following',
+      label: 'People I follow',
+      description: 'Only people you follow can message you',
+    },
+  ]
+
+function MessagesSettings({
+  messagePrivacy,
+  setMessagePrivacy,
+}: MessagesSettingsProps) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold flex items-center gap-2">
+          <Mail className="w-5 h-5 text-primary" />
+          Message Privacy
+        </h2>
+        <p className="text-sm text-muted-foreground mt-1">
+          Control who can start a conversation with you
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {MESSAGE_PRIVACY_OPTIONS.map((option) => (
+          <label
+            key={option.value}
+            className={cn(
+              'flex items-start gap-3 p-4 rounded-lg border cursor-pointer transition-colors',
+              messagePrivacy === option.value
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:bg-muted/50'
+            )}
+          >
+            <input
+              type="radio"
+              name="messagePrivacy"
+              value={option.value}
+              checked={messagePrivacy === option.value}
+              onChange={(e) => setMessagePrivacy(e.target.value as MessagePrivacy)}
+              className="mt-1 accent-primary"
+            />
+            <div>
+              <div className="font-medium">{option.label}</div>
+              <div className="text-sm text-muted-foreground">
+                {option.description}
+              </div>
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ============================================================================
+// MAIN SETTINGS PAGE
+// ============================================================================
 export function Settings() {
   const { user, updateUser } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Get active tab from URL or default to 'profile'
+  const activeTab = (searchParams.get('tab') as SettingsTab) || 'profile'
+  const setActiveTab = (tab: SettingsTab) => {
+    setSearchParams({ tab })
+  }
+
+  // Profile state
   const [displayName, setDisplayName] = useState(user?.name || '')
   const [username, setUsername] = useState(user?.username || '')
   const [bio, setBio] = useState(user?.bio || '')
@@ -36,8 +331,10 @@ export function Settings() {
   const [techStacks, setTechStacks] = useState<Array<{ id: string; name: string; slug: string; category?: string }>>([])
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [selectedStacks, setSelectedStacks] = useState<string[]>([])
-  const [isSavingPrefs, setIsSavingPrefs] = useState(false)
   const [prefsLoaded, setPrefsLoaded] = useState(false)
+
+  // Message privacy state
+  const [messagePrivacy, setMessagePrivacy] = useState<MessagePrivacy>(user?.message_privacy || 'everyone')
 
   // Load catalog data on mount
   useEffect(() => {
@@ -77,23 +374,6 @@ export function Settings() {
     loadPreferences()
   }, [user, prefsLoaded])
 
-  const handleSavePreferences = async () => {
-    setIsSavingPrefs(true)
-    try {
-      await api.updatePreferences({
-        ai_tool_ids: selectedTools,
-        tech_stack_ids: selectedStacks,
-      })
-      setSuccessMessage('Preferences saved!')
-      setTimeout(() => setSuccessMessage(''), 3000)
-    } catch (error) {
-      console.error('Failed to save preferences:', error)
-      alert('Failed to save preferences. Please try again.')
-    } finally {
-      setIsSavingPrefs(false)
-    }
-  }
-
   const toggleTool = (id: string) => {
     setSelectedTools(prev =>
       prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
@@ -113,7 +393,6 @@ export function Settings() {
       return
     }
 
-    // Validate format
     if (usernameToCheck.length < 2) {
       setUsernameError('Username must be at least 2 characters')
       return
@@ -150,7 +429,6 @@ export function Settings() {
     setUsername(lowercase)
     setSuccessMessage('')
 
-    // Debounce the check
     const timeoutId = setTimeout(() => {
       checkUsernameAvailability(lowercase)
     }, 500)
@@ -166,13 +444,19 @@ export function Settings() {
     setIsSubmitting(true)
     setSuccessMessage('')
     try {
-      const updatedUser = await api.updateProfile({
-        display_name: displayName.trim(),
-        username: username.trim(),
-        bio: bio.trim() || undefined,
-      })
+      const [updatedUser] = await Promise.all([
+        api.updateProfile({
+          display_name: displayName.trim(),
+          username: username.trim(),
+          bio: bio.trim() || undefined,
+          message_privacy: messagePrivacy,
+        }),
+        api.updatePreferences({
+          ai_tool_ids: selectedTools,
+          tech_stack_ids: selectedStacks,
+        }),
+      ])
 
-      // Transform API user to Auth context user format
       const transformedUser = {
         id: updatedUser.id,
         name: updatedUser.display_name,
@@ -195,11 +479,11 @@ export function Settings() {
       }
 
       updateUser(transformedUser)
-      setSuccessMessage('Profile updated successfully!')
+      setSuccessMessage('Settings saved successfully!')
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
-      console.error('Error updating profile:', error)
-      alert('Failed to update profile. Please try again.')
+      console.error('Error saving settings:', error)
+      alert('Failed to save settings. Please try again.')
     } finally {
       setIsSubmitting(false)
     }
@@ -208,7 +492,8 @@ export function Settings() {
   const hasChanges =
     displayName !== user?.name ||
     username !== user?.username ||
-    bio !== (user?.bio || '')
+    bio !== (user?.bio || '') ||
+    messagePrivacy !== (user?.message_privacy || 'everyone')
 
   if (!user) {
     return null
@@ -218,15 +503,42 @@ export function Settings() {
     <div className="min-h-screen">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-md border-b border-border">
-        <div className="max-w-[600px] mx-auto flex items-center gap-4 px-4 h-14">
-          <Link to={`/user/${user.username}`}>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div>
-            <h1 className="font-bold text-lg leading-tight">Settings</h1>
-            <p className="text-xs text-muted-foreground">Manage your profile</p>
+        <div className="max-w-[600px] mx-auto px-4">
+          {/* Title Row */}
+          <div className="flex items-center gap-4 h-14">
+            <Link to={`/user/${user.username}`}>
+              <Button variant="ghost" size="icon" className="rounded-full">
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </Link>
+            <div>
+              <h1 className="font-bold text-lg leading-tight">Settings</h1>
+              <p className="text-xs text-muted-foreground">Manage your account</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Tab Navigation - full width border with centered tabs */}
+        <div className="border-t border-border">
+          <div className="flex max-w-[600px] mx-auto">
+            {SETTINGS_TABS.map((tab) => {
+              const isActive = activeTab === tab.id
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={cn(
+                    'flex-1 py-4 text-sm font-medium transition-colors relative hover:bg-muted/50',
+                    isActive ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {tab.label}
+                  {isActive && (
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-primary rounded-full" />
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
       </div>
@@ -234,205 +546,40 @@ export function Settings() {
       {/* Content */}
       <div className="max-w-[600px] mx-auto px-4 py-6">
         <div className="space-y-8">
-          {/* Avatar Section */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Profile Picture</h2>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setShowAvatarDialog(true)}
-                className="relative group cursor-pointer flex-shrink-0"
-              >
-                <Avatar className="w-20 h-20 sm:w-24 sm:h-24">
-                  <AvatarImage src={user.avatar_url} alt={user.name} className="object-cover" />
-                  <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl sm:text-2xl font-semibold">
-                    {user.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-6 h-6 text-white" />
-                </div>
-              </button>
-              <div className="flex-1">
-                <p className="text-sm text-muted-foreground">
-                  Click on your avatar to upload a new profile picture
-                </p>
-              </div>
-            </div>
-          </div>
+          {/* Render active section */}
+          {activeTab === 'profile' && (
+            <ProfileSettings
+              displayName={displayName}
+              setDisplayName={setDisplayName}
+              username={username}
+              handleUsernameChange={handleUsernameChange}
+              usernameError={usernameError}
+              isCheckingUsername={isCheckingUsername}
+              bio={bio}
+              setBio={setBio}
+              setSuccessMessage={setSuccessMessage}
+              onOpenAvatarDialog={() => setShowAvatarDialog(true)}
+              user={user}
+            />
+          )}
 
-          {/* Profile Details */}
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold">Profile Details</h2>
+          {activeTab === 'preferences' && (
+            <PreferencesSettings
+              aiTools={aiTools}
+              techStacks={techStacks}
+              selectedTools={selectedTools}
+              selectedStacks={selectedStacks}
+              toggleTool={toggleTool}
+              toggleStack={toggleStack}
+            />
+          )}
 
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
-                  <User className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                </div>
-                Display Name <span className="text-destructive ml-0.5">*</span>
-              </label>
-              <Input
-                placeholder="Your full name"
-                value={displayName}
-                onChange={(e) => {
-                  setDisplayName(e.target.value)
-                  setSuccessMessage('')
-                }}
-                className="h-11 bg-muted/50 border-border/50 focus-visible:bg-background"
-              />
-              <p className="text-xs text-muted-foreground pl-1">This is how your name will appear across the platform</p>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
-                  <AtSign className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                </div>
-                Username <span className="text-destructive ml-0.5">*</span>
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">@</span>
-                <Input
-                  placeholder="your_username"
-                  value={username}
-                  onChange={(e) => handleUsernameChange(e.target.value)}
-                  className={cn(
-                    "h-11 pl-7 bg-muted/50 border-border/50 focus-visible:bg-background",
-                    usernameError && "border-destructive focus-visible:ring-destructive"
-                  )}
-                />
-                {isCheckingUsername && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-blue-500" />
-                )}
-              </div>
-              {usernameError ? (
-                <p className="text-xs text-destructive pl-1 flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-destructive"></span>
-                  {usernameError}
-                </p>
-              ) : (
-                <p className="text-xs text-muted-foreground pl-1">
-                  Lowercase letters, numbers, and underscores only. This is your unique identifier.
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
-                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                </div>
-                Bio
-              </label>
-              <Textarea
-                placeholder="Tell us about yourself..."
-                value={bio}
-                onChange={(e) => {
-                  setBio(e.target.value)
-                  setSuccessMessage('')
-                }}
-                className="min-h-[100px] resize-none bg-muted/50 border-border/50 focus-visible:bg-background"
-                maxLength={160}
-              />
-              <p className="text-xs text-muted-foreground pl-1">
-                {bio.length}/160 characters
-              </p>
-            </div>
-          </div>
-
-          {/* Technology Preferences */}
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold">Technology Preferences</h2>
-            <p className="text-sm text-muted-foreground -mt-4">
-              Select your favorite AI tools and tech stacks to display on your profile
-            </p>
-
-            {/* AI Tools */}
-            <div className="space-y-3">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                  <Sparkles className="w-3 h-3 text-primary" />
-                </div>
-                Favorite AI Tools
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {aiTools.map((tool) => (
-                  <button
-                    key={tool.id}
-                    onClick={() => toggleTool(tool.id)}
-                    className={cn(
-                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                      selectedTools.includes(tool.id)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
-                    )}
-                  >
-                    {tool.name}
-                    {selectedTools.includes(tool.id) && (
-                      <X className="w-3 h-3 ml-1.5" />
-                    )}
-                  </button>
-                ))}
-                {aiTools.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Loading tools...</p>
-                )}
-              </div>
-            </div>
-
-            {/* Tech Stacks */}
-            <div className="space-y-3">
-              <label className="text-sm font-semibold flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-blue-500/10 to-indigo-500/10 flex items-center justify-center">
-                  <FileText className="w-3 h-3 text-blue-600 dark:text-blue-400" />
-                </div>
-                Preferred Tech Stacks
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {techStacks.map((stack) => (
-                  <button
-                    key={stack.id}
-                    onClick={() => toggleStack(stack.id)}
-                    className={cn(
-                      'inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-all',
-                      selectedStacks.includes(stack.id)
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80 text-muted-foreground'
-                    )}
-                  >
-                    {stack.name}
-                    {selectedStacks.includes(stack.id) && (
-                      <X className="w-3 h-3 ml-1.5" />
-                    )}
-                  </button>
-                ))}
-                {techStacks.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Loading tech stacks...</p>
-                )}
-              </div>
-            </div>
-
-            {/* Save Preferences Button */}
-            <div className="flex justify-end">
-              <Button
-                onClick={handleSavePreferences}
-                disabled={isSavingPrefs}
-                variant="outline"
-                className="px-6"
-              >
-                {isSavingPrefs ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Preferences
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
+          {activeTab === 'messages' && (
+            <MessagesSettings
+              messagePrivacy={messagePrivacy}
+              setMessagePrivacy={setMessagePrivacy}
+            />
+          )}
 
           {/* Success Message */}
           {successMessage && (
@@ -448,7 +595,7 @@ export function Settings() {
             <Button
               onClick={handleSave}
               disabled={!hasChanges || isSubmitting || !!usernameError || isCheckingUsername || !displayName.trim() || !username.trim()}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-8"
+              className="px-8"
               size="lg"
             >
               {isSubmitting ? (

@@ -42,6 +42,7 @@ defmodule Backend.Messaging do
 
   @doc """
   Gets or creates a conversation between two users.
+  Checks the recipient's message privacy settings before creating a new conversation.
   """
   def get_or_create_conversation(user_one_id, user_two_id) do
     # Ensure canonical ordering
@@ -59,16 +60,55 @@ defmodule Backend.Messaging do
 
     case Repo.one(query) do
       nil ->
-        %Conversation{}
-        |> Conversation.changeset(%{user_one_id: user_one_id, user_two_id: user_two_id})
-        |> Repo.insert()
-        |> case do
-          {:ok, conversation} -> {:ok, Repo.preload(conversation, [:user_one, :user_two])}
-          error -> error
+        # Conversation doesn't exist, check privacy before creating
+        case can_message?(user_one_id, user_two_id) do
+          :ok ->
+            %Conversation{}
+            |> Conversation.changeset(%{user_one_id: user_one_id, user_two_id: user_two_id})
+            |> Repo.insert()
+            |> case do
+              {:ok, conversation} -> {:ok, Repo.preload(conversation, [:user_one, :user_two])}
+              error -> error
+            end
+
+          {:error, reason} ->
+            {:error, reason}
         end
 
       conversation ->
         {:ok, conversation}
+    end
+  end
+
+  @doc """
+  Checks if sender can message recipient based on recipient's privacy settings.
+  Returns :ok if allowed, {:error, :messaging_restricted} if not.
+  """
+  def can_message?(sender_id, recipient_id) do
+    recipient = Repo.get(Backend.Accounts.User, recipient_id)
+
+    case recipient.message_privacy do
+      "everyone" ->
+        :ok
+
+      "followers" ->
+        # Sender must be following recipient (recipient has the sender as a follower)
+        if Backend.Social.is_following?(sender_id, recipient_id) do
+          :ok
+        else
+          {:error, :messaging_restricted}
+        end
+
+      "following" ->
+        # Recipient must be following sender
+        if Backend.Social.is_following?(recipient_id, sender_id) do
+          :ok
+        else
+          {:error, :messaging_restricted}
+        end
+
+      _ ->
+        :ok
     end
   end
 

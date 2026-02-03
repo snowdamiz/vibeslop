@@ -81,6 +81,11 @@ defmodule BackendWeb.ConversationController do
                 current_user_id: current_user.id
               )
 
+            {:error, :messaging_restricted} ->
+              conn
+              |> put_status(:forbidden)
+              |> json(%{error: "This user has restricted who can message them"})
+
             {:error, changeset} ->
               conn
               |> put_status(:unprocessable_entity)

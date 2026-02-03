@@ -51,6 +51,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
   const [repostCount, setRepostCount] = useState(item.reposts)
   const [isDeleting, setIsDeleting] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isReporting, setIsReporting] = useState(false)
 
   // No need for useEffect to sync state if we use a key on the Post component in the parent
   // However, if we can't ensure that, we can use this pattern:
@@ -151,6 +152,25 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
     } catch (error) {
       console.error(`Failed to delete ${isProject ? 'project' : 'post'}:`, error)
       setIsDeleting(false)
+    }
+  }
+
+  const handleReport = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isReporting) return
+
+    setIsReporting(true)
+    try {
+      if (isProject) {
+        await api.reportProject(engagementId)
+      } else {
+        await api.reportPost(engagementId)
+      }
+      // Could add a toast here
+    } catch (error) {
+      console.error('Failed to report:', error)
+    } finally {
+      setIsReporting(false)
     }
   }
 
@@ -297,9 +317,13 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
                     </>
                   )}
                   {!isOwner && (
-                    <DropdownMenuItem className="text-destructive focus:text-destructive">
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={handleReport}
+                      disabled={isReporting}
+                    >
                       <Flag className="w-4 h-4 mr-2" />
-                      Report
+                      {isReporting ? 'Reporting...' : 'Report'}
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>

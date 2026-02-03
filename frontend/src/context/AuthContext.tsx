@@ -18,6 +18,7 @@ interface User {
   is_verified: boolean
   is_admin: boolean
   has_onboarded: boolean
+  message_privacy?: 'everyone' | 'followers' | 'following'
 }
 
 interface AuthContextType {
@@ -54,6 +55,7 @@ function transformApiUser(apiUser: ApiUser): User {
     is_verified: apiUser.is_verified,
     is_admin: apiUser.is_admin || false,
     has_onboarded: apiUser.has_onboarded,
+    message_privacy: apiUser.message_privacy,
   }
 }
 

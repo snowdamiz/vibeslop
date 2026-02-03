@@ -209,7 +209,7 @@ export function LeftSidebar() {
         {/* Post Button */}
         <div className="pt-4 flex justify-center xl:justify-start">
           <Button
-            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-xl font-semibold text-[15px] shadow-sm flex-shrink-0"
+            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
             size="lg"
             onClick={openCompose}
           >
