@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,7 +45,8 @@ interface PostProps {
 
 export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote, trackRef }: PostProps) {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const location = useLocation()
+  const { user, isAuthenticated } = useAuth()
   const [isLiked, setIsLiked] = useState(item.liked ?? false)
   const [isBookmarked, setIsBookmarked] = useState(item.bookmarked ?? false)
   const [isReposted, setIsReposted] = useState(item.reposted ?? false)
@@ -86,8 +87,16 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
   // For reposts, engagement actions target the original content
   const engagementId = contentId
 
+  const redirectToSignIn = () => {
+    navigate('/signin', { state: { returnTo: location.pathname } })
+  }
+
   const handleLike = async (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (!isAuthenticated) {
+      redirectToSignIn()
+      return
+    }
     try {
       const type = isProject ? 'project' : 'post'
       const response = await api.toggleLike(type, engagementId)
@@ -100,6 +109,10 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
 
   const handleRepost = async (e?: React.MouseEvent) => {
     e?.stopPropagation()
+    if (!isAuthenticated) {
+      redirectToSignIn()
+      return
+    }
     try {
       const type = isProject ? 'project' : 'post'
       const response = await api.toggleRepost(type, engagementId)
@@ -112,11 +125,19 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
 
   const handleQuote = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (!isAuthenticated) {
+      redirectToSignIn()
+      return
+    }
     onQuote?.(item)
   }
 
   const handleBookmark = async (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (!isAuthenticated) {
+      redirectToSignIn()
+      return
+    }
     try {
       const type = isProject ? 'project' : 'post'
       const response = await api.toggleBookmark(type, engagementId)
@@ -206,7 +227,10 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
     if (isProject) {
       return (item as ProjectPost).image ? [(item as ProjectPost).image!] : []
     }
-    return item.media || []
+    if (isStatusUpdate(item)) {
+      return item.media || []
+    }
+    return []
   }
 
   const images = getImages()
