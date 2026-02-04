@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Post } from './Post'
+import { GigFeedCard } from './GigFeedCard'
+import { BotPostCard } from './BotPostCard'
 import type { FeedItem } from './types'
+import { isGigPost, isBotPost } from './types'
 import { ComposeTrigger } from './ComposeTrigger'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -419,18 +422,40 @@ export function Feed({
             ))}
           </div>
         ) : filteredPosts.length > 0 ? (
-          filteredPosts.map((item, index) => (
-            <Post
-              key={item.id}
-              item={item}
-              showBorder={index !== filteredPosts.length - 1}
-              onDelete={(id) => {
-                setPosts((prev) => prev.filter((p) => p.id !== id))
-              }}
-              onQuote={handleQuote}
-              trackRef={trackRef}
-            />
-          ))
+          filteredPosts.map((item, index) => {
+            if (isGigPost(item)) {
+              return (
+                <GigFeedCard
+                  key={item.id}
+                  item={item}
+                  showBorder={index !== filteredPosts.length - 1}
+                  trackRef={trackRef}
+                />
+              )
+            }
+            if (isBotPost(item)) {
+              return (
+                <BotPostCard
+                  key={item.id}
+                  item={item}
+                  showBorder={index !== filteredPosts.length - 1}
+                  trackRef={trackRef}
+                />
+              )
+            }
+            return (
+              <Post
+                key={item.id}
+                item={item}
+                showBorder={index !== filteredPosts.length - 1}
+                onDelete={(id) => {
+                  setPosts((prev) => prev.filter((p) => p.id !== id))
+                }}
+                onQuote={handleQuote}
+                trackRef={trackRef}
+              />
+            )
+          })
         ) : (
           <div className="text-center py-16">
             <div className="max-w-[600px] mx-auto px-4">

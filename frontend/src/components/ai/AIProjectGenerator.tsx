@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle
 } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { RepoSelector, type GitHubRepo } from './RepoSelector'
 import { api } from '@/lib/api'
@@ -159,6 +160,22 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
   const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | undefined>()
   const [generating, setGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [reposWithProjects, setReposWithProjects] = useState<Set<string>>(new Set())
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false)
+
+  // Handle close with confirmation if generating
+  const handleClose = () => {
+    if (generating) {
+      setShowCloseConfirm(true)
+    } else {
+      onClose()
+    }
+  }
+
+  const handleConfirmClose = () => {
+    setShowCloseConfirm(false)
+    onClose()
+  }
 
   // Load repositories when modal opens
   useEffect(() => {
@@ -174,6 +191,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
         setStep('select-repo')
         setSelectedRepo(undefined)
         setError(null)
+        setShowCloseConfirm(false)
       }, 300)
     }
   }, [open])
@@ -183,8 +201,12 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
     setError(null)
 
     try {
-      const response = await api.getGitHubRepos({ per_page: 100, sort: 'pushed' })
-      setRepos(response.data)
+      const [reposResponse, urlsResponse] = await Promise.all([
+        api.getGitHubRepos({ per_page: 100, sort: 'pushed' }),
+        api.getProjectGithubUrls()
+      ])
+      setRepos(reposResponse.data)
+      setReposWithProjects(new Set(urlsResponse.github_urls))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load repositories')
     } finally {
@@ -240,7 +262,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-sm">
@@ -278,6 +300,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
                   loading={loadingRepos}
                   onSelect={handleRepoSelect}
                   selectedRepo={selectedRepo}
+                  reposWithProjects={reposWithProjects}
                 />
               </div>
             </div>
@@ -291,7 +314,7 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
 
         {/* Footer Actions */}
         <div className="flex items-center justify-between pt-4 -mb-2 -mx-6 px-4 border-t border-border">
-          <Button variant="ghost" onClick={onClose}>
+          <Button variant="ghost" onClick={handleClose}>
             Cancel
           </Button>
 
@@ -317,6 +340,17 @@ export function AIProjectGenerator({ open, onClose, onComplete }: AIProjectGener
           </div>
         </div>
       </DialogContent>
+
+      <ConfirmDialog
+        open={showCloseConfirm}
+        onOpenChange={setShowCloseConfirm}
+        title="Cancel generation?"
+        description="Your project is still being generated. Are you sure you want to cancel?"
+        confirmLabel="Yes, cancel"
+        cancelLabel="Keep generating"
+        variant="destructive"
+        onConfirm={handleConfirmClose}
+      />
     </Dialog>
   )
 }

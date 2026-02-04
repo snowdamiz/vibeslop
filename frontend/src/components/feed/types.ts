@@ -75,8 +75,49 @@ export interface StatusUpdate extends BaseFeedItem {
   quoted_project?: QuotedItem | null // Quote repost of a project
 }
 
+// Gig post (freelance opportunity)
+export interface GigPost extends Omit<BaseFeedItem, 'likes' | 'comments' | 'reposts'> {
+  type: 'gig'
+  title: string
+  budget_min?: number
+  budget_max?: number
+  currency: string
+  deadline?: string
+  status: 'open' | 'in_progress' | 'completed' | 'cancelled'
+  bids_count: number
+  views_count: number
+  tools?: string[]
+  stack?: string[]
+  likes: 0
+  comments: 0
+  reposts: 0
+}
+
+// Featured project for bot posts
+export interface FeaturedProject {
+  id: string
+  title: string
+  description: string
+  image?: string
+  tools: string[]
+  stack: string[]
+  author: PostAuthor
+  likes: number
+  comments: number
+}
+
+// Bot post (system-generated content)
+export interface BotPost extends Omit<BaseFeedItem, 'liked' | 'bookmarked' | 'reposted'> {
+  type: 'bot_post'
+  bot_type: 'trending_projects' | 'milestone' | 'announcement'
+  featured_projects?: FeaturedProject[]
+  liked: false
+  bookmarked: false
+  reposted: false
+}
+
 // Discriminated union of all feed item types
-export type FeedItem = ProjectPost | StatusUpdate
+export type FeedItem = ProjectPost | StatusUpdate | GigPost | BotPost
 
 // Type guards for narrowing
 export function isProjectPost(item: FeedItem): item is ProjectPost {
@@ -85,4 +126,12 @@ export function isProjectPost(item: FeedItem): item is ProjectPost {
 
 export function isStatusUpdate(item: FeedItem): item is StatusUpdate {
   return item.type === 'update'
+}
+
+export function isGigPost(item: FeedItem): item is GigPost {
+  return item.type === 'gig'
+}
+
+export function isBotPost(item: FeedItem): item is BotPost {
+  return item.type === 'bot_post'
 }

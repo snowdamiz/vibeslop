@@ -135,8 +135,9 @@ defmodule BackendWeb.ProjectController do
     Enum.reduce_while(images, :ok, fn image, _acc ->
       # Only moderate base64 images, not URLs
       if is_binary(image) and String.starts_with?(image, "data:") do
-        case ContentModeration.moderate_image(image) do
+        case ContentModeration.moderate_image_with_cache(image) do
           {:ok, :safe} -> {:cont, :ok}
+          {:ok, :skipped_ai_generated} -> {:cont, :ok}
           {:error, :nsfw, reason} -> {:halt, {:error, reason}}
         end
       else
@@ -227,5 +228,11 @@ defmodule BackendWeb.ProjectController do
         |> put_view(json: BackendWeb.ErrorJSON)
         |> render(:"403")
     end
+  end
+
+  def github_urls(conn, _params) do
+    user = conn.assigns.current_user
+    urls = Content.get_user_project_github_urls(user.id)
+    json(conn, %{github_urls: urls})
   end
 end

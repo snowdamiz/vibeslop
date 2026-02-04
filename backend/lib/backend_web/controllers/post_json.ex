@@ -26,11 +26,24 @@ defmodule BackendWeb.PostJSON do
   Renders a single post.
   """
   def show(%{post: post_data}) do
-    %{data: data(post_data)}
+    # Check if this is a bot post
+    if Backend.Bot.is_bot_user?(post_data.user.id) do
+      %{data: bot_post_data(post_data)}
+    else
+      %{data: data(post_data)}
+    end
   end
 
-  defp render_feed_item(%{type: "post"} = item), do: data(item)
+  defp render_feed_item(%{type: "post"} = item) do
+    # Check if this is a bot post
+    if Backend.Bot.is_bot_user?(item.user.id) do
+      bot_post_data(item)
+    else
+      data(item)
+    end
+  end
   defp render_feed_item(%{type: "project"} = item), do: project_data(item)
+  defp render_feed_item(%{type: "gig"} = item), do: gig_data(item)
   defp render_feed_item(%{type: "repost"} = item), do: repost_data(item)
 
   defp data(%{post: post, user: user} = post_data) do
@@ -115,10 +128,52 @@ defmodule BackendWeb.PostJSON do
     |> add_engagement_field(project_data, :reposted)
   end
 
+  defp gig_data(%{gig: gig} = gig_item) do
+    user = gig.user
+
+    %{
+      id: gig.id,
+      type: "gig",
+      title: gig.title,
+      content: gig.description,
+      budget_min: gig.budget_min,
+      budget_max: gig.budget_max,
+      currency: gig.currency || "USD",
+      deadline: format_date(gig.deadline),
+      status: gig.status,
+      bids_count: gig.bids_count || 0,
+      views_count: gig.views_count || 0,
+      likes: 0,
+      comments: 0,
+      reposts: 0,
+      impressions: gig.views_count || 0,
+      created_at: format_datetime(gig.inserted_at),
+      tools: Enum.map(gig.ai_tools || [], & &1.name),
+      stack: Enum.map(gig.tech_stacks || [], & &1.name),
+      author: %{
+        id: user.id,
+        name: user.display_name,
+        username: user.username,
+        initials: get_initials(user.display_name),
+        avatar_url: user.avatar_url,
+        is_verified: user.is_verified,
+        is_premium: Backend.Billing.premium?(user)
+      }
+    }
+    |> add_engagement_field(gig_item, :liked)
+    |> add_engagement_field(gig_item, :bookmarked)
+    |> add_engagement_field(gig_item, :reposted)
+  end
+
   # Format DateTime to ISO 8601 with Z suffix for proper JS parsing
   defp format_datetime(nil), do: nil
   defp format_datetime(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
   defp format_datetime(other), do: other
+
+  # Format Date to ISO 8601 string
+  defp format_date(nil), do: nil
+  defp format_date(%Date{} = d), do: Date.to_iso8601(d)
+  defp format_date(other), do: other
 
   defp render_project(nil), do: nil
 
@@ -235,4 +290,90 @@ defmodule BackendWeb.PostJSON do
     |> Map.put(:is_repost, true)
     |> Map.put(:reposted_by, reposter_info)
   end
+
+  defp bot_post_data(%{post: post, user: user} = post_data) do
+    # Get bot post metadata
+    bot_post = Backend.Bot.get_bot_post(post.id)
+
+    base_data = %{
+      id: post.id,
+      type: "bot_post",
+      bot_type: bot_post && bot_post.bot_type,
+      content: post.content,
+      likes: Map.get(post_data, :likes_count, 0),
+      comments: Map.get(post_data, :comments_count, 0),
+      reposts: Map.get(post_data, :reposts_count, 0),
+      impressions: post.impression_count || 0,
+      created_at: format_datetime(post.inserted_at),
+      author: %{
+        id: user.id,
+        name: user.display_name,
+        username: user.username,
+        initials: get_initials(user.display_name),
+        avatar_url: user.avatar_url,
+        is_verified: user.is_verified,
+        is_premium: false
+      },
+      # Bot posts don't support user engagement
+      liked: false,
+      bookmarked: false,
+      reposted: false
+    }
+
+    # Add featured projects for trending_projects bot type
+    if bot_post && bot_post.bot_type == "trending_projects" do
+      featured_projects = load_featured_projects(bot_post.metadata)
+      Map.put(base_data, :featured_projects, featured_projects)
+    else
+      base_data
+    end
+  end
+
+  defp load_featured_projects(%{"project_ids" => project_ids}) when is_list(project_ids) do
+    import Ecto.Query
+
+    projects =
+      from(p in Backend.Content.Project,
+        where: p.id in ^project_ids,
+        preload: [:user, :ai_tools, :tech_stacks, :images]
+      )
+      |> Backend.Repo.all()
+
+    # Sort projects to match the order in project_ids
+    sorted_projects =
+      Enum.map(project_ids, fn id ->
+        Enum.find(projects, &(&1.id == id))
+      end)
+      |> Enum.filter(&(&1 != nil))
+
+    Enum.map(sorted_projects, fn project ->
+      image =
+        case project.images do
+          [] -> nil
+          [first | _] -> first.url
+        end
+
+      %{
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        image: image,
+        tools: Enum.map(project.ai_tools || [], & &1.name),
+        stack: Enum.map(project.tech_stacks || [], & &1.name),
+        author: %{
+          id: project.user.id,
+          name: project.user.display_name,
+          username: project.user.username,
+          initials: get_initials(project.user.display_name),
+          avatar_url: project.user.avatar_url,
+          is_verified: project.user.is_verified,
+          is_premium: Backend.Billing.premium?(project.user)
+        },
+        likes: project.likes_count || 0,
+        comments: project.comments_count || 0
+      }
+    end)
+  end
+
+  defp load_featured_projects(_), do: []
 end

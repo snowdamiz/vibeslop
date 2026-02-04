@@ -27,9 +27,10 @@ interface RepoSelectorProps {
   loading: boolean
   onSelect: (repo: GitHubRepo) => void
   selectedRepo?: GitHubRepo
+  reposWithProjects?: Set<string>
 }
 
-export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSelectorProps) {
+export function RepoSelector({ repos, loading, onSelect, selectedRepo, reposWithProjects }: RepoSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
@@ -162,6 +163,11 @@ export function RepoSelector({ repos, loading, onSelect, selectedRepo }: RepoSel
                     {repo.private && (
                       <span className="text-xs px-1.5 py-0.5 bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 rounded border border-yellow-500/20">
                         Private
+                      </span>
+                    )}
+                    {reposWithProjects?.has(repo.html_url) && (
+                      <span className="text-xs px-1.5 py-0.5 bg-green-500/10 text-green-600 dark:text-green-400 rounded border border-green-500/20">
+                        Has Project
                       </span>
                     )}
                   </div>

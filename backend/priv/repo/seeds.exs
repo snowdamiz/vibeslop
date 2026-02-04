@@ -15,6 +15,7 @@ defmodule Seeds do
   """
 
   def run do
+    seed_bot_user()
     seed_ai_tools()
     seed_tech_stacks()
     seed_specializations()
@@ -23,6 +24,31 @@ defmodule Seeds do
     seed_posts()
 
     IO.puts("✅ Seeds completed!")
+  end
+
+  defp seed_bot_user do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    # Fixed UUID for the bot user - must match Backend.Bot.bot_user_id()
+    {:ok, bot_id} = Ecto.UUID.dump("00000000-0000-0000-0000-000000000001")
+
+    bot_user = %{
+      id: bot_id,
+      email: "bot@onvibe.app",
+      username: "onvibe",
+      display_name: "Onvibe",
+      bio: "Official Onvibe bot. Sharing trending projects and platform updates.",
+      avatar_url: "/logo.svg",
+      is_verified: true,
+      is_system_bot: true,
+      has_onboarded: true,
+      inserted_at: now,
+      updated_at: now
+    }
+
+    Repo.insert_all("users", [bot_user], on_conflict: :nothing, conflict_target: :id)
+
+    IO.puts("  Seeded bot user")
   end
 
   defp generate_uuid do
@@ -67,7 +93,7 @@ defmodule Seeds do
     tech_stacks = [
       # Frontend
       %{name: "React", slug: "react", category: "frontend"},
-      %{name: "Next.js", slug: "nextjs", category: "frontend"},
+      %{name: "Next.js", slug: "next-js", category: "frontend"},
       %{name: "Vue", slug: "vue", category: "frontend"},
       %{name: "Svelte", slug: "svelte", category: "frontend"},
       %{name: "Astro", slug: "astro", category: "frontend"},
@@ -76,7 +102,7 @@ defmodule Seeds do
       %{name: "Tailwind CSS", slug: "tailwind-css", category: "frontend"},
 
       # Backend
-      %{name: "Node.js", slug: "nodejs", category: "backend"},
+      %{name: "Node.js", slug: "node-js", category: "backend"},
       %{name: "Express", slug: "express", category: "backend"},
       %{name: "Elixir", slug: "elixir", category: "backend"},
       %{name: "Phoenix", slug: "phoenix", category: "backend"},
@@ -119,9 +145,10 @@ defmodule Seeds do
         Map.merge(stack, %{id: generate_uuid(), inserted_at: now})
       end)
 
-    Repo.insert_all("tech_stacks", entries, on_conflict: :nothing, conflict_target: :slug)
+    # Use on_conflict without conflict_target to handle both name and slug unique constraints
+    {inserted, _} = Repo.insert_all("tech_stacks", entries, on_conflict: :nothing)
 
-    IO.puts("  Seeded #{length(tech_stacks)} tech stacks")
+    IO.puts("  Seeded #{inserted} tech stacks (#{length(tech_stacks) - inserted} already existed)")
   end
 
   defp seed_specializations do
@@ -226,8 +253,8 @@ defmodule Seeds do
     v0 = Repo.get_by!(Backend.Catalog.AiTool, slug: "v0")
 
     react = Repo.get_by!(Backend.Catalog.TechStack, slug: "react")
-    nextjs = Repo.get_by!(Backend.Catalog.TechStack, slug: "nextjs")
-    nodejs = Repo.get_by!(Backend.Catalog.TechStack, slug: "nodejs")
+    nextjs = Repo.get_by!(Backend.Catalog.TechStack, slug: "next-js")
+    nodejs = Repo.get_by!(Backend.Catalog.TechStack, slug: "node-js")
 
     # Convert user IDs to binary format
     {:ok, sarah_id} = Ecto.UUID.dump(sarah.id)

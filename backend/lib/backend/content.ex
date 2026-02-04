@@ -1200,6 +1200,17 @@ defmodule Backend.Content do
   end
 
   @doc """
+  Returns a list of GitHub URLs for projects owned by the given user.
+  """
+  def get_user_project_github_urls(user_id) do
+    from(p in Project,
+      where: p.user_id == ^user_id and not is_nil(p.github_url),
+      select: p.github_url
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Deletes a post (admin only - bypasses ownership check).
   """
   def admin_delete_post(post_id) do

@@ -58,7 +58,9 @@ config :backend, Oban,
     {Oban.Plugins.Cron,
      crontab: [
        # Run developer score calculation daily at 3 AM UTC
-       {"0 3 * * *", Backend.Workers.DeveloperScoreWorker}
+       {"0 3 * * *", Backend.Workers.DeveloperScoreWorker},
+       # Run weekly trending projects post every Monday at 12 PM UTC
+       {"0 12 * * 1", Backend.Bot.Workers.WeeklyTrendingWorker}
      ]}
   ],
   queues: [default: 10, developer_scores: 2]

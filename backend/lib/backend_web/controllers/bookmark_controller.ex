@@ -2,6 +2,7 @@ defmodule BackendWeb.BookmarkController do
   use BackendWeb, :controller
 
   alias Backend.Social
+  alias Backend.Social.{RateLimiter, SpamProtection}
 
   action_fallback BackendWeb.FallbackController
 
@@ -11,20 +12,40 @@ defmodule BackendWeb.BookmarkController do
     # Validate UUID format
     case Ecto.UUID.cast(id) do
       {:ok, _uuid} ->
-        # Capitalize type for consistency with database
-        bookmarkable_type = String.capitalize(type)
+        # Check spam protection (account age)
+        with :ok <- SpamProtection.can_engage?(current_user, :bookmark),
+             # Check rate limiting
+             :ok <- RateLimiter.check_bookmark(current_user.id) do
+          # Capitalize type for consistency with database
+          bookmarkable_type = String.capitalize(type)
 
-        case Social.toggle_bookmark(current_user.id, bookmarkable_type, id) do
-          {:ok, :bookmarked, _bookmark} ->
-            json(conn, %{success: true, bookmarked: true})
+          case Social.toggle_bookmark(current_user.id, bookmarkable_type, id) do
+            {:ok, :bookmarked, _bookmark} ->
+              json(conn, %{success: true, bookmarked: true})
 
-          {:ok, :unbookmarked, _bookmark} ->
-            json(conn, %{success: true, bookmarked: false})
+            {:ok, :unbookmarked, _bookmark} ->
+              json(conn, %{success: true, bookmarked: false})
 
-          {:error, changeset} ->
+            {:error, changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: "Unable to toggle bookmark", details: translate_errors(changeset)})
+          end
+        else
+          {:error, :account_too_new} ->
+            hours_left = SpamProtection.hours_until_allowed(current_user, :bookmark)
+
             conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{error: "Unable to toggle bookmark", details: translate_errors(changeset)})
+            |> put_status(:forbidden)
+            |> json(%{
+              error: "Account too new",
+              message: "Please wait #{hours_left} more hour(s) before bookmarking content"
+            })
+
+          {:error, :rate_limited} ->
+            conn
+            |> put_status(:too_many_requests)
+            |> json(%{error: "Rate limited", message: "Too many bookmarks. Please slow down."})
         end
 
       :error ->

@@ -2,9 +2,12 @@ import { useState, useEffect } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { CommentsSection } from '@/components/comments'
 import type { Comment as CommentType } from '@/components/comments/types'
+import { FeaturedProjectCard } from '@/components/feed/FeaturedProjectCard'
+import type { BotPost, FeaturedProject } from '@/components/feed/types'
 import { cn } from '@/lib/utils'
 import {
   Heart,
@@ -22,6 +25,7 @@ import {
   Loader2,
   Eye,
   Quote,
+  TrendingUp,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -118,7 +122,14 @@ export function PostDetail() {
 
       try {
         const response = await api.getPost(id)
-        const postData = response.data as typeof mockPostData & { impressions?: number }
+        const postData = response.data as typeof mockPostData & { impressions?: number; type?: string }
+
+        // Redirect bot posts to dedicated page
+        if (postData.type === 'bot_post') {
+          navigate(`/bot-post/${id}`, { replace: true })
+          return
+        }
+
         setPost(postData)
         setLikeCount(postData.likes || 0)
         setRepostCount(postData.reposts || 0)
@@ -138,7 +149,7 @@ export function PostDetail() {
     }
 
     fetchPost()
-  }, [id])
+  }, [id, navigate])
 
   // Fetch comments after post loads
   useEffect(() => {
@@ -321,20 +332,26 @@ export function PostDetail() {
 
       <div className="max-w-[600px] mx-auto">
         {/* Main Post */}
-        <div className="px-4 py-4">
+        <div className={cn(
+          'px-4 py-4',
+          (post as unknown as BotPost).type === 'bot_post' && 'bg-gradient-to-r from-primary/5 via-transparent to-primary/5'
+        )}>
           {/* Author Header */}
           <div className="flex items-start justify-between gap-3 mb-3">
             <div className="flex items-start gap-3">
               <Link to={`/user/${post.author.username}`}>
-                <Avatar className="w-12 h-12 hover:opacity-90 transition-opacity">
+                <Avatar className={cn(
+                  'w-12 h-12 hover:opacity-90 transition-opacity',
+                  (post as unknown as BotPost).type === 'bot_post' && 'ring-2 ring-primary/20'
+                )}>
                   <AvatarImage src={post.author.avatar_url} alt={post.author.name} />
-                  <AvatarFallback className={`bg-gradient-to-br ${post.author.color} text-white text-sm font-medium`}>
+                  <AvatarFallback className={`bg-gradient-to-br ${post.author.color || 'from-primary to-primary'} text-white text-sm font-medium`}>
                     {post.author.initials}
                   </AvatarFallback>
                 </Avatar>
               </Link>
               <div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <Link to={`/user/${post.author.username}`} className="font-semibold hover:underline">
                     {post.author.name}
                   </Link>
@@ -342,6 +359,16 @@ export function PostDetail() {
                     <BadgeCheck className="w-4 h-4 text-primary fill-primary/20" />
                   )}
                   {(post.author as { is_premium?: boolean }).is_premium && <PremiumBadge />}
+                  {/* Bot Post Badge */}
+                  {(post as unknown as BotPost).type === 'bot_post' && (post as unknown as BotPost).bot_type === 'trending_projects' && (
+                    <Badge
+                      variant="secondary"
+                      className="text-[10px] bg-primary/10 text-primary border-0 font-medium"
+                    >
+                      <TrendingUp className="w-3 h-3 mr-0.5" />
+                      Weekly Trending
+                    </Badge>
+                  )}
                 </div>
                 <Link to={`/user/${post.author.username}`} className="text-muted-foreground text-sm">
                   @{post.author.username}
@@ -349,24 +376,26 @@ export function PostDetail() {
               </div>
             </div>
 
-            {/* More Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full">
-                  <MoreHorizontal className="w-5 h-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>
-                  <UserMinus className="w-4 h-4 mr-2" />
-                  Unfollow @{post.author.username}
-                </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive">
-                  <Flag className="w-4 h-4 mr-2" />
-                  Report
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* More Menu - Hide for bot posts */}
+            {(post as unknown as BotPost).type !== 'bot_post' && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="w-9 h-9 rounded-full">
+                    <MoreHorizontal className="w-5 h-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem>
+                    <UserMinus className="w-4 h-4 mr-2" />
+                    Unfollow @{post.author.username}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive">
+                    <Flag className="w-4 h-4 mr-2" />
+                    Report
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
 
           {/* Content */}
@@ -374,8 +403,17 @@ export function PostDetail() {
             <MarkdownContent content={post.content} />
           </div>
 
-          {/* Media */}
-          {post.media.length > 0 && (
+          {/* Featured Projects for Bot Posts */}
+          {(post as unknown as BotPost).type === 'bot_post' && (post as unknown as BotPost).featured_projects && (post as unknown as BotPost).featured_projects!.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              {(post as unknown as BotPost).featured_projects!.map((project: FeaturedProject) => (
+                <FeaturedProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          )}
+
+          {/* Media - Only for non-bot posts */}
+          {(post as unknown as BotPost).type !== 'bot_post' && post.media.length > 0 && (
             <div className={cn(
               'mb-4 rounded-2xl overflow-hidden border border-border',
               post.media.length > 1 && 'grid grid-cols-2 gap-0.5'
@@ -396,131 +434,136 @@ export function PostDetail() {
             {formatDate(post.created_at)}
           </div>
 
-          {/* Action Buttons with Stats */}
-          <div className="flex items-center justify-between pt-3 border-t border-border -ml-2">
-            {/* Left Column: Comments, Likes, Views */}
-            <div className="flex items-center gap-1">
-              {/* Comment */}
-              <button
-                onClick={() => { }}
-                className="flex items-center gap-1.5 group"
-              >
-                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                  <MessageCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
-                </div>
-                <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                  {commentCount > 0 && commentCount}
-                </span>
-              </button>
-
-              {/* Like */}
-              <button
-                onClick={handleLike}
-                className="flex items-center gap-1.5 group"
-              >
-                <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
-                  <Heart
-                    className={cn(
-                      'w-[18px] h-[18px] transition-colors',
-                      isLiked ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
-                    )}
-                  />
-                </div>
-                <span
-                  className={cn(
-                    'text-sm transition-colors',
-                    isLiked ? 'text-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
-                  )}
+          {/* Action Buttons with Stats - Hide for bot posts */}
+          {(post as unknown as BotPost).type !== 'bot_post' && (
+            <div className="flex items-center justify-between pt-3 border-t border-border -ml-2">
+              {/* Left Column: Comments, Likes, Views */}
+              <div className="flex items-center gap-1">
+                {/* Comment */}
+                <button
+                  onClick={() => { }}
+                  className="flex items-center gap-1.5 group"
                 >
-                  {likeCount > 0 && likeCount}
-                </span>
-              </button>
+                  <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                    <MessageCircle className="w-[18px] h-[18px] text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <span className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                    {commentCount > 0 && commentCount}
+                  </span>
+                </button>
 
-              {/* Views/Impressions */}
-              <div className="flex items-center gap-1.5">
-                <div className="p-2">
-                  <Eye className="w-[18px] h-[18px] text-muted-foreground" />
-                </div>
-                <span className="text-sm text-muted-foreground">
-                  {impressions > 0 && formatCount(impressions)}
-                </span>
-              </div>
-            </div>
-
-            {/* Right Column: Repost, Bookmark */}
-            <div className="flex items-center gap-1">
-              {/* Repost */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="flex items-center gap-1.5 group"
+                {/* Like */}
+                <button
+                  onClick={handleLike}
+                  className="flex items-center gap-1.5 group"
+                >
+                  <div className="p-2 rounded-full group-hover:bg-rose-500/10 transition-colors">
+                    <Heart
+                      className={cn(
+                        'w-[18px] h-[18px] transition-colors',
+                        isLiked ? 'text-rose-500 fill-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
+                      )}
+                    />
+                  </div>
+                  <span
+                    className={cn(
+                      'text-sm transition-colors',
+                      isLiked ? 'text-rose-500' : 'text-muted-foreground group-hover:text-rose-500'
+                    )}
                   >
-                    <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
-                      <Repeat2
+                    {likeCount > 0 && likeCount}
+                  </span>
+                </button>
+
+                {/* Views/Impressions */}
+                <div className="flex items-center gap-1.5">
+                  <div className="p-2">
+                    <Eye className="w-[18px] h-[18px] text-muted-foreground" />
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {impressions > 0 && formatCount(impressions)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Column: Repost, Bookmark */}
+              <div className="flex items-center gap-1">
+                {/* Repost */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="flex items-center gap-1.5 group"
+                    >
+                      <div className="p-2 rounded-full group-hover:bg-green-500/10 transition-colors">
+                        <Repeat2
+                          className={cn(
+                            'w-[18px] h-[18px] transition-colors',
+                            isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
+                          )}
+                        />
+                      </div>
+                      <span
                         className={cn(
-                          'w-[18px] h-[18px] transition-colors',
+                          'text-sm transition-colors',
                           isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
                         )}
-                      />
-                    </div>
-                    <span
-                      className={cn(
-                        'text-sm transition-colors',
-                        isReposted ? 'text-green-500' : 'text-muted-foreground group-hover:text-green-500'
-                      )}
-                    >
-                      {repostCount > 0 && repostCount}
-                    </span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center">
-                  <DropdownMenuItem onClick={handleRepost}>
-                    <Repeat2 className="w-4 h-4 mr-2" />
-                    {isReposted ? 'Undo repost' : 'Repost'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleQuote}>
-                    <Quote className="w-4 h-4 mr-2" />
-                    Quote
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      >
+                        {repostCount > 0 && repostCount}
+                      </span>
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center">
+                    <DropdownMenuItem onClick={handleRepost}>
+                      <Repeat2 className="w-4 h-4 mr-2" />
+                      {isReposted ? 'Undo repost' : 'Repost'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={handleQuote}>
+                      <Quote className="w-4 h-4 mr-2" />
+                      Quote
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              {/* Bookmark */}
-              <button
-                onClick={handleBookmark}
-                className="group"
-              >
-                <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
-                  <Bookmark
-                    className={cn(
-                      'w-[18px] h-[18px] transition-colors',
-                      isBookmarked ? 'text-primary fill-primary' : 'text-muted-foreground group-hover:text-primary'
-                    )}
-                  />
-                </div>
-              </button>
+                {/* Bookmark */}
+                <button
+                  onClick={handleBookmark}
+                  className="group"
+                >
+                  <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">
+                    <Bookmark
+                      className={cn(
+                        'w-[18px] h-[18px] transition-colors',
+                        isBookmarked ? 'text-primary fill-primary' : 'text-muted-foreground group-hover:text-primary'
+                      )}
+                    />
+                  </div>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Comments Section */}
-        {isLoadingComments ? (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        ) : (
-          <div className="px-4">
-            <CommentsSection
-              comments={comments}
-              onAddComment={handleAddComment}
-              onLikeComment={handleLikeComment}
-              onDeleteComment={handleDeleteComment}
-              onReportComment={handleReportComment}
-            />
-          </div>
+        {/* Comments Section - Hide for bot posts */}
+        {(post as unknown as BotPost).type !== 'bot_post' && (
+          isLoadingComments ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="px-4">
+              <CommentsSection
+                comments={comments}
+                onAddComment={handleAddComment}
+                onLikeComment={handleLikeComment}
+                onDeleteComment={handleDeleteComment}
+                onReportComment={handleReportComment}
+              />
+            </div>
+          )
         )}
 
-        {/* Share Card - Sticky at bottom on mobile */}
+        {/* Share Card - Sticky at bottom on mobile, hide for bot posts */}
+        {(post as unknown as BotPost).type !== 'bot_post' && (
         <div className="p-4 border-t border-border lg:hidden">
           <Card className="border-border !py-0 !gap-0">
             <CardContent className="p-4">
@@ -564,6 +607,7 @@ export function PostDetail() {
             </CardContent>
           </Card>
         </div>
+        )}
       </div>
     </div>
   )

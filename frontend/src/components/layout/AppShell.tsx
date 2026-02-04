@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LeftSidebar } from './LeftSidebar'
 import { RightSidebar } from './RightSidebar'
@@ -12,6 +13,11 @@ interface AppShellProps {
 }
 
 export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
+  const location = useLocation()
+
+  // Hide right sidebar on admin pages
+  const isAdminPage = location.pathname.startsWith('/admin')
+  const shouldShowRightSidebar = showRightSidebar && !isAdminPage
 
   return (
     <ComposeProvider>
@@ -29,7 +35,7 @@ export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
 
             {/* Right Sidebar - Sticky within scroll container */}
             <AnimatePresence mode="wait">
-              {showRightSidebar && (
+              {shouldShowRightSidebar && (
                 <motion.div
                   className="hidden lg:block sticky top-0 h-screen shrink-0"
                   initial={{ opacity: 0, x: 50 }}

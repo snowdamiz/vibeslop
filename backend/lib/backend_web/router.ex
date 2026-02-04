@@ -56,6 +56,7 @@ defmodule BackendWeb.Router do
     post "/projects", ProjectController, :create
     put "/projects/:id", ProjectController, :update
     delete "/projects/:id", ProjectController, :delete
+    get "/projects/github-urls", ProjectController, :github_urls
 
     # Comments
     post "/comments", CommentController, :create
@@ -147,6 +148,11 @@ defmodule BackendWeb.Router do
     get "/reports", AdminController, :list_reports
     put "/reports/:id", AdminController, :update_report
     delete "/reports/:id/content", AdminController, :delete_content
+
+    # Bot management
+    get "/bot/posts", AdminController, :list_bot_posts
+    post "/bot/trigger-trending", AdminController, :trigger_trending_post
+    delete "/bot/posts/:id", AdminController, :delete_bot_post
   end
 
   # Public API routes with optional auth
