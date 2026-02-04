@@ -29,6 +29,6 @@ primary_region = 'sjc'
     soft_limit = 1000
 
 [[vm]]
-  memory = '1gb'
+  memory = '2gb'
   cpu_kind = 'performance'
   cpus = 1
