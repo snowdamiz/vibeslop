@@ -9,8 +9,8 @@ defmodule Backend.Feed.Cache do
 
   require Logger
 
-  # Cache TTL in seconds
-  @cache_ttl_seconds 60
+  # Cache TTL in seconds (increased from 60 to 120 for better performance)
+  @cache_ttl_seconds 120
 
   # ETS table name
   @table_name :feed_cache

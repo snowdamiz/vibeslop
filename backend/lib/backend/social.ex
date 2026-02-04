@@ -623,18 +623,21 @@ defmodule Backend.Social do
     all_notifications
   end
 
-  # Batch fetch actors and latest notifications for all groups in 2 queries total
+  # Batch fetch actors and latest notifications for all groups
+  # Optimized: uses WHERE IN clause to only fetch relevant notifications
   defp batch_fetch_grouped_notification_data(user_id, grouped_results) do
-    # Build list of group keys for filtering
-    group_keys =
-      Enum.map(grouped_results, fn g -> {g.type, g.target_type, g.target_id} end)
+    # Extract unique target_ids for the WHERE clause
+    groupable_types = ["like", "repost", "bookmark", "quote"]
+    target_ids = Enum.map(grouped_results, & &1.target_id) |> Enum.uniq()
 
-    # Batch fetch all notifications for these groups with actors, ordered by inserted_at desc
-    # We'll use window functions to rank and filter to top 3 actors per group
+    # Only fetch notifications that match our groups (scoped query instead of fetching ALL)
     all_notifications_query =
       from n in Notification,
         join: actor in assoc(n, :actor),
-        where: n.user_id == ^user_id,
+        where:
+          n.user_id == ^user_id and
+            n.type in ^groupable_types and
+            n.target_id in ^target_ids,
         select: %{
           notification: n,
           actor: actor,
@@ -642,13 +645,15 @@ defmodule Backend.Social do
           target_type: n.target_type,
           target_id: n.target_id
         },
-        order_by: [desc: n.inserted_at],
-        preload: [:actor]
+        order_by: [desc: n.inserted_at]
 
     all_notifications = Repo.all(all_notifications_query)
 
-    # Filter to only the groups we care about
-    group_keys_set = MapSet.new(group_keys)
+    # Build lookup set for exact group matching
+    group_keys_set =
+      grouped_results
+      |> Enum.map(fn g -> {g.type, g.target_type, g.target_id} end)
+      |> MapSet.new()
 
     relevant_notifications =
       Enum.filter(all_notifications, fn n ->
@@ -656,9 +661,10 @@ defmodule Backend.Social do
       end)
 
     # Group by (type, target_type, target_id) and extract actors (top 3) and latest notification
+    grouped = Enum.group_by(relevant_notifications, fn n -> {n.type, n.target_type, n.target_id} end)
+
     actors_by_group =
-      relevant_notifications
-      |> Enum.group_by(fn n -> {n.type, n.target_type, n.target_id} end)
+      grouped
       |> Enum.map(fn {key, notifications} ->
         # Notifications are already sorted desc by inserted_at, take unique actors (top 3)
         actors =
@@ -672,8 +678,7 @@ defmodule Backend.Social do
       |> Map.new()
 
     latest_by_group =
-      relevant_notifications
-      |> Enum.group_by(fn n -> {n.type, n.target_type, n.target_id} end)
+      grouped
       |> Enum.map(fn {key, notifications} ->
         # First notification is the latest (sorted desc)
         latest = List.first(notifications)
