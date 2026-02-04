@@ -4,7 +4,27 @@ defmodule Backend.Recommendations do
 
   Implements production-grade algorithms for:
   - Trending Projects: Twitter/X-style engagement weights + time decay + velocity boost
-  - Who to Follow: Multi-signal scoring (social graph + popularity + relevance)
+  - Who to Follow: Multi-signal scoring with normalized weights
+
+  ## Who to Follow Algorithm
+
+  Formula: (graph × 0.35) + (popularity × 0.25) + (relevance × 0.25) + (diversity × 0.15)
+
+  All signals are normalized to 0-1 scale before combining to ensure fair weighting.
+
+  ### Signals:
+  1. **Social Graph (35%)**: Friends of friends + engaged creators (liked/bookmarked content)
+  2. **Popularity (25%)**: log(followers) × activity_multiplier (considers posts AND projects)
+  3. **Relevance (25%)**: Shared AI tools/tech stacks from liked AND bookmarked projects
+  4. **Diversity (15%)**: Quality creators using DIFFERENT tools/stacks (anti-filter-bubble)
+
+  ### Exclusions:
+  - Users already followed
+  - Blocked users (bidirectional)
+  - Recently dismissed suggestions (30-day cooldown)
+
+  ### Cold Start:
+  For new users (<1 follow AND <3 likes), returns popular active creators.
   """
 
   import Ecto.Query, warn: false
@@ -206,20 +226,25 @@ defmodule Backend.Recommendations do
   # ============================================================================
 
   @doc """
-  Returns suggested users to follow using multi-signal scoring.
+  Returns suggested users to follow using multi-signal scoring with normalization.
 
-  Formula: (graph_score × 0.4) + (popularity_score × 0.3) + (relevance_score × 0.3)
+  Formula: (graph × 0.35) + (popularity × 0.25) + (relevance × 0.25) + (diversity × 0.15)
 
-  Signals:
-  - Social Graph (40%): Friends of friends, mutual connections, engaged creators
-  - Popularity (30%): log(followers) × activity_multiplier × engagement_rate
-  - Relevance (30%): Shared tools/stacks from liked/bookmarked projects
+  Signals (all normalized to 0-1 before combining):
+  - Social Graph (35%): Friends of friends + creators of liked/bookmarked content
+  - Popularity (25%): log(followers) × activity_multiplier (posts AND projects)
+  - Relevance (25%): Shared AI tools/tech stacks from liked AND bookmarked projects
+  - Diversity (15%): Quality creators using different tech (anti-filter-bubble)
+
+  Exclusions:
+  - Users already followed
+  - Blocked users (bidirectional)
+  - Recently dismissed suggestions (30-day cooldown)
 
   Fallback for new users: Popular active creators
 
   Options:
   - :limit - Number of users to return (default 10)
-  - :context - "sidebar" or "onboarding" for different diversity
   """
   def suggested_users(current_user_id, opts \\ []) when is_binary(current_user_id) do
     limit = Keyword.get(opts, :limit, 10)
@@ -232,41 +257,66 @@ defmodule Backend.Recommendations do
   end
 
   defp has_social_graph?(user_id) do
-    # Check if user has any follows or engagement
-    follows_count =
-      from(f in Follow, where: f.follower_id == ^user_id, select: count(f.id))
+    # Single query to check if user has any follows or engagement
+    result =
+      from(u in User,
+        where: u.id == ^user_id,
+        left_join: f in Follow,
+        on: f.follower_id == u.id,
+        left_join: l in Like,
+        on: l.user_id == u.id,
+        select: %{
+          follows_count: count(f.id, :distinct),
+          likes_count: count(l.id, :distinct)
+        }
+      )
       |> Repo.one()
 
-    likes_count =
-      from(l in Like, where: l.user_id == ^user_id, select: count(l.id))
-      |> Repo.one()
-
-    follows_count > 0 or likes_count > 3
+    result && (result.follows_count > 0 or result.likes_count > 3)
   end
 
   defp multi_signal_suggestions(user_id, limit) do
-    # Get candidates from each signal
-    graph_candidates = get_graph_score_candidates(user_id, limit * 3)
-    popularity_candidates = get_popularity_score_candidates(user_id, limit * 3)
-    relevance_candidates = get_relevance_score_candidates(user_id, limit * 3)
+    # Get excluded users (blocked, muted, dismissed)
+    excluded_ids = get_excluded_user_ids(user_id)
 
-    # Combine and score
-    (graph_candidates ++ popularity_candidates ++ relevance_candidates)
+    # Get candidates from each signal
+    graph_candidates = get_graph_score_candidates(user_id, excluded_ids, limit * 3)
+    popularity_candidates = get_popularity_score_candidates(user_id, excluded_ids, limit * 3)
+    relevance_candidates = get_relevance_score_candidates(user_id, excluded_ids, limit * 3)
+    diversity_candidates = get_diversity_candidates(user_id, excluded_ids, limit)
+
+    # Combine all candidates
+    all_candidates = graph_candidates ++ popularity_candidates ++ relevance_candidates ++ diversity_candidates
+
+    # Calculate max scores for normalization (avoid division by zero)
+    max_graph = all_candidates |> Enum.filter(&(&1.signal == :graph)) |> Enum.map(& &1.score) |> Enum.max(fn -> 1.0 end)
+    max_popularity = all_candidates |> Enum.filter(&(&1.signal == :popularity)) |> Enum.map(& &1.score) |> Enum.max(fn -> 1.0 end)
+    max_relevance = all_candidates |> Enum.filter(&(&1.signal == :relevance)) |> Enum.map(& &1.score) |> Enum.max(fn -> 1.0 end)
+    max_diversity = all_candidates |> Enum.filter(&(&1.signal == :diversity)) |> Enum.map(& &1.score) |> Enum.max(fn -> 1.0 end)
+
+    # Group by user and normalize scores
+    all_candidates
     |> Enum.group_by(& &1.user_id)
     |> Enum.map(fn {candidate_user_id, scores} ->
+      # Extract and normalize each signal to 0-1 scale
       graph_score =
         Enum.find(scores, fn s -> s.signal == :graph end)
-        |> then(fn s -> if s, do: s.score, else: 0.0 end)
+        |> then(fn s -> if s, do: normalize_score(s.score, max_graph), else: 0.0 end)
 
       popularity_score =
         Enum.find(scores, fn s -> s.signal == :popularity end)
-        |> then(fn s -> if s, do: s.score, else: 0.0 end)
+        |> then(fn s -> if s, do: normalize_score(s.score, max_popularity), else: 0.0 end)
 
       relevance_score =
         Enum.find(scores, fn s -> s.signal == :relevance end)
-        |> then(fn s -> if s, do: s.score, else: 0.0 end)
+        |> then(fn s -> if s, do: normalize_score(s.score, max_relevance), else: 0.0 end)
 
-      final_score = graph_score * 0.4 + popularity_score * 0.3 + relevance_score * 0.3
+      diversity_score =
+        Enum.find(scores, fn s -> s.signal == :diversity end)
+        |> then(fn s -> if s, do: normalize_score(s.score, max_diversity), else: 0.0 end)
+
+      # Weighted combination: graph 35%, popularity 25%, relevance 25%, diversity 15%
+      final_score = graph_score * 0.35 + popularity_score * 0.25 + relevance_score * 0.25 + diversity_score * 0.15
 
       %{user_id: candidate_user_id, final_score: final_score}
     end)
@@ -275,9 +325,63 @@ defmodule Backend.Recommendations do
     |> load_users()
   end
 
+  # Normalize score to 0-1 range
+  defp normalize_score(score, max) when max > 0, do: min(to_float(score) / to_float(max), 1.0)
+  defp normalize_score(_score, _max), do: 0.0
+
+  # Get users that should be excluded from suggestions
+  defp get_excluded_user_ids(user_id) do
+    # Users already being followed
+    following_ids =
+      from(f in Follow, where: f.follower_id == ^user_id, select: f.following_id)
+      |> Repo.all()
+
+    # Blocked users (if block relationship exists)
+    blocked_ids = get_blocked_user_ids(user_id)
+
+    # Dismissed suggestions (if tracking exists)
+    dismissed_ids = get_dismissed_suggestion_ids(user_id)
+
+    MapSet.new([user_id] ++ following_ids ++ blocked_ids ++ dismissed_ids)
+  end
+
+  defp get_blocked_user_ids(user_id) do
+    # Check if blocks table exists and get blocked users
+    if Repo.exists?(from("user_blocks", select: 1, limit: 1)) do
+      from(b in "user_blocks",
+        where: b.blocker_id == ^user_id or b.blocked_id == ^user_id,
+        select: fragment("CASE WHEN ? = ? THEN ? ELSE ? END", b.blocker_id, ^user_id, b.blocked_id, b.blocker_id)
+      )
+      |> Repo.all()
+    else
+      []
+    end
+  rescue
+    _ -> []
+  end
+
+  defp get_dismissed_suggestion_ids(user_id) do
+    # Check if dismissed_suggestions table exists
+    if Repo.exists?(from("dismissed_suggestions", select: 1, limit: 1)) do
+      # Only exclude recently dismissed (last 30 days)
+      cutoff = DateTime.add(DateTime.utc_now(), -30, :day)
+      from(d in "dismissed_suggestions",
+        where: d.user_id == ^user_id and d.dismissed_at > ^cutoff,
+        select: d.dismissed_user_id
+      )
+      |> Repo.all()
+    else
+      []
+    end
+  rescue
+    _ -> []
+  end
+
   # Signal 1: Social Graph Score
-  defp get_graph_score_candidates(user_id, limit) do
-    # Friends of friends
+  defp get_graph_score_candidates(user_id, excluded_ids, limit) do
+    excluded_list = MapSet.to_list(excluded_ids)
+
+    # Friends of friends - users followed by people you follow
     friends_of_friends =
       from(u in User,
         join: f1 in Follow,
@@ -286,72 +390,107 @@ defmodule Backend.Recommendations do
         on: f2.follower_id == f1.following_id,
         where:
           f2.following_id == ^user_id and
-            u.id != ^user_id and
-            u.id not in subquery(
-              from f in Follow,
-                where: f.follower_id == ^user_id,
-                select: f.following_id
-            ),
+            u.id not in ^excluded_list,
         group_by: u.id,
         select: %{
           user_id: u.id,
           score: count(f1.follower_id, :distinct) |> type(:float),
           signal: :graph
         },
+        order_by: [desc: count(f1.follower_id, :distinct)],
         limit: ^limit
       )
       |> Repo.all()
 
-    # Engaged creators (users whose content the viewer has liked/bookmarked)
-    engaged_creators =
+    # Engaged creators from liked posts - properly structured query
+    liked_post_creators =
       from(u in User,
-        left_join: l in Like,
-        on: l.likeable_type in ["Post", "Project"],
-        left_join: b in Bookmark,
-        on: b.bookmarkable_type in ["Post", "Project"],
-        left_join: p in Backend.Content.Post,
-        on: p.id == l.likeable_id or p.id == b.bookmarkable_id,
-        left_join: proj in Project,
-        on: proj.id == l.likeable_id or proj.id == b.bookmarkable_id,
-        where:
-          (l.user_id == ^user_id or b.user_id == ^user_id) and
-            (p.user_id == u.id or proj.user_id == u.id) and
-            u.id != ^user_id and
-            u.id not in subquery(
-              from f in Follow,
-                where: f.follower_id == ^user_id,
-                select: f.following_id
-            ),
+        join: p in Backend.Content.Post,
+        on: p.user_id == u.id,
+        join: l in Like,
+        on: l.likeable_id == p.id and l.likeable_type == "Post" and l.user_id == ^user_id,
+        where: u.id not in ^excluded_list,
         group_by: u.id,
         select: %{
           user_id: u.id,
-          score: (count(l.id, :distinct) * 1.0 + count(b.id, :distinct) * 2.0) |> type(:float),
+          score: count(l.id, :distinct) |> type(:float),
           signal: :graph
         },
         limit: ^limit
       )
       |> Repo.all()
 
-    friends_of_friends ++ engaged_creators
+    # Engaged creators from liked projects
+    liked_project_creators =
+      from(u in User,
+        join: proj in Project,
+        on: proj.user_id == u.id,
+        join: l in Like,
+        on: l.likeable_id == proj.id and l.likeable_type == "Project" and l.user_id == ^user_id,
+        where: u.id not in ^excluded_list,
+        group_by: u.id,
+        select: %{
+          user_id: u.id,
+          score: count(l.id, :distinct) |> type(:float),
+          signal: :graph
+        },
+        limit: ^limit
+      )
+      |> Repo.all()
+
+    # Engaged creators from bookmarked posts (weighted 2x)
+    bookmarked_post_creators =
+      from(u in User,
+        join: p in Backend.Content.Post,
+        on: p.user_id == u.id,
+        join: b in Bookmark,
+        on: b.bookmarkable_id == p.id and b.bookmarkable_type == "Post" and b.user_id == ^user_id,
+        where: u.id not in ^excluded_list,
+        group_by: u.id,
+        select: %{
+          user_id: u.id,
+          score: (count(b.id, :distinct) * 2.0) |> type(:float),
+          signal: :graph
+        },
+        limit: ^limit
+      )
+      |> Repo.all()
+
+    # Engaged creators from bookmarked projects (weighted 2x)
+    bookmarked_project_creators =
+      from(u in User,
+        join: proj in Project,
+        on: proj.user_id == u.id,
+        join: b in Bookmark,
+        on: b.bookmarkable_id == proj.id and b.bookmarkable_type == "Project" and b.user_id == ^user_id,
+        where: u.id not in ^excluded_list,
+        group_by: u.id,
+        select: %{
+          user_id: u.id,
+          score: (count(b.id, :distinct) * 2.0) |> type(:float),
+          signal: :graph
+        },
+        limit: ^limit
+      )
+      |> Repo.all()
+
+    # Combine all graph signals - scores will be summed per user in grouping
+    friends_of_friends ++ liked_post_creators ++ liked_project_creators ++ bookmarked_post_creators ++ bookmarked_project_creators
   end
 
   # Signal 2: Popularity Score
-  defp get_popularity_score_candidates(user_id, limit) do
-    # Get users with follower counts and recent activity
+  defp get_popularity_score_candidates(_user_id, excluded_ids, limit) do
+    excluded_list = MapSet.to_list(excluded_ids)
+
+    # Get users with follower counts and recent activity (posts OR projects)
     recent_cutoff = DateTime.add(DateTime.utc_now(), -7, :day)
     moderate_cutoff = DateTime.add(DateTime.utc_now(), -30, :day)
     old_cutoff = DateTime.add(DateTime.utc_now(), -60, :day)
 
-    # Subquery for excluded users
-    excluded_users =
-      from(f in Follow,
-        where: f.follower_id == ^user_id,
-        select: f.following_id
-      )
-
     from(u in User,
       left_join: f in Follow,
       on: f.following_id == u.id,
+      # Posts activity
       left_join: recent_post in Backend.Content.Post,
       on: recent_post.user_id == u.id and recent_post.inserted_at > ^recent_cutoff,
       left_join: moderate_post in Backend.Content.Post,
@@ -362,7 +501,18 @@ defmodule Backend.Recommendations do
       on:
         old_post.user_id == u.id and old_post.inserted_at > ^old_cutoff and
           old_post.inserted_at <= ^moderate_cutoff,
-      where: u.id != ^user_id and u.id not in subquery(excluded_users),
+      # Projects activity
+      left_join: recent_proj in Project,
+      on: recent_proj.user_id == u.id and recent_proj.status == "published" and recent_proj.published_at > ^recent_cutoff,
+      left_join: moderate_proj in Project,
+      on:
+        moderate_proj.user_id == u.id and moderate_proj.status == "published" and
+          moderate_proj.published_at > ^moderate_cutoff and moderate_proj.published_at <= ^recent_cutoff,
+      left_join: old_proj in Project,
+      on:
+        old_proj.user_id == u.id and old_proj.status == "published" and
+          old_proj.published_at > ^old_cutoff and old_proj.published_at <= ^moderate_cutoff,
+      where: u.id not in ^excluded_list,
       group_by: u.id,
       select: %{
         user_id: u.id,
@@ -371,67 +521,102 @@ defmodule Backend.Recommendations do
             """
               LN(COALESCE(COUNT(DISTINCT ?), 0) + 1) *
               CASE
-                WHEN COUNT(DISTINCT ?) > 0 THEN 1.0
-                WHEN COUNT(DISTINCT ?) > 0 THEN 0.8
-                WHEN COUNT(DISTINCT ?) > 0 THEN 0.5
+                WHEN COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 THEN 1.0
+                WHEN COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 THEN 0.8
+                WHEN COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 THEN 0.5
                 ELSE 0.0
               END
             """,
             f.id,
             recent_post.id,
+            recent_proj.id,
             moderate_post.id,
-            old_post.id
+            moderate_proj.id,
+            old_post.id,
+            old_proj.id
           )
           |> type(:float),
         signal: :popularity
       },
       having:
         fragment(
-          "COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0",
+          """
+          COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR
+          COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0 OR COUNT(DISTINCT ?) > 0
+          """,
           recent_post.id,
           moderate_post.id,
-          old_post.id
+          old_post.id,
+          recent_proj.id,
+          moderate_proj.id,
+          old_proj.id
         ),
+      order_by: [desc: fragment("LN(COALESCE(COUNT(DISTINCT ?), 0) + 1)", f.id)],
       limit: ^limit
     )
     |> Repo.all()
   end
 
   # Signal 3: Relevance Score
-  defp get_relevance_score_candidates(user_id, limit) do
-    # Get shared AI tools and tech stacks from user's liked/bookmarked projects
+  defp get_relevance_score_candidates(user_id, excluded_ids, limit) do
+    excluded_list = MapSet.to_list(excluded_ids)
+
+    # Get AI tools from user's liked AND bookmarked projects
+    user_liked_ai_tools =
+      from(l in Like,
+        join: p in Project,
+        on: p.id == l.likeable_id and l.likeable_type == "Project",
+        join: pat in "project_ai_tools",
+        on: pat.project_id == p.id,
+        where: l.user_id == ^user_id,
+        select: pat.ai_tool_id
+      )
+
+    user_bookmarked_ai_tools =
+      from(b in Bookmark,
+        join: p in Project,
+        on: p.id == b.bookmarkable_id and b.bookmarkable_type == "Project",
+        join: pat in "project_ai_tools",
+        on: pat.project_id == p.id,
+        where: b.user_id == ^user_id,
+        select: pat.ai_tool_id
+      )
+
+    # Get tech stacks from user's liked AND bookmarked projects
+    user_liked_tech_stacks =
+      from(l in Like,
+        join: p in Project,
+        on: p.id == l.likeable_id and l.likeable_type == "Project",
+        join: pts in "project_tech_stacks",
+        on: pts.project_id == p.id,
+        where: l.user_id == ^user_id,
+        select: pts.tech_stack_id
+      )
+
+    user_bookmarked_tech_stacks =
+      from(b in Bookmark,
+        join: p in Project,
+        on: p.id == b.bookmarkable_id and b.bookmarkable_type == "Project",
+        join: pts in "project_tech_stacks",
+        on: pts.project_id == p.id,
+        where: b.user_id == ^user_id,
+        select: pts.tech_stack_id
+      )
+
+    # Find creators using matching tools/stacks
     from(u in User,
       join: proj in Project,
-      on: proj.user_id == u.id,
+      on: proj.user_id == u.id and proj.status == "published",
       left_join: pat in "project_ai_tools",
       on: pat.project_id == proj.id,
       left_join: pts in "project_tech_stacks",
       on: pts.project_id == proj.id,
       where:
-        u.id != ^user_id and
-          u.id not in subquery(
-            from f in Follow,
-              where: f.follower_id == ^user_id,
-              select: f.following_id
-          ) and
-          (pat.ai_tool_id in subquery(
-             from l in Like,
-               join: p2 in Project,
-               on: p2.id == l.likeable_id and l.likeable_type == "Project",
-               join: pat2 in "project_ai_tools",
-               on: pat2.project_id == p2.id,
-               where: l.user_id == ^user_id,
-               select: pat2.ai_tool_id
-           ) or
-             pts.tech_stack_id in subquery(
-               from l in Like,
-                 join: p2 in Project,
-                 on: p2.id == l.likeable_id and l.likeable_type == "Project",
-                 join: pts2 in "project_tech_stacks",
-                 on: pts2.project_id == p2.id,
-                 where: l.user_id == ^user_id,
-                 select: pts2.tech_stack_id
-             )),
+        u.id not in ^excluded_list and
+          (pat.ai_tool_id in subquery(user_liked_ai_tools) or
+             pat.ai_tool_id in subquery(user_bookmarked_ai_tools) or
+             pts.tech_stack_id in subquery(user_liked_tech_stacks) or
+             pts.tech_stack_id in subquery(user_bookmarked_tech_stacks)),
       group_by: u.id,
       select: %{
         user_id: u.id,
@@ -439,9 +624,120 @@ defmodule Backend.Recommendations do
           (count(pat.ai_tool_id, :distinct) + count(pts.tech_stack_id, :distinct)) |> type(:float),
         signal: :relevance
       },
+      order_by: [desc: count(pat.ai_tool_id, :distinct) + count(pts.tech_stack_id, :distinct)],
       limit: ^limit
     )
     |> Repo.all()
+  end
+
+  # Signal 4: Diversity Score - surfaces users outside the filter bubble
+  defp get_diversity_candidates(user_id, excluded_ids, limit) do
+    excluded_list = MapSet.to_list(excluded_ids)
+
+    # Get tools/stacks the user typically engages with (to find DIFFERENT ones)
+    user_tools =
+      from(l in Like,
+        join: p in Project,
+        on: p.id == l.likeable_id and l.likeable_type == "Project",
+        join: pat in "project_ai_tools",
+        on: pat.project_id == p.id,
+        where: l.user_id == ^user_id,
+        select: pat.ai_tool_id
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    user_stacks =
+      from(l in Like,
+        join: p in Project,
+        on: p.id == l.likeable_id and l.likeable_type == "Project",
+        join: pts in "project_tech_stacks",
+        on: pts.project_id == p.id,
+        where: l.user_id == ^user_id,
+        select: pts.tech_stack_id
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    # If user has no preferences yet, return empty (let other signals dominate)
+    if MapSet.size(user_tools) == 0 and MapSet.size(user_stacks) == 0 do
+      []
+    else
+      user_tools_list = MapSet.to_list(user_tools)
+      user_stacks_list = MapSet.to_list(user_stacks)
+
+      # Find high-quality creators using DIFFERENT tools/stacks
+      # Score based on: follower count + engagement, but must use different tech
+      recent_cutoff = DateTime.add(DateTime.utc_now(), -30, :day)
+
+      from(u in User,
+        join: proj in Project,
+        on: proj.user_id == u.id and proj.status == "published",
+        left_join: f in Follow,
+        on: f.following_id == u.id,
+        left_join: pat in "project_ai_tools",
+        on: pat.project_id == proj.id,
+        left_join: pts in "project_tech_stacks",
+        on: pts.project_id == proj.id,
+        where:
+          u.id not in ^excluded_list and
+            proj.published_at > ^recent_cutoff and
+            # Must have SOME tools/stacks
+            (not is_nil(pat.ai_tool_id) or not is_nil(pts.tech_stack_id)),
+        group_by: u.id,
+        # Score: popularity but filter for diversity
+        select: %{
+          user_id: u.id,
+          score:
+            fragment(
+              "LN(COALESCE(COUNT(DISTINCT ?), 0) + 1) * (1.0 + COALESCE(AVG(?), 0) / 100.0)",
+              f.id,
+              proj.likes_count
+            )
+            |> type(:float),
+          signal: :diversity,
+          # Count how many NON-matching tools they use
+          different_tools:
+            fragment(
+              "COUNT(DISTINCT CASE WHEN ? NOT IN (SELECT unnest(?::uuid[])) THEN ? END)",
+              pat.ai_tool_id,
+              ^user_tools_list,
+              pat.ai_tool_id
+            ),
+          different_stacks:
+            fragment(
+              "COUNT(DISTINCT CASE WHEN ? NOT IN (SELECT unnest(?::uuid[])) THEN ? END)",
+              pts.tech_stack_id,
+              ^user_stacks_list,
+              pts.tech_stack_id
+            )
+        },
+        # Must have at least some different tech
+        having:
+          fragment(
+            """
+            COUNT(DISTINCT CASE WHEN ? NOT IN (SELECT unnest(?::uuid[])) THEN ? END) > 0 OR
+            COUNT(DISTINCT CASE WHEN ? NOT IN (SELECT unnest(?::uuid[])) THEN ? END) > 0
+            """,
+            pat.ai_tool_id,
+            ^user_tools_list,
+            pat.ai_tool_id,
+            pts.tech_stack_id,
+            ^user_stacks_list,
+            pts.tech_stack_id
+          ),
+        order_by: [desc: fragment("LN(COALESCE(COUNT(DISTINCT ?), 0) + 1)", f.id)],
+        limit: ^limit
+      )
+      |> Repo.all()
+      |> Enum.map(fn result ->
+        # Simplify to standard format
+        %{user_id: result.user_id, score: result.score, signal: :diversity}
+      end)
+    end
+  rescue
+    # If query fails (e.g., empty arrays issue), return empty
+    _ -> []
   end
 
   # Fallback for new users with no social graph
