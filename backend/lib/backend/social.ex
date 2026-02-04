@@ -292,6 +292,73 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Batch check which items a user has liked.
+  Takes a list of {type, id} tuples and returns a MapSet of liked {type, id} tuples.
+  Reduces N queries to 1 query.
+  """
+  def batch_liked_items(user_id, items) when is_list(items) do
+    if Enum.empty?(items) do
+      MapSet.new()
+    else
+      # Group by type for efficient querying
+      by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
+
+      Enum.flat_map(by_type, fn {type, ids} ->
+        from(l in Like,
+          where: l.user_id == ^user_id and l.likeable_type == ^type and l.likeable_id in ^ids,
+          select: {l.likeable_type, l.likeable_id}
+        )
+        |> Repo.all()
+      end)
+      |> MapSet.new()
+    end
+  end
+
+  @doc """
+  Batch check which items a user has bookmarked.
+  Takes a list of {type, id} tuples and returns a MapSet of bookmarked {type, id} tuples.
+  Reduces N queries to 1 query.
+  """
+  def batch_bookmarked_items(user_id, items) when is_list(items) do
+    if Enum.empty?(items) do
+      MapSet.new()
+    else
+      by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
+
+      Enum.flat_map(by_type, fn {type, ids} ->
+        from(b in Bookmark,
+          where: b.user_id == ^user_id and b.bookmarkable_type == ^type and b.bookmarkable_id in ^ids,
+          select: {b.bookmarkable_type, b.bookmarkable_id}
+        )
+        |> Repo.all()
+      end)
+      |> MapSet.new()
+    end
+  end
+
+  @doc """
+  Batch check which items a user has reposted.
+  Takes a list of {type, id} tuples and returns a MapSet of reposted {type, id} tuples.
+  Reduces N queries to 1 query.
+  """
+  def batch_reposted_items(user_id, items) when is_list(items) do
+    if Enum.empty?(items) do
+      MapSet.new()
+    else
+      by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
+
+      Enum.flat_map(by_type, fn {type, ids} ->
+        from(r in Repost,
+          where: r.user_id == ^user_id and r.repostable_type == ^type and r.repostable_id in ^ids,
+          select: {r.repostable_type, r.repostable_id}
+        )
+        |> Repo.all()
+      end)
+      |> MapSet.new()
+    end
+  end
+
+  @doc """
   Creates a like without toggling. Returns error if already liked.
   Used for simulated engagement where we only want to create, not toggle.
   """
@@ -461,6 +528,8 @@ defmodule Backend.Social do
   Groups by (type, target_type, target_id) and returns aggregated actors.
   Types that can be grouped: like, repost, bookmark, quote
   Types that are not grouped: comment, mention, follow, bid_*, gig_*, review_*
+
+  Optimized to use batch queries instead of N+1 per-group queries.
   """
   def list_grouped_notifications(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -495,35 +564,21 @@ defmodule Backend.Social do
 
     non_grouped_results = Repo.all(non_grouped_query)
 
-    # For each grouped notification, fetch the most recent actors (up to 3)
+    # OPTIMIZATION: Batch fetch all latest notifications and actors for all groups in 2 queries
+    # instead of 2 queries per group (N+1 elimination)
+    {actors_by_group, latest_by_group} =
+      if Enum.empty?(grouped_results) do
+        {%{}, %{}}
+      else
+        batch_fetch_grouped_notification_data(user_id, grouped_results)
+      end
+
+    # Build grouped notifications using pre-fetched data
     grouped_with_actors =
       Enum.map(grouped_results, fn group ->
-        actors_query =
-          from n in Notification,
-            join: actor in assoc(n, :actor),
-            where:
-              n.user_id == ^user_id and
-                n.type == ^group.type and
-                n.target_type == ^group.target_type and
-                n.target_id == ^group.target_id,
-            order_by: [desc: n.inserted_at],
-            limit: 3,
-            select: actor
-
-        actors = Repo.all(actors_query)
-
-        # Get the most recent notification ID for this group (for marking as read)
-        latest_notification =
-          from(n in Notification,
-            where:
-              n.user_id == ^user_id and
-                n.type == ^group.type and
-                n.target_type == ^group.target_type and
-                n.target_id == ^group.target_id,
-            order_by: [desc: n.inserted_at],
-            limit: 1
-          )
-          |> Repo.one()
+        group_key = {group.type, group.target_type, group.target_id}
+        actors = Map.get(actors_by_group, group_key, [])
+        latest_notification = Map.get(latest_by_group, group_key)
 
         %{
           id: latest_notification && latest_notification.id,
@@ -566,6 +621,67 @@ defmodule Backend.Social do
       |> Enum.take(limit)
 
     all_notifications
+  end
+
+  # Batch fetch actors and latest notifications for all groups in 2 queries total
+  defp batch_fetch_grouped_notification_data(user_id, grouped_results) do
+    # Build list of group keys for filtering
+    group_keys =
+      Enum.map(grouped_results, fn g -> {g.type, g.target_type, g.target_id} end)
+
+    # Batch fetch all notifications for these groups with actors, ordered by inserted_at desc
+    # We'll use window functions to rank and filter to top 3 actors per group
+    all_notifications_query =
+      from n in Notification,
+        join: actor in assoc(n, :actor),
+        where: n.user_id == ^user_id,
+        select: %{
+          notification: n,
+          actor: actor,
+          type: n.type,
+          target_type: n.target_type,
+          target_id: n.target_id
+        },
+        order_by: [desc: n.inserted_at],
+        preload: [:actor]
+
+    all_notifications = Repo.all(all_notifications_query)
+
+    # Filter to only the groups we care about
+    group_keys_set = MapSet.new(group_keys)
+
+    relevant_notifications =
+      Enum.filter(all_notifications, fn n ->
+        MapSet.member?(group_keys_set, {n.type, n.target_type, n.target_id})
+      end)
+
+    # Group by (type, target_type, target_id) and extract actors (top 3) and latest notification
+    actors_by_group =
+      relevant_notifications
+      |> Enum.group_by(fn n -> {n.type, n.target_type, n.target_id} end)
+      |> Enum.map(fn {key, notifications} ->
+        # Notifications are already sorted desc by inserted_at, take unique actors (top 3)
+        actors =
+          notifications
+          |> Enum.map(& &1.actor)
+          |> Enum.uniq_by(& &1.id)
+          |> Enum.take(3)
+
+        {key, actors}
+      end)
+      |> Map.new()
+
+    latest_by_group =
+      relevant_notifications
+      |> Enum.group_by(fn n -> {n.type, n.target_type, n.target_id} end)
+      |> Enum.map(fn {key, notifications} ->
+        # First notification is the latest (sorted desc)
+        latest = List.first(notifications)
+        {key, latest && latest.notification}
+      end)
+      |> Map.new()
+
+    {actors_by_group, latest_by_group}
   end
 
   @doc """

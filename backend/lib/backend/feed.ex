@@ -1237,17 +1237,26 @@ defmodule Backend.Feed do
   end
 
   defp add_engagement_status(items, user_id) do
+    # Collect all item type/id pairs for batch lookup (3 queries instead of 3*N)
+    item_keys =
+      Enum.map(items, fn item ->
+        get_item_type_and_id(item)
+      end)
+
+    # Batch fetch all engagement statuses
+    liked_set = Backend.Social.batch_liked_items(user_id, item_keys)
+    bookmarked_set = Backend.Social.batch_bookmarked_items(user_id, item_keys)
+    reposted_set = Backend.Social.batch_reposted_items(user_id, item_keys)
+
+    # Apply engagement status to each item using the pre-fetched sets
     Enum.map(items, fn item ->
       {item_type, item_id} = get_item_type_and_id(item)
-
-      liked = Backend.Social.has_liked?(user_id, item_type, item_id)
-      bookmarked = Backend.Social.has_bookmarked?(user_id, item_type, item_id)
-      reposted = Backend.Social.has_reposted?(user_id, item_type, item_id)
+      key = {item_type, item_id}
 
       item
-      |> Map.put(:liked, liked)
-      |> Map.put(:bookmarked, bookmarked)
-      |> Map.put(:reposted, reposted)
+      |> Map.put(:liked, MapSet.member?(liked_set, key))
+      |> Map.put(:bookmarked, MapSet.member?(bookmarked_set, key))
+      |> Map.put(:reposted, MapSet.member?(reposted_set, key))
     end)
   end
 
