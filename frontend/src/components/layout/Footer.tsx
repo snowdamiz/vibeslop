@@ -1,10 +1,7 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Send, Zap, CheckCircle2 } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { Separator } from '@/components/ui/separator'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 
 const footerLinks = {
@@ -23,20 +20,6 @@ const footerLinks = {
 }
 
 export function Footer() {
-  const [email, setEmail] = useState('')
-  const [isSubscribed, setIsSubscribed] = useState(false)
-
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (email) {
-      setIsSubscribed(true)
-      setTimeout(() => {
-        setIsSubscribed(false)
-        setEmail('')
-      }, 3000)
-    }
-  }
-
   return (
     <footer className="border-t border-border bg-muted/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
