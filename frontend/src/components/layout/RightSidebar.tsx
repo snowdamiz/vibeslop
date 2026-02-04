@@ -27,9 +27,22 @@ export function RightSidebar() {
   const [followLoading, setFollowLoading] = useState<Set<string>>(new Set())
   const [loadingTrending, setLoadingTrending] = useState(true)
   const [loadingSuggested, setLoadingSuggested] = useState(true)
+  const [isVisible, setIsVisible] = useState(false)
 
-  // Fetch trending projects
+  // Check if sidebar is visible (lg breakpoint = 1024px)
   useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 1024px)')
+    setIsVisible(mediaQuery.matches)
+
+    const handler = (e: MediaQueryListEvent) => setIsVisible(e.matches)
+    mediaQuery.addEventListener('change', handler)
+    return () => mediaQuery.removeEventListener('change', handler)
+  }, [])
+
+  // Fetch trending projects - only when visible
+  useEffect(() => {
+    if (!isVisible) return
+
     const fetchTrending = async () => {
       setLoadingTrending(true)
       try {
@@ -68,10 +81,12 @@ export function RightSidebar() {
     }
 
     fetchTrending()
-  }, [])
+  }, [isVisible])
 
-  // Fetch suggested users
+  // Fetch suggested users - only when visible
   useEffect(() => {
+    if (!isVisible) return
+
     const fetchSuggestedUsers = async () => {
       setLoadingSuggested(true)
       try {
@@ -90,7 +105,7 @@ export function RightSidebar() {
     }
 
     fetchSuggestedUsers()
-  }, [])
+  }, [isVisible])
 
   // Handle follow/unfollow
   const handleFollow = async (username: string) => {
@@ -203,7 +218,7 @@ export function RightSidebar() {
                     <Link to={`/user/${user.username}`}>
                       <Avatar className="w-11 h-11 ring-2 ring-background">
                         {user.avatar_url && (
-                          <AvatarImage src={user.avatar_url} alt={user.display_name} />
+                          <AvatarImage src={user.avatar_url} alt={user.display_name} loading="lazy" />
                         )}
                         <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-semibold">
                           {initials}

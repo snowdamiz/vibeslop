@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, memo, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -145,13 +145,14 @@ interface NotificationItemProps {
   notification: GroupedNotification
 }
 
-function NotificationItem({ notification }: NotificationItemProps) {
-  const iconData = getNotificationIcon(notification.type)
+const NotificationItem = memo(function NotificationItem({ notification }: NotificationItemProps) {
+  // Memoize computed values
+  const iconData = useMemo(() => getNotificationIcon(notification.type), [notification.type])
   const Icon = iconData?.icon || Bell
   const color = iconData?.color || 'text-muted-foreground'
-  const link = getNotificationLink(notification)
+  const link = useMemo(() => getNotificationLink(notification), [notification])
   const hasMultipleActors = notification.actor_count > 1
-  const displayedActors = notification.actors.slice(0, 8)
+  const displayedActors = useMemo(() => notification.actors.slice(0, 8), [notification.actors])
   const remainingCount = notification.actor_count - displayedActors.length
 
   return (
@@ -182,6 +183,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
                   <AvatarImage
                     src={actor.avatar_url}
                     alt={actor.display_name}
+                    loading="lazy"
                   />
                 )}
                 <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-medium">
@@ -236,7 +238,7 @@ function NotificationItem({ notification }: NotificationItemProps) {
       )}
     </Link>
   )
-}
+})
 
 const NOTIFICATIONS_LIMIT = 10
 
