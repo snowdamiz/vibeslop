@@ -514,26 +514,35 @@ defmodule Backend.Feed do
     projects_query = build_scored_projects_query(cutoff)
     gigs_query = build_scored_gigs_query(cutoff)
 
+    # Get cursor score for post-query filtering (PostgreSQL can't filter by alias in HAVING)
+    {_, cursor_score} = apply_cursor_filter(posts_query, cursor)
+
     # Run all three queries in parallel for lower latency
+    # Fetch extra items to account for cursor filtering
+    fetch_limit = if cursor_score, do: limit * 2, else: limit + 1
+
     posts_task = Task.async(fn ->
       posts_query
-      |> apply_cursor_filter(cursor)
-      |> limit(^(limit + 1))
+      |> limit(^fetch_limit)
       |> Repo.all()
+      |> filter_by_cursor_score(cursor_score)
+      |> Enum.take(limit + 1)
     end)
 
     projects_task = Task.async(fn ->
       projects_query
-      |> apply_cursor_filter(cursor)
-      |> limit(^(limit + 1))
+      |> limit(^fetch_limit)
       |> Repo.all()
+      |> filter_by_cursor_score(cursor_score)
+      |> Enum.take(limit + 1)
     end)
 
     gigs_task = Task.async(fn ->
       gigs_query
-      |> apply_cursor_filter(cursor)
-      |> limit(^(limit + 1))
+      |> limit(^fetch_limit)
       |> Repo.all()
+      |> filter_by_cursor_score(cursor_score)
+      |> Enum.take(limit + 1)
     end)
 
     # Await all results
@@ -1093,17 +1102,27 @@ defmodule Backend.Feed do
   # Private Functions - Cursor Pagination
   # ============================================================================
 
-  defp apply_cursor_filter(query, nil), do: query
+  # Returns {query, nil} or {query, cursor_score} for post-query filtering
+  # PostgreSQL doesn't allow referencing column aliases in HAVING,
+  # so we filter results in Elixir after fetching
+  defp apply_cursor_filter(query, nil), do: {query, nil}
 
   defp apply_cursor_filter(query, cursor) do
     case decode_score_cursor(cursor) do
       {:ok, score, _id} ->
-        # Filter by score less than cursor score (for descending order)
-        from(q in query, having: fragment("? < ?", fragment("score"), ^score))
+        {query, score}
 
       _ ->
-        query
+        {query, nil}
     end
+  end
+
+  # Filters results by cursor score (for pagination)
+  defp filter_by_cursor_score(results, nil), do: results
+  defp filter_by_cursor_score(results, cursor_score) do
+    Enum.filter(results, fn result ->
+      to_float(result.score) < cursor_score
+    end)
   end
 
   defp apply_following_cursor_filter(query, nil), do: query
