@@ -51,7 +51,7 @@ defmodule BackendWeb.PostJSON do
       case post.media do
         %Ecto.Association.NotLoaded{} -> []
         nil -> []
-        media_list -> Enum.map(media_list, & &1.url)
+        media_list -> Enum.map(media_list, &maybe_migrate_media/1)
       end
 
     base_data = %{
@@ -94,7 +94,7 @@ defmodule BackendWeb.PostJSON do
         %Ecto.Association.NotLoaded{} -> nil
         nil -> nil
         [] -> nil
-        [first | _] -> first.url
+        [first | _] -> maybe_migrate_project_image(first)
       end
 
     base_data = %{
@@ -192,7 +192,7 @@ defmodule BackendWeb.PostJSON do
       case post.media do
         %Ecto.Association.NotLoaded{} -> []
         nil -> []
-        media_list -> Enum.map(media_list, & &1.url)
+        media_list -> Enum.map(media_list, &maybe_migrate_media/1)
       end
 
     %{
@@ -221,7 +221,7 @@ defmodule BackendWeb.PostJSON do
         %Ecto.Association.NotLoaded{} -> nil
         nil -> nil
         [] -> nil
-        [first | _] -> first.url
+        [first | _] -> maybe_migrate_project_image(first)
       end
 
     %{
@@ -350,7 +350,7 @@ defmodule BackendWeb.PostJSON do
       image =
         case project.images do
           [] -> nil
-          [first | _] -> first.url
+          [first | _] -> maybe_migrate_project_image(first)
         end
 
       %{
@@ -376,4 +376,52 @@ defmodule BackendWeb.PostJSON do
   end
 
   defp load_featured_projects(_), do: []
+
+  defp maybe_migrate_media(%{id: id, url: url}) do
+    if Backend.MediaStorage.is_data_uri?(url) do
+      case Backend.MediaStorage.upload_base64(url) do
+        {:ok, new_url} ->
+          # Update in background
+          Task.start(fn ->
+            import Ecto.Query
+
+            Backend.Repo.update_all(
+              from(m in Backend.Content.PostMedia, where: m.id == ^id),
+              set: [url: new_url]
+            )
+          end)
+
+          new_url
+
+        {:error, _} ->
+          url
+      end
+    else
+      url
+    end
+  end
+
+  defp maybe_migrate_project_image(%{id: id, url: url}) do
+    if Backend.MediaStorage.is_data_uri?(url) do
+      case Backend.MediaStorage.upload_base64(url) do
+        {:ok, new_url} ->
+          # Update in background
+          Task.start(fn ->
+            import Ecto.Query
+
+            Backend.Repo.update_all(
+              from(i in Backend.Content.ProjectImage, where: i.id == ^id),
+              set: [url: new_url]
+            )
+          end)
+
+          new_url
+
+        {:error, _} ->
+          url
+      end
+    else
+      url
+    end
+  end
 end

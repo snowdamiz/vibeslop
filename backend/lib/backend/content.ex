@@ -605,8 +605,14 @@ defmodule Backend.Content do
             media_list
             |> Enum.with_index()
             |> Enum.each(fn {media_url, index} ->
+              url =
+                case Backend.MediaStorage.upload_base64(media_url) do
+                  {:ok, r2_url} -> r2_url
+                  {:error, _} -> media_url
+                end
+
               %PostMedia{}
-              |> PostMedia.changeset(%{url: media_url, position: index, post_id: post.id})
+              |> PostMedia.changeset(%{url: url, position: index, post_id: post.id})
               |> Repo.insert!()
             end)
 
@@ -862,9 +868,15 @@ defmodule Backend.Content do
       images
       |> Enum.with_index()
       |> Enum.each(fn {image_url, index} ->
+        url =
+          case Backend.MediaStorage.upload_base64(image_url) do
+            {:ok, r2_url} -> r2_url
+            {:error, _} -> image_url
+          end
+
         %Backend.Content.ProjectImage{}
         |> Backend.Content.ProjectImage.changeset(%{
-          url: image_url,
+          url: url,
           position: index,
           project_id: project.id
         })
@@ -1061,9 +1073,15 @@ defmodule Backend.Content do
             images
             |> Enum.with_index()
             |> Enum.each(fn {image_url, index} ->
+              url =
+                case Backend.MediaStorage.upload_base64(image_url) do
+                  {:ok, r2_url} -> r2_url
+                  {:error, _} -> image_url
+                end
+
               %Backend.Content.ProjectImage{}
               |> Backend.Content.ProjectImage.changeset(%{
-                url: image_url,
+                url: url,
                 position: index,
                 project_id: project.id
               })

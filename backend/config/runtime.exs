@@ -68,6 +68,27 @@ if openrouter_api_key = System.get_env("OPENROUTER_API_KEY") do
     image_model: "google/gemini-3-pro-image-preview"
 end
 
+# Cloudflare R2 (S3-compatible)
+if r2_access_key = System.get_env("R2_ACCESS_KEY_ID") do
+  r2_secret = System.get_env("R2_SECRET_ACCESS_KEY")
+  r2_bucket = System.get_env("R2_BUCKET")
+  r2_account_id = System.get_env("R2_ACCOUNT_ID")
+  r2_public_url = System.get_env("R2_PUBLIC_URL")
+
+  config :ex_aws,
+    access_key_id: r2_access_key,
+    secret_access_key: r2_secret,
+    region: "auto",
+    s3: [
+      scheme: "https://",
+      host: "#{r2_account_id}.r2.cloudflarestorage.com"
+    ]
+
+  config :backend, :r2,
+    bucket: r2_bucket,
+    public_url: r2_public_url
+end
+
 # ## Using releases
 #
 # If you use `mix release`, you need to explicitly enable the server
