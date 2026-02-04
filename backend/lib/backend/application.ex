@@ -20,6 +20,10 @@ defmodule Backend.Application do
       Backend.Repo,
       {DNSCluster, query: Application.get_env(:backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Backend.PubSub},
+      # AI image cache for tracking AI-generated images
+      Backend.AI.ImageCache,
+      # Feed cache for caching first page of for-you feed
+      Backend.Feed.Cache,
       # Oban for background job processing
       {Oban, Application.fetch_env!(:backend, Oban)},
       # Start to serve requests, typically the last entry

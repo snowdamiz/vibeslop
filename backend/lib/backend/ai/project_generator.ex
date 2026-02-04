@@ -88,8 +88,15 @@ defmodule Backend.AI.ProjectGenerator do
     prompt = build_image_prompt(project_data, reference_images, project_colors)
     Logger.info("Generating image with #{length(reference_images)} reference image(s)")
 
-    # Single unified call - Gemini handles both cases
-    OpenRouter.generate_image(prompt, reference_images: reference_images)
+    # Generate and cache the image
+    case OpenRouter.generate_image(prompt, reference_images: reference_images) do
+      {:ok, image_data} = result ->
+        Backend.AI.ImageCache.mark_as_ai_generated(image_data)
+        result
+
+      error ->
+        error
+    end
   end
 
   # Private helper functions
@@ -214,6 +221,17 @@ defmodule Backend.AI.ProjectGenerator do
     has_logo = reference_images != []
     has_colors = project_colors.palette != [] and project_colors.source != nil
 
+    # Content policy for safe image generation
+    content_policy = """
+    CONTENT POLICY (STRICT REQUIREMENTS):
+    - Generate ONLY professional, work-appropriate imagery
+    - NO nudity, sexual content, or suggestive imagery of any kind
+    - NO violence, gore, weapons, or disturbing imagery
+    - NO hate symbols, extremist content, or offensive material
+    - NO drug paraphernalia or substance abuse imagery
+    - Create clean, corporate-safe visuals suitable for a professional portfolio
+    """
+
     # Build color or theme section
     color_section =
       if has_colors do
@@ -236,6 +254,8 @@ defmodule Backend.AI.ProjectGenerator do
 
     # Build the base prompt
     base_prompt = """
+    #{content_policy}
+
     Create a professional banner image for a software project called "#{title}".
 
     PROJECT DESCRIPTION (use this to inspire the visual concept):

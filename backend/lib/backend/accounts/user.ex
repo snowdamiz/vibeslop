@@ -17,6 +17,7 @@ defmodule Backend.Accounts.User do
     field :avatar_url, :string
     field :banner_url, :string
     field :is_verified, :boolean, default: false
+    field :is_system_bot, :boolean, default: false
     field :has_onboarded, :boolean, default: false
     field :github_access_token, :string
     field :developer_score, :integer, default: 0

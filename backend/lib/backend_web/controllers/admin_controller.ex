@@ -247,6 +247,63 @@ defmodule BackendWeb.AdminController do
     |> String.trim("-")
   end
 
+  # Bot Post Management
+  def list_bot_posts(conn, params) do
+    limit = Map.get(params, "limit", "20") |> String.to_integer()
+    offset = Map.get(params, "offset", "0") |> String.to_integer()
+
+    bot_posts = Backend.Bot.list_bot_posts(limit: limit, offset: offset)
+    total = Backend.Bot.count_bot_posts()
+
+    json(conn, %{
+      data: Enum.map(bot_posts, &bot_post_to_json/1),
+      meta: %{total: total, limit: limit, offset: offset}
+    })
+  end
+
+  def trigger_trending_post(conn, _params) do
+    case Backend.Bot.TrendingPost.generate() do
+      {:ok, post} ->
+        json(conn, %{success: true, post_id: post.id})
+
+      {:error, :no_trending_projects} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "no_trending_projects", message: "No trending projects found"})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "creation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def delete_bot_post(conn, %{"id" => id}) do
+    case Backend.Bot.delete_bot_post(id) do
+      {:ok, _bot_post} ->
+        send_resp(conn, :no_content, "")
+
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Bot post not found"})
+    end
+  end
+
+  defp bot_post_to_json(bot_post) do
+    %{
+      id: bot_post.id,
+      bot_type: bot_post.bot_type,
+      metadata: bot_post.metadata,
+      post: %{
+        id: bot_post.post.id,
+        content: bot_post.post.content,
+        inserted_at: bot_post.post.inserted_at
+      },
+      inserted_at: bot_post.inserted_at
+    }
+  end
+
   # Sync OpenRouter Models
   def sync_openrouter_models(conn, _params) do
     alias Backend.Catalog.AiTool

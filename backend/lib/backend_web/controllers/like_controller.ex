@@ -2,6 +2,7 @@ defmodule BackendWeb.LikeController do
   use BackendWeb, :controller
 
   alias Backend.Social
+  alias Backend.Social.{RateLimiter, SpamProtection}
 
   action_fallback BackendWeb.FallbackController
 
@@ -11,20 +12,40 @@ defmodule BackendWeb.LikeController do
     # Validate UUID format
     case Ecto.UUID.cast(id) do
       {:ok, _uuid} ->
-        # Capitalize type for consistency with database
-        likeable_type = String.capitalize(type)
+        # Check spam protection (account age)
+        with :ok <- SpamProtection.can_engage?(current_user, :like),
+             # Check rate limiting
+             :ok <- RateLimiter.check_like(current_user.id) do
+          # Capitalize type for consistency with database
+          likeable_type = String.capitalize(type)
 
-        case Social.toggle_like(current_user.id, likeable_type, id) do
-          {:ok, :liked, _like} ->
-            json(conn, %{success: true, liked: true})
+          case Social.toggle_like(current_user.id, likeable_type, id) do
+            {:ok, :liked, _like} ->
+              json(conn, %{success: true, liked: true})
 
-          {:ok, :unliked, _like} ->
-            json(conn, %{success: true, liked: false})
+            {:ok, :unliked, _like} ->
+              json(conn, %{success: true, liked: false})
 
-          {:error, changeset} ->
+            {:error, changeset} ->
+              conn
+              |> put_status(:unprocessable_entity)
+              |> json(%{error: "Unable to toggle like", details: translate_errors(changeset)})
+          end
+        else
+          {:error, :account_too_new} ->
+            hours_left = SpamProtection.hours_until_allowed(current_user, :like)
+
             conn
-            |> put_status(:unprocessable_entity)
-            |> json(%{error: "Unable to toggle like", details: translate_errors(changeset)})
+            |> put_status(:forbidden)
+            |> json(%{
+              error: "Account too new",
+              message: "Please wait #{hours_left} more hour(s) before liking content"
+            })
+
+          {:error, :rate_limited} ->
+            conn
+            |> put_status(:too_many_requests)
+            |> json(%{error: "Rate limited", message: "Too many likes. Please slow down."})
         end
 
       :error ->

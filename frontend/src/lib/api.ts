@@ -227,6 +227,27 @@ export interface AdminReportsResponse {
   }
 }
 
+export interface AdminBotPost {
+  id: string
+  bot_type: 'trending_projects' | 'milestone' | 'announcement'
+  metadata: Record<string, unknown>
+  post: {
+    id: string
+    content: string
+    inserted_at: string
+  }
+  inserted_at: string
+}
+
+export interface AdminBotPostsResponse {
+  data: AdminBotPost[]
+  meta: {
+    total: number
+    limit: number
+    offset: number
+  }
+}
+
 interface ApiError {
   error: string
   message: string
@@ -500,6 +521,10 @@ class ApiClient {
     return this.delete(`/projects/${id}`)
   }
 
+  async getProjectGithubUrls(): Promise<{ github_urls: string[] }> {
+    return this.get('/projects/github-urls')
+  }
+
   // Users
   async getUser(username: string): Promise<{ data: unknown }> {
     return this.get(`/users/${username}`)
@@ -771,6 +796,25 @@ class ApiClient {
 
   async syncOpenRouterModels(): Promise<{ success: boolean; created: number; skipped: number; total: number }> {
     return this.post('/admin/ai-tools/sync-openrouter')
+  }
+
+  // Admin Bot Management
+  async getAdminBotPosts(params?: {
+    limit?: number
+    offset?: number
+  }): Promise<AdminBotPostsResponse> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/admin/bot/posts?${queryParams}`)
+  }
+
+  async triggerTrendingBot(): Promise<{ success: boolean; post_id: string }> {
+    return this.post('/admin/bot/trigger-trending')
+  }
+
+  async deleteAdminBotPost(id: string): Promise<void> {
+    return this.delete(`/admin/bot/posts/${id}`)
   }
 
   // Admin Reports

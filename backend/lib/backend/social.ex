@@ -8,6 +8,113 @@ defmodule Backend.Social do
   alias Backend.Social.{Follow, Like, Bookmark, Repost, Notification, Report, Impression}
   alias Backend.Accounts.User
 
+  # ============================================================================
+  # Content Ownership Helpers (for self-engagement prevention)
+  # ============================================================================
+
+  @doc """
+  Checks if a user owns a specific piece of content.
+  Used to prevent self-engagement (liking, reposting, bookmarking own content).
+  """
+  def owns_content?(user_id, "Post", content_id) do
+    case Repo.get(Backend.Content.Post, content_id) do
+      nil -> false
+      post -> post.user_id == user_id
+    end
+  end
+
+  def owns_content?(user_id, "Project", content_id) do
+    case Repo.get(Backend.Content.Project, content_id) do
+      nil -> false
+      project -> project.user_id == user_id
+    end
+  end
+
+  def owns_content?(_user_id, _type, _content_id), do: false
+
+  @doc """
+  Counts self-engagement for a piece of content.
+  Returns counts of likes, reposts, and bookmarks made by the content owner.
+  Used by feed algorithm to discount self-engagement from scoring.
+  """
+  def count_self_engagement(content_type, content_id) do
+    owner_id = get_content_owner_id(content_type, content_id)
+
+    if owner_id do
+      %{
+        self_likes: count_self_likes(owner_id, content_type, content_id),
+        self_reposts: count_self_reposts(owner_id, content_type, content_id),
+        self_bookmarks: count_self_bookmarks(owner_id, content_type, content_id)
+      }
+    else
+      %{self_likes: 0, self_reposts: 0, self_bookmarks: 0}
+    end
+  end
+
+  @doc """
+  Checks if a specific engagement is self-engagement.
+  """
+  def is_self_like?(user_id, likeable_type, likeable_id) do
+    owns_content?(user_id, likeable_type, likeable_id) and
+      has_liked?(user_id, likeable_type, likeable_id)
+  end
+
+  def is_self_repost?(user_id, repostable_type, repostable_id) do
+    owns_content?(user_id, repostable_type, repostable_id) and
+      has_reposted?(user_id, repostable_type, repostable_id)
+  end
+
+  def is_self_bookmark?(user_id, bookmarkable_type, bookmarkable_id) do
+    owns_content?(user_id, bookmarkable_type, bookmarkable_id) and
+      has_bookmarked?(user_id, bookmarkable_type, bookmarkable_id)
+  end
+
+  defp get_content_owner_id("Post", content_id) do
+    case Repo.get(Backend.Content.Post, content_id) do
+      nil -> nil
+      post -> post.user_id
+    end
+  end
+
+  defp get_content_owner_id("Project", content_id) do
+    case Repo.get(Backend.Content.Project, content_id) do
+      nil -> nil
+      project -> project.user_id
+    end
+  end
+
+  defp get_content_owner_id(_, _), do: nil
+
+  defp count_self_likes(owner_id, content_type, content_id) do
+    from(l in Like,
+      where:
+        l.user_id == ^owner_id and l.likeable_type == ^content_type and
+          l.likeable_id == ^content_id,
+      select: count(l.id)
+    )
+    |> Repo.one()
+  end
+
+  defp count_self_reposts(owner_id, content_type, content_id) do
+    from(r in Repost,
+      where:
+        r.user_id == ^owner_id and r.repostable_type == ^content_type and
+          r.repostable_id == ^content_id,
+      select: count(r.id)
+    )
+    |> Repo.one()
+  end
+
+  defp count_self_bookmarks(owner_id, content_type, content_id) do
+    from(b in Bookmark,
+      where:
+        b.user_id == ^owner_id and b.bookmarkable_type == ^content_type and
+          b.bookmarkable_id == ^content_id,
+      select: count(b.id)
+    )
+    |> Repo.one()
+  end
+
   ## Follows
 
   @doc """
@@ -102,6 +209,7 @@ defmodule Backend.Social do
 
   @doc """
   Toggles a like (creates if doesn't exist, deletes if exists).
+  Self-likes are allowed but discounted in feed algorithm scoring.
   """
   def toggle_like(user_id, likeable_type, likeable_id) do
     query =
@@ -317,6 +425,7 @@ defmodule Backend.Social do
 
   @doc """
   Toggles a repost (creates if doesn't exist, deletes if exists).
+  Self-reposts are allowed but discounted in feed algorithm scoring.
   """
   def toggle_repost(user_id, repostable_type, repostable_id) do
     query =
@@ -436,6 +545,7 @@ defmodule Backend.Social do
 
   @doc """
   Toggles a bookmark (creates if doesn't exist, deletes if exists).
+  Self-bookmarks are allowed but discounted in feed algorithm scoring.
   """
   def toggle_bookmark(user_id, bookmarkable_type, bookmarkable_id) do
     query =

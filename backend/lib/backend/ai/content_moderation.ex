@@ -1,7 +1,7 @@
 defmodule Backend.AI.ContentModeration do
   @moduledoc """
   AI-powered content moderation for detecting NSFW images.
-  Uses ByteDance Seed 1.6 Flash via OpenRouter for vision analysis.
+  Uses Moonshot Kimi K2.5 via OpenRouter for vision analysis.
 
   IMPORTANT: This module uses FAIL-CLOSED design - if we cannot verify
   an image is safe, it will be rejected. This prevents NSFW content
@@ -11,7 +11,7 @@ defmodule Backend.AI.ContentModeration do
   alias Backend.AI.OpenRouter
   require Logger
 
-  @moderation_model "bytedance-seed/seed-1.6-flash"
+  @moderation_model "moonshotai/kimi-k2.5"
 
   @moderation_prompt """
   You are a content moderation system. Analyze this image and determine if it contains NSFW (Not Safe For Work) content.
@@ -51,6 +51,24 @@ defmodule Backend.AI.ContentModeration do
         Logger.error("Content moderation API failed: #{inspect(reason)}")
         # FAIL-CLOSED: reject if we can't verify safety
         {:error, :nsfw, "Unable to verify image safety. Please try again."}
+    end
+  end
+
+  @doc """
+  Moderates an image with cache awareness.
+
+  Skips moderation for AI-generated images (already constrained by content policy).
+  Returns:
+  - `{:ok, :safe}` if the image is explicitly determined to be safe
+  - `{:ok, :skipped_ai_generated}` if the image was AI-generated (no moderation needed)
+  - `{:error, :nsfw, reason}` if the image contains NSFW content or cannot be verified
+  """
+  def moderate_image_with_cache(image_data) when is_binary(image_data) do
+    if Backend.AI.ImageCache.is_ai_generated?(image_data) do
+      Logger.info("Skipping NSFW moderation for AI-generated image")
+      {:ok, :skipped_ai_generated}
+    else
+      moderate_image(image_data)
     end
   end
 
