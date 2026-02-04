@@ -19,6 +19,7 @@ defmodule Backend.Content.Project do
     field :reposts_count, :integer, default: 0
     field :bookmarks_count, :integer, default: 0
     field :quotes_count, :integer, default: 0
+    field :engagement_score, :float, default: 0.0
 
     belongs_to :user, Backend.Accounts.User
 

@@ -24,6 +24,10 @@ defmodule Backend.Application do
       Backend.AI.ImageCache,
       # Feed cache for caching first page of for-you feed
       Backend.Feed.Cache,
+      # Feed cache warmer - proactively warms cache before TTL expires
+      Backend.Feed.CacheWarmer,
+      # Notification cache for unread counts
+      Backend.Social.NotificationCache,
       # Oban for background job processing
       {Oban, Application.fetch_env!(:backend, Oban)},
       # Start to serve requests, typically the last entry

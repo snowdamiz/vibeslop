@@ -15,6 +15,7 @@ defmodule Backend.Gigs.Gig do
     field :status, :string, default: "open"
     field :bids_count, :integer, default: 0
     field :views_count, :integer, default: 0
+    field :engagement_score, :float, default: 0.0
 
     belongs_to :user, Backend.Accounts.User
     belongs_to :hired_bid, Backend.Gigs.Bid
