@@ -150,9 +150,6 @@ export function Messages() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const convData = response.data as any
 
-      const conversation = conversations.find(c => c.id === conversationId)
-      if (!conversation) return
-
       // Transform messages
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transformedMessages = convData.messages.map((msg: any) => ({
@@ -162,8 +159,27 @@ export function Messages() {
         isFromMe: msg.is_from_me,
       }))
 
+      // Use participant data from API response to avoid dependency on conversations state
       const conversationWithMessages: ConversationWithMessages = {
-        ...conversation,
+        id: conversationId,
+        participant: {
+          name: convData.participant.display_name,
+          username: convData.participant.username,
+          initials: convData.participant.initials,
+          avatarUrl: convData.participant.avatar_url,
+        },
+        lastMessage: {
+          content: transformedMessages.length > 0
+            ? transformedMessages[transformedMessages.length - 1].content
+            : 'No messages yet',
+          timestamp: transformedMessages.length > 0
+            ? transformedMessages[transformedMessages.length - 1].timestamp
+            : new Date().toISOString(),
+          isFromMe: transformedMessages.length > 0
+            ? transformedMessages[transformedMessages.length - 1].isFromMe
+            : false,
+        },
+        unreadCount: 0,
         messages: transformedMessages,
       }
 
@@ -181,7 +197,7 @@ export function Messages() {
     } finally {
       setLoadingMessages(false)
     }
-  }, [conversations])
+  }, [])
 
   // Handle URL params for auto-starting conversations
   useEffect(() => {

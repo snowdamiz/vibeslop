@@ -46,12 +46,49 @@ defmodule Backend.Engagement.Workers.BotPostWorker do
 
     Logger.info("BotPostWorker: Creating post for bot #{bot_user.user.username}")
 
+    # Get some active users to potentially mention
+    mentionable_users = get_mentionable_users(bot_user.user_id)
+
     # Generate post content (always returns {:ok, ...} with fallback)
-    {:ok, post_attrs} = BotPostGenerator.generate_post(bot_user)
+    {:ok, post_attrs} = BotPostGenerator.generate_post(bot_user, mentionable_users: mentionable_users)
     create_bot_post(bot_user, post_attrs)
   end
 
   defp return(value), do: value
+
+  # Get usernames of recently active real users (not bots) who can be mentioned
+  defp get_mentionable_users(exclude_user_id) do
+    import Ecto.Query
+
+    # Get real users who have posted or been active recently (last 7 days)
+    time_threshold = DateTime.utc_now() |> DateTime.add(-7, :day)
+
+    # Get bot user IDs to exclude
+    bot_user_ids =
+      from(b in Engagement.EngagementBotUser,
+        select: b.user_id
+      )
+      |> Repo.all()
+      |> MapSet.new()
+
+    # Get recently active users (posted or have content)
+    from(u in Backend.Accounts.User,
+      join: p in Backend.Content.Post,
+      on: p.user_id == u.id,
+      where: u.id != ^exclude_user_id,
+      where: p.inserted_at > ^time_threshold,
+      select: u.username,
+      distinct: true,
+      limit: 20
+    )
+    |> Repo.all()
+    |> Enum.reject(fn username ->
+      # Look up the user to check if they're a bot
+      user = Repo.get_by(Backend.Accounts.User, username: username)
+      user && MapSet.member?(bot_user_ids, user.id)
+    end)
+    |> Enum.take(10)
+  end
 
   defp select_bot_for_post do
     # Select an active bot that:

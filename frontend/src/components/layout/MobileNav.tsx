@@ -1,10 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
 import { Home, Bell, Mail, User, PenSquare, Briefcase, LogIn } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
 
 interface NavItem {
   icon: typeof Home
@@ -23,32 +22,7 @@ const navItems: NavItem[] = [
 export function MobileNav() {
   const location = useLocation()
   const { user, isAuthenticated } = useAuth()
-  const [unreadCounts, setUnreadCounts] = useState<{ notifications: number; messages: number }>({
-    notifications: 0,
-    messages: 0,
-  })
-
-  const fetchUnreadCounts = useCallback(async () => {
-    if (!isAuthenticated) return
-    try {
-      const counts = await api.getUnreadCounts()
-      setUnreadCounts(counts)
-    } catch (error) {
-      console.error('Failed to fetch unread counts:', error)
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUnreadCounts()
-    }, 0)
-
-    const interval = setInterval(fetchUnreadCounts, 30000)
-    return () => {
-      clearTimeout(timer)
-      clearInterval(interval)
-    }
-  }, [fetchUnreadCounts])
+  const { unreadCounts } = useNotifications()
 
   const getBadgeCount = (badgeKey?: 'notifications' | 'messages') => {
     if (!badgeKey) return undefined

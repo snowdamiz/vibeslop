@@ -634,11 +634,39 @@ defmodule Backend.Content do
         end
       end)
 
-    # If post was created successfully, process mentions
+    # If post was created successfully, process mentions and quote notifications
     case result do
       {:ok, post} ->
         content = Map.get(attrs, "content") || Map.get(attrs, :content) || ""
         Backend.Mentions.notify_mentioned_users(content, user_id, "Post", post.id)
+
+        # Create quote notifications for quoted content owners
+        quoted_post_id = Map.get(attrs, "quoted_post_id") || Map.get(attrs, :quoted_post_id)
+        quoted_project_id = Map.get(attrs, "quoted_project_id") || Map.get(attrs, :quoted_project_id)
+        content_preview = String.slice(content, 0, 100)
+
+        if quoted_post_id do
+          Backend.Social.create_engagement_notification(
+            user_id,
+            "Post",
+            quoted_post_id,
+            "quote",
+            content_preview: content_preview,
+            source_id: post.id
+          )
+        end
+
+        if quoted_project_id do
+          Backend.Social.create_engagement_notification(
+            user_id,
+            "Project",
+            quoted_project_id,
+            "quote",
+            content_preview: content_preview,
+            source_id: post.id
+          )
+        end
+
         {:ok, post}
 
       error ->
@@ -1340,6 +1368,16 @@ defmodule Backend.Content do
           user_id,
           commentable_type,
           commentable_id
+        )
+
+        # Create comment notification for the content owner (if not self-comment)
+        content_preview = String.slice(content, 0, 100)
+        Backend.Social.create_engagement_notification(
+          user_id,
+          commentable_type,
+          commentable_id,
+          "comment",
+          content_preview: content_preview
         )
 
         {:ok, comment}

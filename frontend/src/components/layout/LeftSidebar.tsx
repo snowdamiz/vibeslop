@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom'
-import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -30,8 +29,8 @@ import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import { useCompose } from '@/context/ComposeContext'
+import { useNotifications } from '@/context/NotificationContext'
 import { cn } from '@/lib/utils'
-import { api } from '@/lib/api'
 
 interface NavItem {
   icon: typeof Home
@@ -53,34 +52,7 @@ export function LeftSidebar() {
   const { user, logout, isAuthenticated } = useAuth()
   const { resolvedTheme, setTheme } = useTheme()
   const { openCompose } = useCompose()
-  const [unreadCounts, setUnreadCounts] = useState<{ notifications: number; messages: number }>({
-    notifications: 0,
-    messages: 0,
-  })
-
-  const fetchUnreadCounts = useCallback(async () => {
-    if (!isAuthenticated) return
-    try {
-      const counts = await api.getUnreadCounts()
-      setUnreadCounts(counts)
-    } catch (error) {
-      console.error('Failed to fetch unread counts:', error)
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    // Wrap in a microtask or timeout to avoid synchronous setState warning
-    const timer = setTimeout(() => {
-      fetchUnreadCounts()
-    }, 0)
-
-    // Refresh counts every 30 seconds
-    const interval = setInterval(fetchUnreadCounts, 30000)
-    return () => {
-      clearTimeout(timer)
-      clearInterval(interval)
-    }
-  }, [fetchUnreadCounts])
+  const { unreadCounts } = useNotifications()
 
   const toggleTheme = () => {
     setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')

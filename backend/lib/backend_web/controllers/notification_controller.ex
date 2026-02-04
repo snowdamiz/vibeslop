@@ -7,16 +7,28 @@ defmodule BackendWeb.NotificationController do
 
   @doc """
   List all notifications for the current user.
+  Supports grouped=true query param for X/Twitter-style grouping.
   """
   def index(conn, params) do
     current_user = conn.assigns[:current_user]
     limit = String.to_integer(Map.get(params, "limit", "20"))
     offset = String.to_integer(Map.get(params, "offset", "0"))
+    grouped = Map.get(params, "grouped", "true") == "true"
 
-    notifications = Social.list_notifications(current_user.id, limit: limit, offset: offset)
+    notifications =
+      if grouped do
+        Social.list_grouped_notifications(current_user.id, limit: limit, offset: offset)
+      else
+        Social.list_notifications(current_user.id, limit: limit, offset: offset)
+      end
+
     unread_count = Social.get_unread_count(current_user.id)
 
-    render(conn, :index, notifications: notifications, unread_count: unread_count)
+    if grouped do
+      render(conn, :index_grouped, notifications: notifications, unread_count: unread_count)
+    else
+      render(conn, :index, notifications: notifications, unread_count: unread_count)
+    end
   end
 
   @doc """

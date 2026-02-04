@@ -11,6 +11,9 @@ defmodule Backend.Social.Notification do
     # "Post", "Project", nil for follows
     field :target_type, :string
     field :target_id, :binary_id
+    # For quote notifications: the ID of the quote post (where to navigate)
+    # target_id is the original post, source_id is the quote post
+    field :source_id, :binary_id
     field :content_preview, :string
     field :read, :boolean, default: false
 
@@ -23,7 +26,7 @@ defmodule Backend.Social.Notification do
   @doc false
   def changeset(notification, attrs) do
     notification
-    |> cast(attrs, [:type, :target_type, :target_id, :content_preview, :read, :user_id, :actor_id])
+    |> cast(attrs, [:type, :target_type, :target_id, :source_id, :content_preview, :read, :user_id, :actor_id])
     |> validate_required([:type, :user_id, :actor_id])
     |> validate_inclusion(:type, [
       "like",
@@ -31,6 +34,8 @@ defmodule Backend.Social.Notification do
       "follow",
       "repost",
       "mention",
+      "quote",
+      "bookmark",
       "bid_received",
       "bid_accepted",
       "bid_rejected",
