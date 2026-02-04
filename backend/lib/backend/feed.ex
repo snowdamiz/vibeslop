@@ -396,23 +396,38 @@ defmodule Backend.Feed do
     |> Enum.take(needed)
   end
 
+  # Optimized: batch preloads instead of N+1 individual preloads
   defp fetch_older_posts_by_engagement(cutoff, exclude_ids, needed) do
     query = build_engagement_only_posts_query(cutoff)
 
-    query
-    |> limit(^(needed * 2))
-    |> Repo.all()
-    |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.post.id) end)
-    |> Enum.take(needed)
-    |> Enum.map(fn result ->
-      post =
-        Repo.preload(result.post, [
-          :user,
-          :media,
-          quoted_post: [:user, :media],
-          quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-        ])
+    results =
+      query
+      |> limit(^(needed * 2))
+      |> Repo.all()
+      |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.post.id) end)
+      |> Enum.take(needed)
 
+    # Batch preload all posts at once
+    post_ids = Enum.map(results, fn r -> r.post.id end)
+    posts_map =
+      if post_ids != [] do
+        from(p in Post,
+          where: p.id in ^post_ids,
+          preload: [
+            :user,
+            :media,
+            quoted_post: [:user, :media],
+            quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+          ]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    Enum.map(results, fn result ->
+      post = Map.get(posts_map, result.post.id, result.post)
       %{
         id: post.id,
         type: "post",
@@ -424,17 +439,33 @@ defmodule Backend.Feed do
     end)
   end
 
+  # Optimized: batch preloads instead of N+1 individual preloads
   defp fetch_older_projects_by_engagement(cutoff, exclude_ids, needed) do
     query = build_engagement_only_projects_query(cutoff)
 
-    query
-    |> limit(^(needed * 2))
-    |> Repo.all()
-    |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.project.id) end)
-    |> Enum.take(needed)
-    |> Enum.map(fn result ->
-      project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
+    results =
+      query
+      |> limit(^(needed * 2))
+      |> Repo.all()
+      |> Enum.reject(fn result -> MapSet.member?(exclude_ids, result.project.id) end)
+      |> Enum.take(needed)
 
+    # Batch preload all projects at once
+    project_ids = Enum.map(results, fn r -> r.project.id end)
+    projects_map =
+      if project_ids != [] do
+        from(p in Project,
+          where: p.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    Enum.map(results, fn result ->
+      project = Map.get(projects_map, result.project.id, result.project)
       %{
         id: project.id,
         type: "project",
@@ -525,31 +556,97 @@ defmodule Backend.Feed do
   end
 
   # Fetches scored posts, projects, and gigs with optional time cutoff
+  # Optimized: parallel queries + batch preloads instead of N+1 individual preloads
   defp fetch_scored_items(cutoff, cursor, limit) do
-    # Build scored posts query
+    # Build queries
     posts_query = build_scored_posts_query(cutoff)
-
-    # Build scored projects query
     projects_query = build_scored_projects_query(cutoff)
-
-    # Build scored gigs query
     gigs_query = build_scored_gigs_query(cutoff)
 
-    # Get posts with scores
-    posts =
+    # Run all three queries in parallel for lower latency
+    posts_task = Task.async(fn ->
       posts_query
       |> apply_cursor_filter(cursor)
       |> limit(^(limit + 1))
       |> Repo.all()
-      |> Enum.map(fn result ->
-        post =
-          Repo.preload(result.post, [
+    end)
+
+    projects_task = Task.async(fn ->
+      projects_query
+      |> apply_cursor_filter(cursor)
+      |> limit(^(limit + 1))
+      |> Repo.all()
+    end)
+
+    gigs_task = Task.async(fn ->
+      gigs_query
+      |> apply_cursor_filter(cursor)
+      |> limit(^(limit + 1))
+      |> Repo.all()
+    end)
+
+    # Await all results
+    post_results = Task.await(posts_task)
+    project_results = Task.await(projects_task)
+    gig_results = Task.await(gigs_task)
+
+    # Run batch preloads in parallel too
+    posts_preload_task = Task.async(fn ->
+      post_ids = Enum.map(post_results, fn r -> r.post.id end)
+      if post_ids != [] do
+        from(p in Post,
+          where: p.id in ^post_ids,
+          preload: [
             :user,
             :media,
             quoted_post: [:user, :media],
             quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-          ])
+          ]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+    end)
 
+    projects_preload_task = Task.async(fn ->
+      project_ids = Enum.map(project_results, fn r -> r.project.id end)
+      if project_ids != [] do
+        from(p in Project,
+          where: p.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+    end)
+
+    gigs_preload_task = Task.async(fn ->
+      gig_ids = Enum.map(gig_results, fn r -> r.gig.id end)
+      if gig_ids != [] do
+        from(g in Gig,
+          where: g.id in ^gig_ids,
+          preload: [:user, :ai_tools, :tech_stacks]
+        )
+        |> Repo.all()
+        |> Map.new(fn g -> {g.id, g} end)
+      else
+        %{}
+      end
+    end)
+
+    # Await preloads
+    posts_map = Task.await(posts_preload_task)
+    projects_map = Task.await(projects_preload_task)
+    gigs_map = Task.await(gigs_preload_task)
+
+    # Build final results
+    posts =
+      Enum.map(post_results, fn result ->
+        post = Map.get(posts_map, result.post.id, result.post)
         %{
           id: post.id,
           type: "post",
@@ -560,15 +657,9 @@ defmodule Backend.Feed do
         }
       end)
 
-    # Get projects with scores
     projects =
-      projects_query
-      |> apply_cursor_filter(cursor)
-      |> limit(^(limit + 1))
-      |> Repo.all()
-      |> Enum.map(fn result ->
-        project = Repo.preload(result.project, [:user, :ai_tools, :tech_stacks, :images])
-
+      Enum.map(project_results, fn result ->
+        project = Map.get(projects_map, result.project.id, result.project)
         %{
           id: project.id,
           type: "project",
@@ -579,15 +670,9 @@ defmodule Backend.Feed do
         }
       end)
 
-    # Get gigs with scores (only open gigs)
     gigs =
-      gigs_query
-      |> apply_cursor_filter(cursor)
-      |> limit(^(limit + 1))
-      |> Repo.all()
-      |> Enum.map(fn result ->
-        gig = Repo.preload(result.gig, [:user, :ai_tools, :tech_stacks])
-
+      Enum.map(gig_results, fn result ->
+        gig = Map.get(gigs_map, result.gig.id, result.gig)
         %{
           id: gig.id,
           type: "gig",
@@ -622,8 +707,8 @@ defmodule Backend.Feed do
     if followed_ids == [] do
       %{items: [], next_cursor: nil, has_more: false}
     else
-      # Get posts from followed users
-      posts =
+      # Get posts from followed users - fetch raw results first
+      post_results =
         from(p in Post,
           join: u in assoc(p, :user),
           where: p.user_id in ^followed_ids,
@@ -639,19 +724,32 @@ defmodule Backend.Feed do
         |> apply_following_cursor_filter(cursor)
         |> limit(^(limit + 1))
         |> Repo.all()
-        |> Enum.map(fn result ->
-          post =
-            Repo.preload(result.post, [
+
+      # Batch preload all posts at once (1 query instead of N)
+      post_ids = Enum.map(post_results, fn r -> r.post.id end)
+      posts_map =
+        if post_ids != [] do
+          from(p in Post,
+            where: p.id in ^post_ids,
+            preload: [
               :media,
               quoted_post: [:user, :media],
               quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-            ])
+            ]
+          )
+          |> Repo.all()
+          |> Map.new(fn p -> {p.id, p} end)
+        else
+          %{}
+        end
 
-          %{result | post: post}
-        end)
+      posts = Enum.map(post_results, fn result ->
+        post = Map.get(posts_map, result.post.id, result.post)
+        %{result | post: post}
+      end)
 
-      # Get projects from followed users
-      projects =
+      # Get projects from followed users - fetch raw results first
+      project_results =
         from(proj in Project,
           join: u in assoc(proj, :user),
           where: proj.user_id in ^followed_ids and proj.status == "published",
@@ -667,10 +765,25 @@ defmodule Backend.Feed do
         |> apply_following_cursor_filter(cursor)
         |> limit(^(limit + 1))
         |> Repo.all()
-        |> Enum.map(fn result ->
-          project = Repo.preload(result.project, [:ai_tools, :tech_stacks, :images])
-          %{result | project: project}
-        end)
+
+      # Batch preload all projects at once
+      project_ids = Enum.map(project_results, fn r -> r.project.id end)
+      projects_map =
+        if project_ids != [] do
+          from(p in Project,
+            where: p.id in ^project_ids,
+            preload: [:ai_tools, :tech_stacks, :images]
+          )
+          |> Repo.all()
+          |> Map.new(fn p -> {p.id, p} end)
+        else
+          %{}
+        end
+
+      projects = Enum.map(project_results, fn result ->
+        project = Map.get(projects_map, result.project.id, result.project)
+        %{result | project: project}
+      end)
 
       # Get reposts from followed users
       reposts = get_following_reposts(followed_ids, cursor, limit)
