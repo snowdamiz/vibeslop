@@ -28,8 +28,8 @@ export function AppShell({ children, showRightSidebar = true }: AppShellProps) {
         {/* Scrollable area - includes right sidebar so scrollbar is on far right */}
         <div className="flex-1 overflow-y-auto">
           <div className="flex">
-            {/* Main Content Area */}
-            <main className="flex-1 min-w-0">
+            {/* Main Content Area - pb-16 on mobile for bottom nav safe area */}
+            <main className="flex-1 min-w-0 pb-16 sm:pb-0">
               {children}
             </main>
 

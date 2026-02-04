@@ -16,7 +16,7 @@ export function SignIn() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center py-12 px-4">
+    <div className="relative min-h-[100dvh] flex items-center justify-center py-6 sm:py-12 px-4 overflow-hidden">
       {/* Background */}
       <div className="absolute inset-0 gradient-bg" />
       <motion.div

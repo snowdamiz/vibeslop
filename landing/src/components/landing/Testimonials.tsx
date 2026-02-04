@@ -59,7 +59,6 @@ const testimonials = [
 export function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
-  const itemsPerView = 3
 
   const nextSlide = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % testimonials.length)
@@ -75,9 +74,10 @@ export function Testimonials() {
     return () => clearInterval(interval)
   }, [isPaused, nextSlide])
 
-  const getVisibleTestimonials = () => {
+  // Get visible testimonials - 1 on mobile, 3 on desktop
+  const getVisibleTestimonials = (count: number) => {
     const visible = []
-    for (let i = 0; i < itemsPerView; i++) {
+    for (let i = 0; i < count; i++) {
       visible.push(testimonials[(currentIndex + i) % testimonials.length])
     }
     return visible
@@ -110,29 +110,79 @@ export function Testimonials() {
           className="relative"
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
+          onTouchStart={() => setIsPaused(true)}
+          onTouchEnd={() => setIsPaused(false)}
         >
-          {/* Navigation Buttons */}
+          {/* Navigation Buttons - visible on all screens */}
           <button
             onClick={prevSlide}
-            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 w-10 h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors hidden md:flex"
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 md:-translate-x-4 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted active:bg-muted transition-colors"
             aria-label="Previous testimonial"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
           </button>
           <button
             onClick={nextSlide}
-            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 w-10 h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted transition-colors hidden md:flex"
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 md:translate-x-4 z-10 w-9 h-9 md:w-10 md:h-10 rounded-full bg-background border border-border shadow-lg flex items-center justify-center hover:bg-muted active:bg-muted transition-colors"
             aria-label="Next testimonial"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
           </button>
 
-          {/* Cards Container */}
-          <div className="grid md:grid-cols-3 gap-5">
-            <AnimatePresence mode="popLayout">
-              {getVisibleTestimonials().map((testimonial, index) => (
+          {/* Mobile Cards - Single card view */}
+          <div className="md:hidden px-6">
+            <AnimatePresence mode="wait">
+              {getVisibleTestimonials(1).map((testimonial) => (
                 <motion.div
-                  key={`${testimonial.author}-${currentIndex}-${index}`}
+                  key={`mobile-${testimonial.author}-${currentIndex}`}
+                  initial={{ opacity: 0, x: 30 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -30 }}
+                  transition={{ duration: 0.3, ease: 'easeOut' }}
+                >
+                  <Card className="relative overflow-hidden border-border bg-card h-full">
+                    <CardContent className="p-6">
+                      {/* Stars */}
+                      <div className="flex gap-1 mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+                        ))}
+                      </div>
+
+                      {/* Quote */}
+                      <p className="text-foreground mb-6 leading-relaxed tracking-[-0.01em]">
+                        "{testimonial.quote}"
+                      </p>
+
+                      <div className="flex items-center gap-3 pt-4 border-t border-border">
+                        <Avatar className="w-10 h-10 ring-2 ring-offset-2 ring-offset-background ring-primary/20">
+                          <AvatarImage src={`https://i.pravatar.cc/150?img=${30 + currentIndex}`} alt={testimonial.author} />
+                          <AvatarFallback className={`bg-gradient-to-br ${testimonial.color} text-white text-sm font-medium`}>
+                            {testimonial.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-sm">{testimonial.author}</p>
+                          <p className="text-xs text-muted-foreground">{testimonial.role}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-medium text-primary">{testimonial.projects}</p>
+                          <p className="text-[10px] text-muted-foreground">projects</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Desktop Cards - 3 card view */}
+          <div className="hidden md:grid md:grid-cols-3 gap-5">
+            <AnimatePresence mode="popLayout">
+              {getVisibleTestimonials(3).map((testimonial, index) => (
+                <motion.div
+                  key={`desktop-${testimonial.author}-${currentIndex}-${index}`}
                   initial={{ opacity: 0, x: 30 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -30 }}

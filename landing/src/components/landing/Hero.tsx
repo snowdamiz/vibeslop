@@ -107,11 +107,11 @@ export function Hero() {
           {/* Headline */}
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight mb-6">
             Where{' '}
-            <span className="relative inline-block min-w-[280px] sm:min-w-[340px]">
+            <span className="relative inline-block min-w-[9ch] sm:min-w-[11ch]">
               <AnimatePresence mode="wait">
                 <motion.span
                   key={wordIndex}
-                  className="gradient-text inline-block"
+                  className="gradient-text inline-block whitespace-nowrap"
                   initial={{ opacity: 0, y: 20, filter: 'blur(8px)' }}
                   animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
                   exit={{ opacity: 0, y: -20, filter: 'blur(8px)' }}
