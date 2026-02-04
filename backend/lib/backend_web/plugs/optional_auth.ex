@@ -14,7 +14,7 @@ defmodule BackendWeb.Plugs.OptionalAuth do
     with {:ok, token} <- extract_token(conn),
          {:ok, claims} <- Token.verify_token(token),
          user_id when not is_nil(user_id) <- Token.get_user_id(claims),
-         %Backend.Accounts.User{} = user <- Accounts.get_user(user_id) do
+         %Backend.Accounts.User{} = user <- Accounts.get_user_with_preferences(user_id) do
       assign(conn, :current_user, user)
     else
       _ ->
