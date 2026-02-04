@@ -13,8 +13,8 @@ defmodule BackendWeb.UserJSON do
         website_url: user.website_url,
         twitter_handle: user.twitter_handle,
         github_username: user.github_username,
-        avatar_url: user.avatar_url,
-        banner_url: user.banner_url,
+        avatar_url: maybe_migrate_avatar(user.id, user.avatar_url),
+        banner_url: maybe_migrate_banner(user.id, user.banner_url),
         is_verified: user.is_verified,
         is_premium: Backend.Billing.premium?(user),
         is_admin: Backend.Accounts.is_admin?(user),
@@ -46,7 +46,7 @@ defmodule BackendWeb.UserJSON do
       username: user.username,
       display_name: user.display_name,
       bio: user.bio,
-      avatar_url: user.avatar_url,
+      avatar_url: maybe_migrate_avatar(user.id, user.avatar_url),
       is_verified: user.is_verified,
       is_premium: Backend.Billing.premium?(user),
       is_admin: Backend.Accounts.is_admin?(user)
@@ -175,5 +175,55 @@ defmodule BackendWeb.UserJSON do
         category: stack.category
       }
     end)
+  end
+
+  # Lazy migration for avatars
+  defp maybe_migrate_avatar(user_id, url) do
+    if Backend.MediaStorage.is_data_uri?(url) do
+      case Backend.MediaStorage.upload_base64(url, path: "avatars") do
+        {:ok, new_url} ->
+          # Update in background
+          Task.start(fn ->
+            import Ecto.Query
+
+            Backend.Repo.update_all(
+              from(u in Backend.Accounts.User, where: u.id == ^user_id),
+              set: [avatar_url: new_url]
+            )
+          end)
+
+          new_url
+
+        {:error, _} ->
+          url
+      end
+    else
+      url
+    end
+  end
+
+  # Lazy migration for banners
+  defp maybe_migrate_banner(user_id, url) do
+    if Backend.MediaStorage.is_data_uri?(url) do
+      case Backend.MediaStorage.upload_base64(url, path: "banners") do
+        {:ok, new_url} ->
+          # Update in background
+          Task.start(fn ->
+            import Ecto.Query
+
+            Backend.Repo.update_all(
+              from(u in Backend.Accounts.User, where: u.id == ^user_id),
+              set: [banner_url: new_url]
+            )
+          end)
+
+          new_url
+
+        {:error, _} ->
+          url
+      end
+    else
+      url
+    end
   end
 end
