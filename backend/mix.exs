@@ -66,7 +66,11 @@ defmodule Backend.MixProject do
       {:dotenvy, "~> 0.8.0", only: [:dev, :test]},
       {:hammer, "~> 6.2"},
       {:oban, "~> 2.18"},
-      {:stripity_stripe, "~> 3.2"}
+      {:stripity_stripe, "~> 3.2"},
+      {:ex_aws, "~> 2.5"},
+      {:ex_aws_s3, "~> 2.5"},
+      {:sweet_xml, "~> 0.7"},
+      {:hackney, "~> 1.20"}
     ]
   end
 
