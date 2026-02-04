@@ -37,6 +37,7 @@ defmodule BackendWeb.NotificationController do
   end
 
   # Batch preload posts and projects referenced by notifications
+  # Optimized: includes all necessary associations to avoid lazy-loading during JSON rendering
   defp preload_notification_targets(notifications) do
     # Collect all target references
     {post_ids, project_ids} =
@@ -48,21 +49,32 @@ defmodule BackendWeb.NotificationController do
         end
       end)
 
-    # Batch fetch posts
+    # Batch fetch posts with all associations needed for rendering
     posts =
       if Enum.empty?(post_ids) do
         []
       else
-        from(p in Backend.Content.Post, where: p.id in ^Enum.uniq(post_ids))
+        from(p in Backend.Content.Post,
+          where: p.id in ^Enum.uniq(post_ids),
+          preload: [
+            :user,
+            :media,
+            quoted_post: [:user, :media],
+            quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+          ]
+        )
         |> Repo.all()
       end
 
-    # Batch fetch projects
+    # Batch fetch projects with all associations needed for rendering
     projects =
       if Enum.empty?(project_ids) do
         []
       else
-        from(p in Backend.Content.Project, where: p.id in ^Enum.uniq(project_ids))
+        from(p in Backend.Content.Project,
+          where: p.id in ^Enum.uniq(project_ids),
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
         |> Repo.all()
       end
 
