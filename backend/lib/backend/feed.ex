@@ -112,12 +112,11 @@ defmodule Backend.Feed do
     boosted_projects = apply_preference_boost(recent_projects, ai_tool_ids, tech_stack_ids)
     boosted_gigs = apply_preference_boost_to_gigs(recent_gigs, ai_tool_ids, tech_stack_ids)
 
-    # Apply boosts in order: premium boost, then new creator boost
-    # New creator boost helps new accounts compete with established ones
+    # Apply boosts in a single pass: premium boost + new creator boost
+    # Combined to reduce DB queries (2 -> 1) and iterations (2 -> 1)
     recent_items =
       (recent_posts ++ boosted_projects ++ boosted_gigs)
-      |> apply_premium_boost()
-      |> apply_new_creator_boost()
+      |> apply_combined_boosts()
       |> Enum.sort_by(& &1.score, :desc)
 
     # Get IDs of already fetched items to exclude from backfill
@@ -128,11 +127,11 @@ defmodule Backend.Feed do
       if length(recent_items) < @minimum_feed_items and cursor == nil do
         needed = @minimum_feed_items - length(recent_items)
         older_items = fetch_older_items_by_engagement(primary_cutoff, recent_ids, needed)
-        # Also boost older projects and apply new creator boost
+        # Also boost older projects and apply combined boosts
         boosted_older =
           older_items
           |> apply_preference_boost_to_mixed(ai_tool_ids, tech_stack_ids)
-          |> apply_new_creator_boost()
+          |> apply_combined_boosts()
 
         recent_items ++ boosted_older
       else
@@ -267,60 +266,51 @@ defmodule Backend.Feed do
   end
 
 
-  # Applies premium boost to items from premium users
-  defp apply_premium_boost(items) do
-    # Batch-load premium status for all unique user IDs
+  # Combined boost function: applies premium boost AND new creator boost in a single pass
+  # This reduces 2 DB queries to 1 and 2 iterations to 1
+  defp apply_combined_boosts(items) when items == [], do: []
+
+  defp apply_combined_boosts(items) do
     user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
 
-    premium_user_ids =
-      from(u in Backend.Accounts.User,
-        where: u.id in ^user_ids and u.subscription_status in ["active", "trialing"],
-        select: u.id
-      )
-      |> Repo.all()
-      |> MapSet.new()
-
-    Enum.map(items, fn item ->
-      if MapSet.member?(premium_user_ids, item.user.id) do
-        %{item | score: to_float(item.score) * @premium_boost}
-      else
-        item
-      end
-    end)
-  end
-
-  # Applies new creator boost to help new accounts get discovered
-  # Boost decays linearly from max (1.8x) for brand new accounts to 1.0x at threshold
-  defp apply_new_creator_boost(items) do
-    user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
-
-    # Batch-load account ages for all users
-    user_ages =
+    # Single query to get both premium status and account age
+    user_data =
       from(u in Backend.Accounts.User,
         where: u.id in ^user_ids,
-        select: {u.id, u.inserted_at}
+        select: {u.id, u.subscription_status, u.inserted_at}
       )
       |> Repo.all()
-      |> Map.new()
+      |> Map.new(fn {id, status, inserted_at} ->
+        {id, %{premium: status in ["active", "trialing"], inserted_at: inserted_at}}
+      end)
 
     now = DateTime.utc_now()
     threshold_seconds = @new_creator_threshold_days * 24 * 60 * 60
 
+    # Single iteration applying both boosts
     Enum.map(items, fn item ->
-      case Map.get(user_ages, item.user.id) do
+      case Map.get(user_data, item.user.id) do
         nil ->
           item
 
-        inserted_at ->
+        %{premium: is_premium, inserted_at: inserted_at} ->
+          score = to_float(item.score)
+
+          # Apply premium boost
+          score = if is_premium, do: score * @premium_boost, else: score
+
+          # Apply new creator boost
           age_seconds = DateTime.diff(now, inserted_at, :second)
 
-          if age_seconds < threshold_seconds do
-            # Linear decay: max boost at 0 days, 1.0x at threshold
-            boost_factor = @new_creator_boost_max - ((@new_creator_boost_max - 1.0) * age_seconds / threshold_seconds)
-            %{item | score: to_float(item.score) * boost_factor}
-          else
-            item
-          end
+          score =
+            if age_seconds < threshold_seconds do
+              boost_factor = @new_creator_boost_max - ((@new_creator_boost_max - 1.0) * age_seconds / threshold_seconds)
+              score * boost_factor
+            else
+              score
+            end
+
+          %{item | score: score}
       end
     end)
   end
@@ -1001,60 +991,88 @@ defmodule Backend.Feed do
       |> apply_following_cursor_filter(cursor)
       |> limit(^(limit + 1))
 
-    Repo.all(query)
-    |> Enum.map(fn repost ->
-      load_reposted_item(repost)
-    end)
-    |> Enum.filter(&(&1 != nil))
+    reposts = Repo.all(query)
+
+    # Batch load all reposted items to avoid N+1 queries
+    batch_load_reposted_items(reposts)
   end
 
-  defp load_reposted_item(repost) do
-    case repost.repostable_type do
-      "Post" ->
-        case Repo.get(Post, repost.repostable_id) do
-          nil ->
-            nil
+  # Batch loads reposted posts and projects in 2 queries instead of N queries
+  defp batch_load_reposted_items(reposts) do
+    # Separate reposts by type
+    {post_reposts, project_reposts} =
+      Enum.split_with(reposts, fn r -> r.repostable_type == "Post" end)
 
-          post ->
-            post =
-              Repo.preload(post, [
-                :user,
-                :media,
-                quoted_post: [:user, :media],
-                quoted_project: [:user, :ai_tools, :tech_stacks, :images]
-              ])
+    # Batch load all posts
+    post_ids = Enum.map(post_reposts, & &1.repostable_id)
+    posts_map =
+      if post_ids != [] do
+        from(p in Post,
+          where: p.id in ^post_ids,
+          preload: [
+            :user,
+            :media,
+            quoted_post: [:user, :media],
+            quoted_project: [:user, :ai_tools, :tech_stacks, :images]
+          ]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
 
-            %{
-              id: repost.id,
-              type: "repost",
-              post: post,
-              user: post.user,
-              reposter: repost.reposter,
-              sort_date: repost.sort_date
-            }
-        end
+    # Batch load all projects
+    project_ids = Enum.map(project_reposts, & &1.repostable_id)
+    projects_map =
+      if project_ids != [] do
+        from(proj in Project,
+          where: proj.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
 
-      "Project" ->
-        case Repo.get(Project, repost.repostable_id) do
-          nil ->
-            nil
+    # Map reposts to their loaded items
+    reposts
+    |> Enum.map(fn repost ->
+      case repost.repostable_type do
+        "Post" ->
+          case Map.get(posts_map, repost.repostable_id) do
+            nil -> nil
+            post ->
+              %{
+                id: repost.id,
+                type: "repost",
+                post: post,
+                user: post.user,
+                reposter: repost.reposter,
+                sort_date: repost.sort_date
+              }
+          end
 
-          project ->
-            project = Repo.preload(project, [:user, :ai_tools, :tech_stacks, :images])
+        "Project" ->
+          case Map.get(projects_map, repost.repostable_id) do
+            nil -> nil
+            project ->
+              %{
+                id: repost.id,
+                type: "repost",
+                project: project,
+                user: project.user,
+                reposter: repost.reposter,
+                sort_date: repost.sort_date
+              }
+          end
 
-            %{
-              id: repost.id,
-              type: "repost",
-              project: project,
-              user: project.user,
-              reposter: repost.reposter,
-              sort_date: repost.sort_date
-            }
-        end
-
-      _ ->
-        nil
-    end
+        _ ->
+          nil
+      end
+    end)
+    |> Enum.filter(&(&1 != nil))
   end
 
   # ============================================================================
