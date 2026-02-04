@@ -39,38 +39,6 @@ export function Footer() {
 
   return (
     <footer className="border-t border-border bg-muted/30">
-      {/* Newsletter Section */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="bg-card border border-border rounded-2xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-center md:text-left">
-            <h3 className="text-xl font-bold mb-2">Stay in the loop</h3>
-            <p className="text-muted-foreground text-sm max-w-md">
-              Get weekly highlights from the community, featured projects, and tips for building with AI.
-            </p>
-          </div>
-          <form onSubmit={handleSubscribe} className="flex gap-2 w-full md:w-auto">
-            <Input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full md:w-64"
-              required
-            />
-            <Button type="submit" disabled={isSubscribed}>
-              {isSubscribed ? (
-                <CheckCircle2 className="h-4 w-4" />
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Subscribe
-                </>
-              )}
-            </Button>
-          </form>
-        </div>
-      </div>
-
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-12 lg:pb-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           {/* Brand */}
