@@ -15,19 +15,20 @@ defmodule Backend.Social do
   @doc """
   Checks if a user owns a specific piece of content.
   Used to prevent self-engagement (liking, reposting, bookmarking own content).
+  Optimized: uses EXISTS query instead of loading entire record.
   """
   def owns_content?(user_id, "Post", content_id) do
-    case Repo.get(Backend.Content.Post, content_id) do
-      nil -> false
-      post -> post.user_id == user_id
-    end
+    from(p in Backend.Content.Post,
+      where: p.id == ^content_id and p.user_id == ^user_id
+    )
+    |> Repo.exists?()
   end
 
   def owns_content?(user_id, "Project", content_id) do
-    case Repo.get(Backend.Content.Project, content_id) do
-      nil -> false
-      project -> project.user_id == user_id
-    end
+    from(p in Backend.Content.Project,
+      where: p.id == ^content_id and p.user_id == ^user_id
+    )
+    |> Repo.exists?()
   end
 
   def owns_content?(_user_id, _type, _content_id), do: false
@@ -69,18 +70,21 @@ defmodule Backend.Social do
       has_bookmarked?(user_id, bookmarkable_type, bookmarkable_id)
   end
 
+  # Optimized: only select user_id instead of loading entire record
   defp get_content_owner_id("Post", content_id) do
-    case Repo.get(Backend.Content.Post, content_id) do
-      nil -> nil
-      post -> post.user_id
-    end
+    from(p in Backend.Content.Post,
+      where: p.id == ^content_id,
+      select: p.user_id
+    )
+    |> Repo.one()
   end
 
   defp get_content_owner_id("Project", content_id) do
-    case Repo.get(Backend.Content.Project, content_id) do
-      nil -> nil
-      project -> project.user_id
-    end
+    from(p in Backend.Content.Project,
+      where: p.id == ^content_id,
+      select: p.user_id
+    )
+    |> Repo.one()
   end
 
   defp get_content_owner_id(_, _), do: nil
@@ -428,6 +432,7 @@ defmodule Backend.Social do
   @doc """
   Lists items liked by a user with pagination.
   Returns mixed list of posts and projects.
+  Optimized: uses batch loading instead of N+1 queries.
   """
   def list_user_likes(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -442,20 +447,45 @@ defmodule Backend.Social do
 
     likes = Repo.all(query)
 
-    # Load the actual liked items
-    Enum.map(likes, fn like ->
+    # Batch load items by type (2 queries instead of N)
+    {post_likes, project_likes} =
+      Enum.split_with(likes, fn l -> l.likeable_type == "Post" end)
+
+    post_ids = Enum.map(post_likes, & &1.likeable_id)
+    project_ids = Enum.map(project_likes, & &1.likeable_id)
+
+    posts_map =
+      if post_ids != [] do
+        from(p in Backend.Content.Post,
+          where: p.id in ^post_ids,
+          preload: [:user, :media]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    projects_map =
+      if project_ids != [] do
+        from(p in Backend.Content.Project,
+          where: p.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    # Map likes to loaded items
+    likes
+    |> Enum.map(fn like ->
       item =
         case like.likeable_type do
-          "Post" ->
-            Repo.get(Backend.Content.Post, like.likeable_id)
-            |> Repo.preload([:user, :media])
-
-          "Project" ->
-            Repo.get(Backend.Content.Project, like.likeable_id)
-            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-
-          _ ->
-            nil
+          "Post" -> Map.get(posts_map, like.likeable_id)
+          "Project" -> Map.get(projects_map, like.likeable_id)
+          _ -> nil
         end
 
       %{
@@ -530,6 +560,7 @@ defmodule Backend.Social do
   Types that are not grouped: comment, mention, follow, bid_*, gig_*, review_*
 
   Optimized to use batch queries instead of N+1 per-group queries.
+  Also optimized to limit queries instead of fetching ALL notifications.
   """
   def list_grouped_notifications(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -538,7 +569,11 @@ defmodule Backend.Social do
     # Groupable engagement types
     groupable_types = ["like", "repost", "bookmark", "quote"]
 
-    # Get grouped notifications for groupable types
+    # Fetch more than needed to account for merging, then trim
+    # This avoids loading ALL notifications into memory
+    fetch_limit = (limit + offset) * 2
+
+    # Get grouped notifications for groupable types (with limit)
     grouped_query =
       from n in Notification,
         where: n.user_id == ^user_id and n.type in ^groupable_types and not is_nil(n.target_id),
@@ -551,15 +586,17 @@ defmodule Backend.Social do
           latest_at: max(n.inserted_at),
           has_unread: fragment("bool_or(NOT ?)", n.read)
         },
-        order_by: [desc: max(n.inserted_at)]
+        order_by: [desc: max(n.inserted_at)],
+        limit: ^fetch_limit
 
     grouped_results = Repo.all(grouped_query)
 
-    # Get non-groupable notifications (comments, mentions, follows, etc.)
+    # Get non-groupable notifications (comments, mentions, follows, etc.) with limit
     non_grouped_query =
       from n in Notification,
         where: n.user_id == ^user_id and n.type not in ^groupable_types,
         order_by: [desc: n.inserted_at],
+        limit: ^fetch_limit,
         preload: [:actor]
 
     non_grouped_results = Repo.all(non_grouped_query)
@@ -863,6 +900,7 @@ defmodule Backend.Social do
   @doc """
   Lists items reposted by a user with pagination.
   Returns mixed list of posts and projects.
+  Optimized: uses batch loading instead of N+1 queries.
   """
   def list_user_reposts(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -877,20 +915,45 @@ defmodule Backend.Social do
 
     reposts = Repo.all(query)
 
-    # Load the actual reposted items
-    Enum.map(reposts, fn repost ->
+    # Batch load items by type (2 queries instead of N)
+    {post_reposts, project_reposts} =
+      Enum.split_with(reposts, fn r -> r.repostable_type == "Post" end)
+
+    post_ids = Enum.map(post_reposts, & &1.repostable_id)
+    project_ids = Enum.map(project_reposts, & &1.repostable_id)
+
+    posts_map =
+      if post_ids != [] do
+        from(p in Backend.Content.Post,
+          where: p.id in ^post_ids,
+          preload: [:user, :media]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    projects_map =
+      if project_ids != [] do
+        from(p in Backend.Content.Project,
+          where: p.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    # Map reposts to loaded items
+    reposts
+    |> Enum.map(fn repost ->
       item =
         case repost.repostable_type do
-          "Post" ->
-            Repo.get(Backend.Content.Post, repost.repostable_id)
-            |> Repo.preload([:user, :media])
-
-          "Project" ->
-            Repo.get(Backend.Content.Project, repost.repostable_id)
-            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-
-          _ ->
-            nil
+          "Post" -> Map.get(posts_map, repost.repostable_id)
+          "Project" -> Map.get(projects_map, repost.repostable_id)
+          _ -> nil
         end
 
       %{
@@ -1019,6 +1082,7 @@ defmodule Backend.Social do
   @doc """
   Lists items bookmarked by a user with pagination.
   Returns mixed list of posts and projects.
+  Optimized: uses batch loading instead of N+1 queries.
   """
   def list_user_bookmarks(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -1033,20 +1097,45 @@ defmodule Backend.Social do
 
     bookmarks = Repo.all(query)
 
-    # Load the actual bookmarked items
-    Enum.map(bookmarks, fn bookmark ->
+    # Batch load items by type (2 queries instead of N)
+    {post_bookmarks, project_bookmarks} =
+      Enum.split_with(bookmarks, fn b -> b.bookmarkable_type == "Post" end)
+
+    post_ids = Enum.map(post_bookmarks, & &1.bookmarkable_id)
+    project_ids = Enum.map(project_bookmarks, & &1.bookmarkable_id)
+
+    posts_map =
+      if post_ids != [] do
+        from(p in Backend.Content.Post,
+          where: p.id in ^post_ids,
+          preload: [:user, :media]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    projects_map =
+      if project_ids != [] do
+        from(p in Backend.Content.Project,
+          where: p.id in ^project_ids,
+          preload: [:user, :ai_tools, :tech_stacks, :images]
+        )
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
+    # Map bookmarks to loaded items
+    bookmarks
+    |> Enum.map(fn bookmark ->
       item =
         case bookmark.bookmarkable_type do
-          "Post" ->
-            Repo.get(Backend.Content.Post, bookmark.bookmarkable_id)
-            |> Repo.preload([:user, :media])
-
-          "Project" ->
-            Repo.get(Backend.Content.Project, bookmark.bookmarkable_id)
-            |> Repo.preload([:user, :ai_tools, :tech_stacks, :images])
-
-          _ ->
-            nil
+          "Post" -> Map.get(posts_map, bookmark.bookmarkable_id)
+          "Project" -> Map.get(projects_map, bookmark.bookmarkable_id)
+          _ -> nil
         end
 
       %{

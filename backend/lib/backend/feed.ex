@@ -266,14 +266,15 @@ defmodule Backend.Feed do
   end
 
 
-  # Combined boost function: applies premium boost AND new creator boost in a single pass
-  # This reduces 2 DB queries to 1 and 2 iterations to 1
+  # Combined boost function: applies premium boost, new creator boost, AND fetches follower counts
+  # This reduces 3 DB queries to 2 (user data + follower counts) and 2 iterations to 1
+  # Follower counts are stored on items to avoid re-querying in ensure_discovery_slots
   defp apply_combined_boosts(items) when items == [], do: []
 
   defp apply_combined_boosts(items) do
     user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
 
-    # Single query to get both premium status and account age
+    # Query 1: Get premium status and account age
     user_data =
       from(u in Backend.Accounts.User,
         where: u.id in ^user_ids,
@@ -284,14 +285,26 @@ defmodule Backend.Feed do
         {id, %{premium: status in ["active", "trialing"], inserted_at: inserted_at}}
       end)
 
+    # Query 2: Get follower counts (combined here to avoid separate query in ensure_discovery_slots)
+    follower_counts =
+      from(f in Follow,
+        where: f.following_id in ^user_ids,
+        group_by: f.following_id,
+        select: {f.following_id, count(f.id)}
+      )
+      |> Repo.all()
+      |> Map.new()
+
     now = DateTime.utc_now()
     threshold_seconds = @new_creator_threshold_days * 24 * 60 * 60
 
-    # Single iteration applying both boosts
+    # Single iteration applying both boosts and attaching follower count
     Enum.map(items, fn item ->
+      follower_count = Map.get(follower_counts, item.user.id, 0)
+
       case Map.get(user_data, item.user.id) do
         nil ->
-          item
+          Map.put(item, :follower_count, follower_count)
 
         %{premium: is_premium, inserted_at: inserted_at} ->
           score = to_float(item.score)
@@ -310,30 +323,22 @@ defmodule Backend.Feed do
               score
             end
 
-          %{item | score: score}
+          item
+          |> Map.put(:score, score)
+          |> Map.put(:follower_count, follower_count)
       end
     end)
   end
 
   # Ensures minimum discovery slots for small creators in the feed
   # This guarantees new/small accounts get visibility even among popular content
+  # Optimized: uses pre-fetched follower_count from apply_combined_boosts (no DB query needed)
   defp ensure_discovery_slots(items, limit) do
-    user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
-
-    # Batch-load follower counts
-    follower_counts =
-      from(f in Follow,
-        where: f.following_id in ^user_ids,
-        group_by: f.following_id,
-        select: {f.following_id, count(f.id)}
-      )
-      |> Repo.all()
-      |> Map.new()
-
     # Separate items into small creators and established creators
+    # Uses pre-fetched follower_count from apply_combined_boosts
     {small_creator_items, established_items} =
       Enum.split_with(items, fn item ->
-        follower_count = Map.get(follower_counts, item.user.id, 0)
+        follower_count = Map.get(item, :follower_count, 0)
         follower_count < @small_creator_follower_threshold
       end)
 
