@@ -199,7 +199,7 @@ export function RightSidebar() {
                 const isLoading = followLoading.has(user.username)
 
                 return (
-                  <div key={user.username} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
+                  <div key={user.username} className="group flex items-center gap-3 px-4 py-3 hover:bg-muted/50">
                     <Link to={`/user/${user.username}`}>
                       <Avatar className="w-11 h-11 ring-2 ring-background">
                         {user.avatar_url && (
@@ -224,10 +224,10 @@ export function RightSidebar() {
                         size="sm"
                         variant={isFollowing ? "default" : "outline"}
                         className={cn(
-                          "rounded-full text-[13px] h-9 px-4 font-semibold",
+                          "rounded-full text-[13px] h-9 px-4 font-semibold transition-opacity",
                           isFollowing
                             ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "border-border/60 hover:bg-foreground hover:text-background hover:border-foreground"
+                            : "border-border/60 hover:bg-foreground hover:text-background hover:border-foreground opacity-0 group-hover:opacity-100"
                         )}
                         onClick={() => handleFollow(user.username)}
                         disabled={isLoading}

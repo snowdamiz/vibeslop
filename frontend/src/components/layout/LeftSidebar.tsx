@@ -229,34 +229,34 @@ export function LeftSidebar() {
             </Button>
           </div>
         )}
-
-        {/* Sign In / Create Account for unauthenticated users */}
-        {!isAuthenticated && (
-          <div className="pt-4 space-y-2 flex flex-col items-center xl:items-stretch">
-            <Button
-              className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
-              size="lg"
-              asChild
-            >
-              <Link to="/signin">
-                <LogIn className="w-5 h-5 xl:mr-2" />
-                <span className="hidden xl:inline">Sign In</span>
-              </Link>
-            </Button>
-            <Button
-              variant="outline"
-              className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] flex-shrink-0"
-              size="lg"
-              asChild
-            >
-              <Link to="/signup">
-                <UserPlus className="w-5 h-5 xl:mr-2" />
-                <span className="hidden xl:inline">Create Account</span>
-              </Link>
-            </Button>
-          </div>
-        )}
       </nav>
+
+      {/* Sign In / Create Account for unauthenticated users - at bottom */}
+      {!isAuthenticated && (
+        <div className="mt-auto pt-4 space-y-2 flex flex-col items-center xl:items-stretch">
+          <Button
+            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
+            size="lg"
+            asChild
+          >
+            <Link to="/signin">
+              <LogIn className="w-5 h-5 xl:mr-2" />
+              <span className="hidden xl:inline">Sign In</span>
+            </Link>
+          </Button>
+          <Button
+            variant="outline"
+            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] flex-shrink-0"
+            size="lg"
+            asChild
+          >
+            <Link to="/signup">
+              <UserPlus className="w-5 h-5 xl:mr-2" />
+              <span className="hidden xl:inline">Create Account</span>
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* User Menu */}
       {user && (
