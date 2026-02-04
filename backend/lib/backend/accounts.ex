@@ -6,6 +6,7 @@ defmodule Backend.Accounts do
   import Ecto.Query, warn: false
   alias Backend.Repo
   alias Backend.Accounts.{User, OAuthAccount}
+  alias Backend.Social
   alias Backend.Social.Follow
 
   @doc """
@@ -84,7 +85,7 @@ defmodule Backend.Accounts do
     }
 
     # Create user and OAuth account in a transaction
-    Repo.transaction(fn ->
+    result = Repo.transaction(fn ->
       with {:ok, user} <- %User{} |> User.github_changeset(user_attrs) |> Repo.insert(),
            oauth_attrs <- Map.put(oauth_attrs, :user_id, user.id),
            {:ok, _oauth} <-
@@ -94,6 +95,30 @@ defmodule Backend.Accounts do
         {:error, changeset} -> Repo.rollback(changeset)
       end
     end)
+
+    # Auto-follow official accounts after successful user creation
+    case result do
+      {:ok, user} ->
+        auto_follow_official_accounts(user)
+        {:ok, user}
+
+      error ->
+        error
+    end
+  end
+
+  # Auto-follow @onvibe and @snowdamiz for new users
+  defp auto_follow_official_accounts(user) do
+    official_accounts = ["onvibe", "snowdamiz"]
+
+    for username <- official_accounts do
+      case get_user_by_username(username) do
+        nil -> :ok
+        target_user -> Social.follow(user.id, target_user.id)
+      end
+    end
+
+    :ok
   end
 
   defp generate_unique_username(base_username) do
