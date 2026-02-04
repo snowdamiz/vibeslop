@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -26,6 +26,7 @@ import {
   Star,
   Quote,
   Bookmark,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { api, type GroupedNotification } from '@/lib/api'
@@ -237,6 +238,8 @@ function NotificationItem({ notification }: NotificationItemProps) {
   )
 }
 
+const NOTIFICATIONS_LIMIT = 10
+
 export function Notifications() {
   const { isAuthenticated } = useAuth()
   const { clearNotificationCount } = useNotifications()
@@ -244,7 +247,12 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<GroupedNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Ref for the sentinel element at the bottom
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   // Fetch notifications on mount and mark as read
   useEffect(() => {
@@ -256,9 +264,10 @@ export function Notifications() {
     const fetchNotifications = async () => {
       try {
         setIsLoading(true)
-        const response = await api.getNotifications({ limit: 50 })
+        const response = await api.getNotifications({ limit: NOTIFICATIONS_LIMIT })
         setNotifications(response.data)
         setUnreadCount(response.unread_count)
+        setHasMore(response.data.length >= NOTIFICATIONS_LIMIT)
 
         // Mark all as read after viewing the page (clears badge counter immediately)
         if (response.unread_count > 0) {
@@ -275,6 +284,48 @@ export function Notifications() {
 
     fetchNotifications()
   }, [isAuthenticated, clearNotificationCount])
+
+  // Load more notifications
+  const loadMore = useCallback(async () => {
+    if (isLoadingMore || !hasMore) return
+
+    try {
+      setIsLoadingMore(true)
+      const response = await api.getNotifications({
+        limit: NOTIFICATIONS_LIMIT,
+        offset: notifications.length
+      })
+
+      if (response.data.length > 0) {
+        setNotifications(prev => [...prev, ...response.data])
+        setHasMore(response.data.length >= NOTIFICATIONS_LIMIT)
+      } else {
+        setHasMore(false)
+      }
+    } catch (err) {
+      console.error('Failed to load more notifications:', err)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [isLoadingMore, hasMore, notifications.length])
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    if (!loadMoreRef.current || isLoading) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore) {
+          loadMore()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    observer.observe(loadMoreRef.current)
+
+    return () => observer.disconnect()
+  }, [loadMore, hasMore, isLoadingMore, isLoading])
 
   const filteredNotifications = activeTab === 'mentions'
     ? notifications.filter(n => n.type === 'mention')
@@ -422,9 +473,25 @@ export function Notifications() {
             <p className="text-muted-foreground">{error}</p>
           </div>
         ) : filteredNotifications.length > 0 ? (
-          filteredNotifications.map((notification) => (
-            <NotificationItem key={notification.id} notification={notification} />
-          ))
+          <>
+            {filteredNotifications.map((notification) => (
+              <NotificationItem key={notification.id} notification={notification} />
+            ))}
+            {/* Sentinel element for infinite scroll */}
+            <div ref={loadMoreRef} className="h-1" />
+            {/* Loading indicator */}
+            {isLoadingMore && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            {/* End of list indicator */}
+            {!hasMore && notifications.length > 0 && (
+              <div className="text-center py-4 text-sm text-muted-foreground">
+                You've reached the end
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-16 px-4">
             <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">

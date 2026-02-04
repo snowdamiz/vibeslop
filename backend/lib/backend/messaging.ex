@@ -174,7 +174,7 @@ defmodule Backend.Messaging do
           {:ok, message} ->
             # Update conversation's updated_at timestamp
             conversation
-            |> Ecto.Changeset.change(updated_at: DateTime.utc_now())
+            |> Ecto.Changeset.change(updated_at: DateTime.utc_now() |> DateTime.truncate(:second))
             |> Repo.update()
 
             # Check if recipient is a bot and schedule auto-reply
@@ -241,7 +241,7 @@ defmodule Backend.Messaging do
             where: m.sender_id != ^user_id,
             where: is_nil(m.read_at)
 
-        now = DateTime.utc_now()
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
         {count, _} = Repo.update_all(query, set: [read_at: now])
         {:ok, count}
     end
