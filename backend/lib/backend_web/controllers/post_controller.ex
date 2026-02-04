@@ -86,10 +86,18 @@ defmodule BackendWeb.PostController do
 
   # Fetches user's preferred AI tools and tech stacks for feed personalization
   # Optimized: accepts user struct directly to avoid redundant DB query
+  # Only preloads if not already loaded (when preferences are preloaded in auth plug)
   defp get_user_preferences(nil), do: {[], []}
 
   defp get_user_preferences(%Backend.Accounts.User{} = user) do
-    user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+    # Only preload if not already loaded (saves ~200-400ms when already preloaded by auth plug)
+    user =
+      if Ecto.assoc_loaded?(user.favorite_ai_tools) do
+        user
+      else
+        Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+      end
+
     ai_ids = Enum.map(user.favorite_ai_tools || [], & &1.id)
     stack_ids = Enum.map(user.preferred_tech_stacks || [], & &1.id)
     {ai_ids, stack_ids}

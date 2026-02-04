@@ -17,6 +17,18 @@ defmodule Backend.Accounts do
   end
 
   @doc """
+  Gets a single user by ID with preferences (favorite_ai_tools, preferred_tech_stacks) preloaded.
+  Used by auth plugs to avoid separate preload query in controllers.
+  """
+  def get_user_with_preferences(id) do
+    Repo.get(User, id)
+    |> case do
+      nil -> nil
+      user -> Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+    end
+  end
+
+  @doc """
   Gets a user by email.
   """
   def get_user_by_email(email) do

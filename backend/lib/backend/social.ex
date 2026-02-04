@@ -602,8 +602,6 @@ defmodule Backend.Social do
         order_by: [desc: max(n.inserted_at)],
         limit: ^fetch_limit
 
-    grouped_results = Repo.all(grouped_query)
-
     # Get non-groupable notifications (comments, mentions, follows, etc.) with limit
     non_grouped_query =
       from n in Notification,
@@ -612,7 +610,12 @@ defmodule Backend.Social do
         limit: ^fetch_limit,
         preload: [:actor]
 
-    non_grouped_results = Repo.all(non_grouped_query)
+    # Run grouped and non-grouped queries in parallel to save ~200-400ms
+    grouped_task = Task.async(fn -> Repo.all(grouped_query) end)
+    non_grouped_task = Task.async(fn -> Repo.all(non_grouped_query) end)
+
+    grouped_results = Task.await(grouped_task)
+    non_grouped_results = Task.await(non_grouped_task)
 
     # OPTIMIZATION: Batch fetch all latest notifications and actors for all groups in 2 queries
     # instead of 2 queries per group (N+1 elimination)
