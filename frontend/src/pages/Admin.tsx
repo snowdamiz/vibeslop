@@ -1,6 +1,6 @@
 import { useAuth } from '@/context/AuthContext'
 import { Navigate, useNavigate } from 'react-router-dom'
-import { Users, ChevronRight, Sparkles, Layers, Flag, Bot } from 'lucide-react'
+import { Users, ChevronRight, Sparkles, Layers, Flag, Bot, Zap } from 'lucide-react'
 
 export function Admin() {
     const { user, isAuthenticated, isLoading } = useAuth()
@@ -38,6 +38,12 @@ export function Admin() {
             title: 'Bots',
             description: 'Manage platform bots',
             onClick: () => navigate('/admin/bots'),
+        },
+        {
+            icon: Zap,
+            title: 'Engagement',
+            description: 'Simulated engagement system',
+            onClick: () => navigate('/admin/engagement'),
         },
         {
             icon: Sparkles,

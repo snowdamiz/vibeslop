@@ -272,6 +272,35 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Creates a like without toggling. Returns error if already liked.
+  Used for simulated engagement where we only want to create, not toggle.
+  """
+  def create_like(user_id, likeable_type, likeable_id) do
+    if has_liked?(user_id, likeable_type, likeable_id) do
+      {:error, :already_liked}
+    else
+      result =
+        %Like{}
+        |> Like.changeset(%{
+          user_id: user_id,
+          likeable_type: likeable_type,
+          likeable_id: likeable_id
+        })
+        |> Repo.insert()
+
+      case result do
+        {:ok, like} ->
+          Backend.Metrics.increment_counter(likeable_type, likeable_id, :likes_count)
+          Backend.Metrics.record_hourly_engagement(likeable_type, likeable_id, :likes)
+          {:ok, like}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
   Gets count of likes for a specific item.
   """
   def get_likes_count(likeable_type, likeable_id) do
@@ -488,6 +517,35 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Creates a repost without toggling. Returns error if already reposted.
+  Used for simulated engagement where we only want to create, not toggle.
+  """
+  def create_repost(user_id, post_id) do
+    if has_reposted?(user_id, "Post", post_id) do
+      {:error, :already_reposted}
+    else
+      result =
+        %Repost{}
+        |> Repost.changeset(%{
+          user_id: user_id,
+          repostable_type: "Post",
+          repostable_id: post_id
+        })
+        |> Repo.insert()
+
+      case result do
+        {:ok, repost} ->
+          Backend.Metrics.increment_counter("Post", post_id, :reposts_count)
+          Backend.Metrics.record_hourly_engagement("Post", post_id, :reposts)
+          {:ok, repost}
+
+        error ->
+          error
+      end
+    end
+  end
+
+  @doc """
   Gets count of reposts for a specific item.
   """
   def get_reposts_count(repostable_type, repostable_id) do
@@ -605,6 +663,35 @@ defmodule Backend.Social do
           error ->
             error
         end
+    end
+  end
+
+  @doc """
+  Creates a bookmark (non-toggle version for bots).
+  Returns {:ok, bookmark} or {:error, :already_bookmarked}.
+  """
+  def create_bookmark(user_id, bookmarkable_type, bookmarkable_id) do
+    if has_bookmarked?(user_id, bookmarkable_type, bookmarkable_id) do
+      {:error, :already_bookmarked}
+    else
+      result =
+        %Bookmark{}
+        |> Bookmark.changeset(%{
+          user_id: user_id,
+          bookmarkable_type: bookmarkable_type,
+          bookmarkable_id: bookmarkable_id
+        })
+        |> Repo.insert()
+
+      case result do
+        {:ok, bookmark} ->
+          Backend.Metrics.increment_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
+          Backend.Metrics.record_hourly_engagement(bookmarkable_type, bookmarkable_id, :bookmarks)
+          {:ok, bookmark}
+
+        error ->
+          error
+      end
     end
   end
 

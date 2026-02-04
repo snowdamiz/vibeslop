@@ -97,7 +97,7 @@ export function LeftSidebar() {
       {/* Logo */}
       <Link to="/" className="flex items-center gap-1 pb-1 justify-center xl:justify-start xl:px-1">
         <div className="flex items-center justify-center w-10 h-10">
-          <OnvibeLogo className="w-5 h-5 text-primary" />
+          <OnvibeLogo className="w-6 h-6 text-primary" />
         </div>
         <span className="text-xl font-bold tracking-tight hidden xl:block">
           on<span className="text-primary">vibe</span>

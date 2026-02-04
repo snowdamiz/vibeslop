@@ -3,7 +3,7 @@ defmodule BackendWeb.PostJSON do
   Renders a list of posts.
   """
   def index(%{posts: posts}) do
-    %{data: for(post_data <- posts, do: data(post_data))}
+    %{data: for(post_data <- posts, do: render_feed_item(post_data))}
   end
 
   @doc """
