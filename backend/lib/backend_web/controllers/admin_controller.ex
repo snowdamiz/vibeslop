@@ -772,8 +772,8 @@ defmodule BackendWeb.AdminController do
     alias Backend.Content.{Post, Project}
     alias Backend.Engagement.Workers.EngagementSchedulerWorker
 
-    hours_back = Map.get(params, "hours_back", "24") |> String.to_integer()
-    limit = Map.get(params, "limit", "10") |> String.to_integer()
+    hours_back = Map.get(params, "hours_back", 24) |> to_integer()
+    limit = Map.get(params, "limit", 10) |> to_integer()
     since = DateTime.utc_now() |> DateTime.add(-hours_back, :hour)
 
     # Find recent posts without scheduled engagement
@@ -840,4 +840,7 @@ defmodule BackendWeb.AdminController do
       found_projects: length(projects)
     })
   end
+
+  defp to_integer(value) when is_integer(value), do: value
+  defp to_integer(value) when is_binary(value), do: String.to_integer(value)
 end

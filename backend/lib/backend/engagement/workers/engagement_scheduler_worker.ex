@@ -162,14 +162,26 @@ defmodule Backend.Engagement.Workers.EngagementSchedulerWorker do
 
   defp return(value), do: value
 
-  defp load_content("Post", id), do: Repo.get(Post, id)
-  defp load_content("Project", id), do: Repo.get(Project, id)
+  defp load_content("Post", id) do
+    Repo.get(Post, id)
+    |> Repo.preload(:user)
+  end
+
+  defp load_content("Project", id) do
+    Repo.get(Project, id)
+    |> Repo.preload(:user)
+  end
+
   defp load_content(_, _), do: nil
 
   defp generate_comments_for_bots(content, comment_bots) do
+    # Get the content author's username for potential @mentions
+    author_username = get_content_author_username(content)
+    mentionable_users = if author_username, do: [author_username], else: []
+
     comment_bots
     |> Enum.map(fn bot ->
-      case CommentGenerator.generate_comment(content, bot) do
+      case CommentGenerator.generate_comment(content, bot, mentionable_users: mentionable_users) do
         {:ok, comment} -> {bot.id, comment}
         {:error, _} -> {bot.id, "Nice!"}
       end
@@ -177,10 +189,17 @@ defmodule Backend.Engagement.Workers.EngagementSchedulerWorker do
     |> Map.new()
   end
 
+  defp get_content_author_username(%{user: %{username: username}}) when is_binary(username), do: username
+  defp get_content_author_username(_), do: nil
+
   defp generate_quotes_for_bots(content, quote_bots) do
+    # Get the content author's username for potential @mentions
+    author_username = get_content_author_username(content)
+    mentionable_users = if author_username, do: [author_username], else: []
+
     quote_bots
     |> Enum.map(fn bot ->
-      {:ok, quote_text} = BotPostGenerator.generate_quote(bot, content)
+      {:ok, quote_text} = BotPostGenerator.generate_quote(bot, content, mentionable_users: mentionable_users)
       {bot.id, quote_text}
     end)
     |> Map.new()

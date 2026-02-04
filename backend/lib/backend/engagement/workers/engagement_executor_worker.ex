@@ -85,6 +85,12 @@ defmodule Backend.Engagement.Workers.EngagementExecutorWorker do
   defp execute_engagement(log, bot_user) do
     user = bot_user.user
 
+    # For content engagements (not follows), ensure we record a view first
+    # This prevents the illogical scenario of having more likes than views
+    if log.engagement_type != "follow" and log.target_type in ["Post", "Project"] do
+      ensure_impression_recorded(log.target_type, log.target_id, user.id)
+    end
+
     case log.engagement_type do
       "like" ->
         execute_like(log.target_type, log.target_id, user.id)
@@ -109,6 +115,52 @@ defmodule Backend.Engagement.Workers.EngagementExecutorWorker do
       _ ->
         {:error, "Unknown engagement type: #{log.engagement_type}"}
     end
+  end
+
+  # Ensure the bot has recorded an impression (view) for the content before engaging
+  # This also increments the view counter just like real user impressions
+  defp ensure_impression_recorded(target_type, target_id, user_id) do
+    case Social.record_impression(
+           target_type,
+           target_id,
+           user_id: user_id,
+           fingerprint: nil,
+           ip_address: generate_bot_ip()
+         ) do
+      {:ok, %Backend.Social.Impression{}} ->
+        # Successfully recorded NEW impression - increment the view counter
+        increment_view_counter(target_type, target_id)
+        Backend.Metrics.record_hourly_engagement(target_type, target_id, :impressions)
+        :ok
+
+      {:ok, :already_impressed} ->
+        # Already impressed, no need to increment counter
+        :ok
+
+      {:error, _reason} ->
+        # Error recording impression, continue with engagement anyway
+        :ok
+    end
+  end
+
+  # Increment the appropriate view counter for the content type
+  defp increment_view_counter("Post", post_id) do
+    import Ecto.Query
+    from(p in Backend.Content.Post, where: p.id == ^post_id)
+    |> Repo.update_all(inc: [impression_count: 1])
+  end
+
+  defp increment_view_counter("Project", project_id) do
+    import Ecto.Query
+    from(p in Backend.Content.Project, where: p.id == ^project_id)
+    |> Repo.update_all(inc: [view_count: 1])
+  end
+
+  defp increment_view_counter(_type, _id), do: :ok
+
+  # Generate a fake internal IP for bot impressions
+  defp generate_bot_ip do
+    "10.0.#{Enum.random(0..255)}.#{Enum.random(1..254)}"
   end
 
   defp execute_like(target_type, target_id, user_id) do
@@ -146,18 +198,10 @@ defmodule Backend.Engagement.Workers.EngagementExecutorWorker do
 
   defp execute_comment(target_type, target_id, user_id, comment_text) do
     case target_type do
-      "Post" ->
+      type when type in ["Post", "Project"] ->
         case Content.create_comment(user_id, %{
-               "post_id" => target_id,
-               "content" => comment_text
-             }) do
-          {:ok, _comment} -> :ok
-          {:error, reason} -> {:error, reason}
-        end
-
-      "Project" ->
-        case Content.create_comment(user_id, %{
-               "project_id" => target_id,
+               "commentable_type" => target_type,
+               "commentable_id" => target_id,
                "content" => comment_text
              }) do
           {:ok, _comment} -> :ok

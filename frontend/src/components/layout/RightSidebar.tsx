@@ -224,10 +224,10 @@ export function RightSidebar() {
                         size="sm"
                         variant={isFollowing ? "default" : "outline"}
                         className={cn(
-                          "rounded-full text-[13px] h-9 px-4 font-semibold transition-opacity",
+                          "rounded-full text-[13px] h-9 px-4 font-semibold transition-all",
                           isFollowing
                             ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                            : "border-border/60 hover:bg-foreground hover:text-background hover:border-foreground opacity-0 group-hover:opacity-100"
+                            : "border-border/60 bg-transparent text-foreground hover:!bg-white hover:!text-black hover:!border-white opacity-0 group-hover:opacity-100"
                         )}
                         onClick={() => handleFollow(user.username)}
                         disabled={isLoading}

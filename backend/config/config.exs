@@ -73,7 +73,7 @@ config :backend, Oban,
        {"*/30 * * * *", Backend.Engagement.Workers.BotViewWorker}
      ]}
   ],
-  queues: [default: 10, developer_scores: 2, engagement: 5]
+  queues: [default: 10, developer_scores: 2, engagement: 5, messaging: 5]
 
 # Configure Stripe
 config :stripity_stripe,

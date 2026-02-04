@@ -5,7 +5,7 @@ defmodule Backend.Engagement.SimulatedEngagementLog do
   @primary_key {:id, :binary_id, autogenerate: true}
   @foreign_key_type :binary_id
 
-  @engagement_types ~w(like repost comment follow)
+  @engagement_types ~w(like repost comment follow bookmark quote)
   @target_types ~w(Post Project User Comment)
   @statuses ~w(pending scheduled executed failed skipped)
 

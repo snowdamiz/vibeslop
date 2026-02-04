@@ -24,39 +24,46 @@ import {
   XCircle,
   Trophy,
   Star,
+  Quote,
+  Bookmark,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { api, type Notification } from '@/lib/api'
+import { api, type GroupedNotification } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
+import { useNotifications } from '@/context/NotificationContext'
 
 type NotificationTab = 'all' | 'mentions'
 
-const getNotificationIcon = (type: Notification['type']) => {
+const getNotificationIcon = (type: GroupedNotification['type']) => {
   switch (type) {
     case 'like':
-      return { icon: Heart, color: 'text-rose-500', bg: 'bg-rose-500/10' }
+      return { icon: Heart, color: 'text-rose-500' }
     case 'comment':
-      return { icon: MessageCircle, color: 'text-primary', bg: 'bg-primary/10' }
+      return { icon: MessageCircle, color: 'text-primary' }
     case 'follow':
-      return { icon: UserPlus, color: 'text-primary', bg: 'bg-primary/10' }
+      return { icon: UserPlus, color: 'text-primary' }
     case 'repost':
-      return { icon: Repeat2, color: 'text-green-500', bg: 'bg-green-500/10' }
+      return { icon: Repeat2, color: 'text-green-500' }
     case 'mention':
-      return { icon: AtSign, color: 'text-primary', bg: 'bg-primary/10' }
+      return { icon: AtSign, color: 'text-primary' }
+    case 'quote':
+      return { icon: Quote, color: 'text-violet-500' }
+    case 'bookmark':
+      return { icon: Bookmark, color: 'text-yellow-500' }
     case 'bid_received':
-      return { icon: DollarSign, color: 'text-emerald-500', bg: 'bg-emerald-500/10' }
+      return { icon: DollarSign, color: 'text-emerald-500' }
     case 'bid_accepted':
-      return { icon: CheckCircle, color: 'text-green-500', bg: 'bg-green-500/10' }
+      return { icon: CheckCircle, color: 'text-green-500' }
     case 'bid_rejected':
-      return { icon: XCircle, color: 'text-gray-500', bg: 'bg-gray-500/10' }
+      return { icon: XCircle, color: 'text-gray-500' }
     case 'gig_completed':
-      return { icon: Trophy, color: 'text-yellow-500', bg: 'bg-yellow-500/10' }
+      return { icon: Trophy, color: 'text-yellow-500' }
     case 'review_received':
-      return { icon: Star, color: 'text-amber-500', bg: 'bg-amber-500/10' }
+      return { icon: Star, color: 'text-amber-500' }
   }
 }
 
-const getNotificationText = (notification: Notification) => {
+const getNotificationText = (notification: GroupedNotification) => {
   switch (notification.type) {
     case 'like':
       return notification.target?.title
@@ -73,7 +80,17 @@ const getNotificationText = (notification: Notification) => {
         ? `reposted your project "${notification.target.title}"`
         : 'reposted your post'
     case 'mention':
-      return 'mentioned you in a post'
+      return notification.target?.title
+        ? `mentioned you on "${notification.target.title}"`
+        : 'mentioned you'
+    case 'quote':
+      return notification.target?.title
+        ? `quoted your project "${notification.target.title}"`
+        : 'quoted your post'
+    case 'bookmark':
+      return notification.target?.title
+        ? `bookmarked your project "${notification.target.title}"`
+        : 'bookmarked your post'
     case 'bid_received':
       return 'placed a bid on your gig'
     case 'bid_accepted':
@@ -87,9 +104,13 @@ const getNotificationText = (notification: Notification) => {
   }
 }
 
-const getNotificationLink = (notification: Notification) => {
+const getNotificationLink = (notification: GroupedNotification) => {
   if (notification.type === 'follow') {
-    return `/user/${notification.actor.username}`
+    return `/user/${notification.actors[0]?.username}`
+  }
+  // For quote notifications, navigate to the quote post (action_target) instead of the original post
+  if (notification.type === 'quote' && notification.action_target) {
+    return `/post/${notification.action_target.id}`
   }
   if (notification.target) {
     if (notification.target.type === 'Gig') {
@@ -120,74 +141,97 @@ const formatTimeAgo = (dateString: string) => {
 }
 
 interface NotificationItemProps {
-  notification: Notification
+  notification: GroupedNotification
 }
 
 function NotificationItem({ notification }: NotificationItemProps) {
-  const { icon: Icon, color, bg } = getNotificationIcon(notification.type)
+  const iconData = getNotificationIcon(notification.type)
+  const Icon = iconData?.icon || Bell
+  const color = iconData?.color || 'text-muted-foreground'
   const link = getNotificationLink(notification)
+  const hasMultipleActors = notification.actor_count > 1
+  const displayedActors = notification.actors.slice(0, 8)
+  const remainingCount = notification.actor_count - displayedActors.length
 
   return (
     <Link
       to={link}
       className={cn(
-        'flex gap-3 px-4 py-3 hover:bg-muted/30 transition-colors border-b border-border',
+        'flex gap-4 px-4 py-4 hover:bg-muted/30 transition-colors border-b border-border',
         !notification.read && 'bg-primary/5'
       )}
     >
-      {/* Icon */}
-      <div className={cn('flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center', bg)}>
-        <Icon className={cn('w-4 h-4', color)} />
+      {/* Icon column */}
+      <div className="flex-shrink-0 w-10 flex justify-end pt-0.5">
+        <Icon className={cn('w-6 h-6', color)} />
       </div>
 
-      {/* Content */}
+      {/* Main content */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-start gap-3">
-          {/* Actor Avatar */}
-          <Avatar className="w-10 h-10 flex-shrink-0">
-            {notification.actor.avatar_url && (
-              <AvatarImage
-                src={notification.actor.avatar_url}
-                alt={notification.actor.display_name}
-              />
-            )}
-            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-sm font-medium">
-              {notification.actor.initials}
-            </AvatarFallback>
-          </Avatar>
-
-          {/* Text Content */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] leading-snug">
-              <span className="font-semibold">{notification.actor.display_name}</span>{' '}
-              <span className="text-muted-foreground">{getNotificationText(notification)}</span>
-            </p>
-
-            {/* Preview content for comments and mentions */}
-            {notification.content && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
-                {notification.content}
-              </p>
-            )}
-
-            {/* Post preview for likes without content */}
-            {!notification.content && notification.target?.preview && (
-              <p className="text-sm text-muted-foreground mt-1 line-clamp-1">
-                {notification.target.preview}
-              </p>
-            )}
-
-            {/* Timestamp */}
-            <p className="text-xs text-muted-foreground mt-1">
-              {formatTimeAgo(notification.created_at)}
-            </p>
+        {/* Actor Avatars row */}
+        <div className="flex items-center gap-1 mb-2">
+          <div className="flex -space-x-1.5">
+            {displayedActors.map((actor, index) => (
+              <Avatar
+                key={actor.id}
+                className="w-8 h-8 border-2 border-background"
+                style={{ zIndex: displayedActors.length - index }}
+              >
+                {actor.avatar_url && (
+                  <AvatarImage
+                    src={actor.avatar_url}
+                    alt={actor.display_name}
+                  />
+                )}
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xs font-medium">
+                  {actor.initials}
+                </AvatarFallback>
+              </Avatar>
+            ))}
           </div>
+          {remainingCount > 0 && (
+            <span className="text-xs text-muted-foreground ml-1">
+              +{remainingCount}
+            </span>
+          )}
         </div>
+
+        {/* Text content */}
+        <p className="text-[15px] leading-snug">
+          <span className="font-bold">{notification.actors[0]?.display_name}</span>
+          {hasMultipleActors && notification.actor_count === 2 && (
+            <span className="font-bold"> and {notification.actors[1]?.display_name}</span>
+          )}
+          {hasMultipleActors && notification.actor_count > 2 && (
+            <span> and {notification.actor_count - 1} others</span>
+          )}
+          {' '}
+          <span className="text-muted-foreground">{getNotificationText(notification)}</span>
+        </p>
+
+        {/* Preview content */}
+        {notification.content && (
+          <p className="text-[15px] text-muted-foreground mt-1 line-clamp-2">
+            {notification.content}
+          </p>
+        )}
+
+        {/* Post preview for likes/reposts without content */}
+        {!notification.content && notification.target?.preview && (
+          <p className="text-[15px] text-muted-foreground mt-1 line-clamp-1">
+            {notification.target.preview}
+          </p>
+        )}
+
+        {/* Timestamp */}
+        <p className="text-sm text-muted-foreground mt-2">
+          {formatTimeAgo(notification.created_at)}
+        </p>
       </div>
 
       {/* Unread indicator */}
       {!notification.read && (
-        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary mt-2" />
+        <div className="flex-shrink-0 w-2 h-2 rounded-full bg-primary self-start mt-2" />
       )}
     </Link>
   )
@@ -195,13 +239,14 @@ function NotificationItem({ notification }: NotificationItemProps) {
 
 export function Notifications() {
   const { isAuthenticated } = useAuth()
+  const { clearNotificationCount } = useNotifications()
   const [activeTab, setActiveTab] = useState<NotificationTab>('all')
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [notifications, setNotifications] = useState<GroupedNotification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch notifications on mount
+  // Fetch notifications on mount and mark as read
   useEffect(() => {
     if (!isAuthenticated) {
       setIsLoading(false)
@@ -214,6 +259,12 @@ export function Notifications() {
         const response = await api.getNotifications({ limit: 50 })
         setNotifications(response.data)
         setUnreadCount(response.unread_count)
+
+        // Mark all as read after viewing the page (clears badge counter immediately)
+        if (response.unread_count > 0) {
+          clearNotificationCount() // Clear badge immediately
+          api.markAllNotificationsRead() // Fire and forget to backend
+        }
       } catch (err) {
         console.error('Failed to fetch notifications:', err)
         setError('Failed to load notifications')
@@ -223,7 +274,7 @@ export function Notifications() {
     }
 
     fetchNotifications()
-  }, [isAuthenticated])
+  }, [isAuthenticated, clearNotificationCount])
 
   const filteredNotifications = activeTab === 'mentions'
     ? notifications.filter(n => n.type === 'mention')

@@ -155,7 +155,8 @@ defmodule Backend.Messaging do
     conversation_query =
       from c in Conversation,
         where: c.id == ^conversation_id,
-        where: c.user_one_id == ^sender_id or c.user_two_id == ^sender_id
+        where: c.user_one_id == ^sender_id or c.user_two_id == ^sender_id,
+        preload: [:user_one, :user_two]
 
     case Repo.one(conversation_query) do
       nil ->
@@ -176,12 +177,46 @@ defmodule Backend.Messaging do
             |> Ecto.Changeset.change(updated_at: DateTime.utc_now())
             |> Repo.update()
 
+            # Check if recipient is a bot and schedule auto-reply
+            maybe_schedule_bot_reply(conversation, sender_id)
+
             {:ok, Repo.preload(message, [:sender])}
 
           error ->
             error
         end
     end
+  end
+
+  # Schedule a bot reply if the recipient is a system bot
+  defp maybe_schedule_bot_reply(conversation, sender_id) do
+    # Determine the recipient (the other user in the conversation)
+    recipient =
+      if conversation.user_one_id == sender_id do
+        conversation.user_two
+      else
+        conversation.user_one
+      end
+
+    # Only schedule if recipient is a system bot and sender is not a bot
+    sender =
+      if conversation.user_one_id == sender_id do
+        conversation.user_one
+      else
+        conversation.user_two
+      end
+
+    if recipient.is_system_bot && !sender.is_system_bot do
+      alias Backend.Engagement.Workers.BotMessageReplyWorker
+
+      BotMessageReplyWorker.schedule_reply(
+        conversation.id,
+        recipient.id,
+        sender_id
+      )
+    end
+
+    :ok
   end
 
   @doc """

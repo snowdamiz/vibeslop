@@ -27,11 +27,15 @@ defmodule Backend.Engagement.CommentGenerator do
     generate_comment(content, bot_user.persona_type, opts)
   end
 
-  def generate_comment(content, persona_type, _opts) when is_binary(persona_type) do
+  def generate_comment(content, persona_type, opts) when is_binary(persona_type) do
     content_text = extract_content_text(content)
     content_type = get_content_type(content)
+    mentionable_users = Keyword.get(opts, :mentionable_users, [])
 
-    prompt = build_prompt(content_text, content_type, persona_type)
+    # Decide if this comment should include a mention (30% chance if users available)
+    should_mention = length(mentionable_users) > 0 and :rand.uniform(100) <= 30
+
+    prompt = build_prompt(content_text, content_type, persona_type, mentionable_users, should_mention)
 
     messages = [
       %{
@@ -58,30 +62,47 @@ defmodule Backend.Engagement.CommentGenerator do
 
           {:error, reason} ->
             Logger.warning("Failed to extract comment text: #{inspect(reason)}")
-            {:ok, fallback_comment(persona_type)}
+            {:ok, fallback_comment(persona_type, mentionable_users, should_mention)}
         end
 
       {:error, reason} ->
         Logger.warning("Failed to generate comment: #{inspect(reason)}")
-        {:ok, fallback_comment(persona_type)}
+        {:ok, fallback_comment(persona_type, mentionable_users, should_mention)}
     end
   end
 
   @doc """
   Generates multiple unique comments for batch engagement.
+
+  Options:
+  - `mentionable_users` - list of usernames that can be @mentioned
   """
   def generate_comments(content, bot_users, opts \\ []) do
+    mentionable_users = Keyword.get(opts, :mentionable_users, [])
+
     Enum.map(bot_users, fn bot_user ->
       case generate_comment(content, bot_user, opts) do
         {:ok, comment} -> {bot_user, comment}
-        {:error, _} -> {bot_user, fallback_comment(bot_user.persona_type)}
+        {:error, _} ->
+          should_mention = length(mentionable_users) > 0 and :rand.uniform(100) <= 30
+          {bot_user, fallback_comment(bot_user.persona_type, mentionable_users, should_mention)}
       end
     end)
   end
 
   # Build the user prompt for comment generation
-  defp build_prompt(content_text, content_type, _persona_type) do
+  defp build_prompt(content_text, content_type, _persona_type, mentionable_users, should_mention) do
     type_name = if content_type == "Post", do: "post", else: "project"
+
+    mention_instruction =
+      if should_mention and length(mentionable_users) > 0 do
+        username = Enum.random(mentionable_users)
+        """
+        - IMPORTANT: Include @#{username} naturally in your comment (e.g., "@#{username} this is cool" or "nice work @#{username}")
+        """
+      else
+        ""
+      end
 
     """
     Write a brief, authentic comment for this developer #{type_name}:
@@ -98,7 +119,7 @@ defmodule Backend.Engagement.CommentGenerator do
     - Occasionally ask a genuine question (20% of the time)
     - Don't start with "Great" or "Awesome" - be more creative
     - Don't use emoji unless it fits naturally
-
+    #{mention_instruction}
     Write only the comment text, nothing else.
     """
   end
@@ -161,8 +182,8 @@ defmodule Backend.Engagement.CommentGenerator do
   end
 
   # Fallback comments when AI generation fails
-  defp fallback_comment(persona_type) do
-    comments =
+  defp fallback_comment(persona_type, mentionable_users, should_mention) do
+    base_comments =
       case persona_type do
         "enthusiast" ->
           [
@@ -210,7 +231,51 @@ defmodule Backend.Engagement.CommentGenerator do
           ]
       end
 
-    Enum.random(comments)
+    comment = Enum.random(base_comments)
+
+    # Add mention if requested and we have users to mention
+    if should_mention and length(mentionable_users) > 0 do
+      username = Enum.random(mentionable_users)
+      add_mention_to_comment(comment, username, persona_type)
+    else
+      comment
+    end
+  end
+
+  # Add a mention to an existing comment in a natural way
+  defp add_mention_to_comment(comment, username, persona_type) do
+    case persona_type do
+      "enthusiast" ->
+        Enum.random([
+          "@#{username} #{comment}",
+          "#{comment} @#{username}!",
+          "@#{username} this is great!"
+        ])
+
+      "casual" ->
+        Enum.random([
+          "@#{username} 👍",
+          "Nice @#{username}",
+          "@#{username} cool"
+        ])
+
+      "supportive" ->
+        Enum.random([
+          "@#{username} keep it up!",
+          "Nice work @#{username}",
+          "@#{username} looking forward to more"
+        ])
+
+      "lurker" ->
+        Enum.random([
+          "@#{username} 👀",
+          "@#{username} interesting",
+          "Nice @#{username}"
+        ])
+
+      _ ->
+        "@#{username} #{comment}"
+    end
   end
 
   # Fast model for quick comment generation

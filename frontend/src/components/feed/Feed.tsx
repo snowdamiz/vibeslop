@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Post } from './Post'
 import { GigFeedCard } from './GigFeedCard'
@@ -6,7 +6,6 @@ import { BotPostCard } from './BotPostCard'
 import type { FeedItem } from './types'
 import { isGigPost, isBotPost } from './types'
 import { ComposeTrigger } from './ComposeTrigger'
-import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
 import { useCompose } from '@/context/ComposeContext'
 import { cn } from '@/lib/utils'
@@ -214,6 +213,7 @@ export function Feed({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_error, setError] = useState<string | null>(null)
   const { trackRef } = useImpressionTracker()
+  const loadMoreRef = useRef<HTMLDivElement>(null)
 
   // Subscribe to new posts from the compose dialog
   useEffect(() => {
@@ -300,6 +300,31 @@ export function Feed({
       setIsLoadingMore(false)
     }
   }, [activeTab, nextCursor, isLoadingMore])
+
+  // Infinite scroll - trigger load more when sentinel is visible
+  useEffect(() => {
+    const sentinel = loadMoreRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries
+        if (entry.isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          handleLoadMore()
+        }
+      },
+      {
+        rootMargin: '200px', // Start loading 200px before reaching the end
+        threshold: 0,
+      }
+    )
+
+    observer.observe(sentinel)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [hasMore, isLoadingMore, isLoading, handleLoadMore])
 
   // Simulate new posts arriving
   const handleShowNewPosts = () => {
@@ -480,26 +505,19 @@ export function Feed({
         )}
       </div>
 
-      {/* Load More */}
-      {filteredPosts.length > 0 && hasMore && (
-        <div className="py-8 text-center border-t border-border">
-          <div className="max-w-[600px] mx-auto px-4">
-            <Button
-              variant="outline"
-              className="rounded-full"
-              onClick={handleLoadMore}
-              disabled={isLoadingMore}
-            >
-              {isLoadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                'Load more'
-              )}
-            </Button>
-          </div>
+      {/* Infinite Scroll Sentinel */}
+      {filteredPosts.length > 0 && (
+        <div ref={loadMoreRef} className="py-8">
+          {isLoadingMore && (
+            <div className="flex justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {!hasMore && filteredPosts.length > 0 && (
+            <p className="text-center text-sm text-muted-foreground">
+              You've reached the end
+            </p>
+          )}
         </div>
       )}
     </div>

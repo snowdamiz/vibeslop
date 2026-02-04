@@ -121,9 +121,27 @@ defmodule Backend.Social do
   Creates a follow relationship.
   """
   def follow(follower_id, following_id) do
-    %Follow{}
-    |> Follow.changeset(%{follower_id: follower_id, following_id: following_id})
-    |> Repo.insert()
+    result =
+      %Follow{}
+      |> Follow.changeset(%{follower_id: follower_id, following_id: following_id})
+      |> Repo.insert()
+
+    case result do
+      {:ok, follow} ->
+        # Create follow notification (follower_id is the actor, following_id is notified)
+        create_notification(%{
+          type: "follow",
+          user_id: following_id,
+          actor_id: follower_id,
+          target_type: nil,
+          target_id: nil,
+          read: false
+        })
+        {:ok, follow}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -235,6 +253,8 @@ defmodule Backend.Social do
             # Increment counter and record hourly engagement
             Backend.Metrics.increment_counter(likeable_type, likeable_id, :likes_count)
             Backend.Metrics.record_hourly_engagement(likeable_type, likeable_id, :likes)
+            # Create notification for content owner
+            create_engagement_notification(user_id, likeable_type, likeable_id, "like")
             {:ok, :liked, like}
 
           error ->
@@ -292,6 +312,8 @@ defmodule Backend.Social do
         {:ok, like} ->
           Backend.Metrics.increment_counter(likeable_type, likeable_id, :likes_count)
           Backend.Metrics.record_hourly_engagement(likeable_type, likeable_id, :likes)
+          # Create notification for content owner
+          create_engagement_notification(user_id, likeable_type, likeable_id, "like")
           {:ok, like}
 
         error ->
@@ -390,6 +412,33 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Creates an engagement notification (like, repost, bookmark) for the content owner.
+  Does not create a notification if the actor owns the content (self-engagement).
+  """
+  def create_engagement_notification(actor_id, target_type, target_id, notification_type, opts \\ []) do
+    owner_id = get_content_owner_id(target_type, target_id)
+    content_preview = Keyword.get(opts, :content_preview)
+    # source_id is used for quote notifications: target_id is original post, source_id is the quote post
+    source_id = Keyword.get(opts, :source_id)
+
+    # Don't notify if actor is the owner (self-engagement) or content doesn't exist
+    if owner_id && owner_id != actor_id do
+      create_notification(%{
+        type: notification_type,
+        user_id: owner_id,
+        actor_id: actor_id,
+        target_type: target_type,
+        target_id: target_id,
+        source_id: source_id,
+        content_preview: content_preview,
+        read: false
+      })
+    else
+      {:ok, :skipped}
+    end
+  end
+
+  @doc """
   Lists notifications for a user with pagination.
   """
   def list_notifications(user_id, opts \\ []) do
@@ -405,6 +454,135 @@ defmodule Backend.Social do
         preload: [:actor]
 
     Repo.all(query)
+  end
+
+  @doc """
+  Lists grouped notifications for a user (like X/Twitter style).
+  Groups by (type, target_type, target_id) and returns aggregated actors.
+  Types that can be grouped: like, repost, bookmark, quote
+  Types that are not grouped: comment, mention, follow, bid_*, gig_*, review_*
+  """
+  def list_grouped_notifications(user_id, opts \\ []) do
+    limit = Keyword.get(opts, :limit, 20)
+    offset = Keyword.get(opts, :offset, 0)
+
+    # Groupable engagement types
+    groupable_types = ["like", "repost", "bookmark", "quote"]
+
+    # Get grouped notifications for groupable types
+    grouped_query =
+      from n in Notification,
+        where: n.user_id == ^user_id and n.type in ^groupable_types and not is_nil(n.target_id),
+        group_by: [n.type, n.target_type, n.target_id],
+        select: %{
+          type: n.type,
+          target_type: n.target_type,
+          target_id: n.target_id,
+          count: count(n.id),
+          latest_at: max(n.inserted_at),
+          has_unread: fragment("bool_or(NOT ?)", n.read)
+        },
+        order_by: [desc: max(n.inserted_at)]
+
+    grouped_results = Repo.all(grouped_query)
+
+    # Get non-groupable notifications (comments, mentions, follows, etc.)
+    non_grouped_query =
+      from n in Notification,
+        where: n.user_id == ^user_id and n.type not in ^groupable_types,
+        order_by: [desc: n.inserted_at],
+        preload: [:actor]
+
+    non_grouped_results = Repo.all(non_grouped_query)
+
+    # For each grouped notification, fetch the most recent actors (up to 3)
+    grouped_with_actors =
+      Enum.map(grouped_results, fn group ->
+        actors_query =
+          from n in Notification,
+            join: actor in assoc(n, :actor),
+            where:
+              n.user_id == ^user_id and
+                n.type == ^group.type and
+                n.target_type == ^group.target_type and
+                n.target_id == ^group.target_id,
+            order_by: [desc: n.inserted_at],
+            limit: 3,
+            select: actor
+
+        actors = Repo.all(actors_query)
+
+        # Get the most recent notification ID for this group (for marking as read)
+        latest_notification =
+          from(n in Notification,
+            where:
+              n.user_id == ^user_id and
+                n.type == ^group.type and
+                n.target_type == ^group.target_type and
+                n.target_id == ^group.target_id,
+            order_by: [desc: n.inserted_at],
+            limit: 1
+          )
+          |> Repo.one()
+
+        %{
+          id: latest_notification && latest_notification.id,
+          type: group.type,
+          target_type: group.target_type,
+          target_id: group.target_id,
+          source_id: latest_notification && latest_notification.source_id,
+          actors: actors,
+          actor_count: group.count,
+          content_preview: latest_notification && latest_notification.content_preview,
+          latest_at: group.latest_at,
+          read: !group.has_unread,
+          is_grouped: true
+        }
+      end)
+
+    # Convert non-grouped notifications to same format
+    non_grouped_formatted =
+      Enum.map(non_grouped_results, fn n ->
+        %{
+          id: n.id,
+          type: n.type,
+          target_type: n.target_type,
+          target_id: n.target_id,
+          source_id: n.source_id,
+          actors: [n.actor],
+          actor_count: 1,
+          content_preview: n.content_preview,
+          latest_at: n.inserted_at,
+          read: n.read,
+          is_grouped: false
+        }
+      end)
+
+    # Merge and sort by latest_at
+    all_notifications =
+      (grouped_with_actors ++ non_grouped_formatted)
+      |> Enum.sort_by(& &1.latest_at, {:desc, DateTime})
+      |> Enum.drop(offset)
+      |> Enum.take(limit)
+
+    all_notifications
+  end
+
+  @doc """
+  Marks all notifications in a group as read.
+  """
+  def mark_group_as_read(user_id, type, target_type, target_id) do
+    query =
+      from n in Notification,
+        where:
+          n.user_id == ^user_id and
+            n.type == ^type and
+            n.target_type == ^target_type and
+            n.target_id == ^target_id and
+            n.read == false
+
+    {count, _} = Repo.update_all(query, set: [read: true])
+    {:ok, count}
   end
 
   @doc """
@@ -480,6 +658,8 @@ defmodule Backend.Social do
             # Increment counter and record hourly engagement
             Backend.Metrics.increment_counter(repostable_type, repostable_id, :reposts_count)
             Backend.Metrics.record_hourly_engagement(repostable_type, repostable_id, :reposts)
+            # Create notification for content owner
+            create_engagement_notification(user_id, repostable_type, repostable_id, "repost")
             {:ok, :reposted, repost}
 
           error ->
@@ -537,6 +717,8 @@ defmodule Backend.Social do
         {:ok, repost} ->
           Backend.Metrics.increment_counter("Post", post_id, :reposts_count)
           Backend.Metrics.record_hourly_engagement("Post", post_id, :reposts)
+          # Create notification for content owner
+          create_engagement_notification(user_id, "Post", post_id, "repost")
           {:ok, repost}
 
         error ->
@@ -639,6 +821,8 @@ defmodule Backend.Social do
               :bookmarks
             )
 
+            # Create notification for content owner
+            create_engagement_notification(user_id, bookmarkable_type, bookmarkable_id, "bookmark")
             {:ok, :bookmarked, bookmark}
 
           error ->
@@ -687,6 +871,8 @@ defmodule Backend.Social do
         {:ok, bookmark} ->
           Backend.Metrics.increment_counter(bookmarkable_type, bookmarkable_id, :bookmarks_count)
           Backend.Metrics.record_hourly_engagement(bookmarkable_type, bookmarkable_id, :bookmarks)
+          # Create notification for content owner
+          create_engagement_notification(user_id, bookmarkable_type, bookmarkable_id, "bookmark")
           {:ok, bookmark}
 
         error ->

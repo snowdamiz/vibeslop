@@ -64,7 +64,7 @@ export interface NotificationTarget {
 
 export interface Notification {
   id: string
-  type: 'like' | 'comment' | 'follow' | 'repost' | 'mention'
+  type: 'like' | 'comment' | 'follow' | 'repost' | 'mention' | 'quote' | 'bookmark'
   | 'bid_received' | 'bid_accepted' | 'bid_rejected'
   | 'gig_completed' | 'review_received'
   actor: NotificationActor
@@ -74,8 +74,29 @@ export interface Notification {
   read: boolean
 }
 
+export interface GroupedNotification {
+  id: string
+  type: 'like' | 'comment' | 'follow' | 'repost' | 'mention' | 'quote' | 'bookmark'
+  | 'bid_received' | 'bid_accepted' | 'bid_rejected'
+  | 'gig_completed' | 'review_received'
+  actors: NotificationActor[]
+  actor_count: number
+  target?: NotificationTarget
+  // For quote notifications: the quote post to navigate to (instead of target)
+  action_target?: { type: string; id: string }
+  content?: string
+  created_at: string
+  read: boolean
+  is_grouped: boolean
+}
+
 export interface NotificationResponse {
   data: Notification[]
+  unread_count: number
+}
+
+export interface GroupedNotificationResponse {
+  data: GroupedNotification[]
   unread_count: number
 }
 
@@ -705,10 +726,12 @@ class ApiClient {
   }
 
   // Notifications
-  async getNotifications(params?: { limit?: number; offset?: number }): Promise<NotificationResponse> {
+  async getNotifications(params?: { limit?: number; offset?: number; grouped?: boolean }): Promise<GroupedNotificationResponse> {
     const queryParams = new URLSearchParams()
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
+    // Default to grouped=true for X-style notifications
+    queryParams.append('grouped', params?.grouped !== false ? 'true' : 'false')
     return this.get(`/notifications?${queryParams}`)
   }
 

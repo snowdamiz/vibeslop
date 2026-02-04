@@ -27,12 +27,22 @@ defmodule Backend.Engagement.BotPostGenerator do
   @doc """
   Generate a text post for a bot user.
 
+  Options:
+  - `post_type` - type of post to generate (learning, tip, observation, question, update, hot_take, celebration)
+  - `mentionable_users` - list of usernames that can be @mentioned
+
   Returns {:ok, post_attrs} or {:error, reason}
   """
   def generate_post(bot_user, opts \\ []) do
     post_type = Keyword.get(opts, :post_type, Enum.random(@post_types))
+    mentionable_users = Keyword.get(opts, :mentionable_users, [])
 
-    prompt = build_prompt(bot_user, post_type)
+    # Decide if this post should include a mention
+    # Higher chance for questions (40%), lower for others (15%)
+    mention_chance = if post_type == :question, do: 40, else: 15
+    should_mention = length(mentionable_users) > 0 and :rand.uniform(100) <= mention_chance
+
+    prompt = build_prompt(bot_user, post_type, mentionable_users, should_mention)
 
     messages = [
       %{
@@ -56,20 +66,35 @@ defmodule Backend.Engagement.BotPostGenerator do
 
           {:error, reason} ->
             Logger.warning("BotPostGenerator: Failed to extract text: #{inspect(reason)}")
-            {:ok, generate_fallback_post(bot_user, post_type)}
+            {:ok, generate_fallback_post(bot_user, post_type, mentionable_users, should_mention)}
         end
 
       {:error, reason} ->
         Logger.warning("BotPostGenerator: AI generation failed: #{inspect(reason)}")
-        {:ok, generate_fallback_post(bot_user, post_type)}
+        {:ok, generate_fallback_post(bot_user, post_type, mentionable_users, should_mention)}
     end
   end
 
   @doc """
   Generate a quote post (commentary on existing content).
+
+  Options:
+  - `mentionable_users` - list of usernames that can be @mentioned
   """
-  def generate_quote(bot_user, original_content) do
+  def generate_quote(bot_user, original_content, opts \\ []) do
     content_text = extract_content_text(original_content)
+    mentionable_users = Keyword.get(opts, :mentionable_users, [])
+
+    # Decide if this quote should include a mention (25% chance if users available)
+    should_mention = length(mentionable_users) > 0 and :rand.uniform(100) <= 25
+
+    mention_instruction =
+      if should_mention do
+        username = Enum.random(mentionable_users)
+        "- Include @#{username} naturally in your comment (e.g., \"@#{username} this is interesting\" or \"nice approach @#{username}\")\n"
+      else
+        ""
+      end
 
     prompt = """
     Write a brief quote-tweet style comment on this post:
@@ -84,7 +109,7 @@ defmodule Backend.Engagement.BotPostGenerator do
     - Don't just repeat what they said
     - Sound natural, like a real developer
     - Occasionally be curious, impressed, or add a related thought
-
+    #{mention_instruction}
     Write only the comment text.
     """
 
@@ -103,11 +128,11 @@ defmodule Backend.Engagement.BotPostGenerator do
       {:ok, response} ->
         case OpenRouter.extract_text(response) do
           {:ok, text} -> {:ok, clean_post(text)}
-          {:error, _} -> {:ok, fallback_quote()}
+          {:error, _} -> {:ok, fallback_quote(mentionable_users, should_mention)}
         end
 
       {:error, _} ->
-        {:ok, fallback_quote()}
+        {:ok, fallback_quote(mentionable_users, should_mention)}
     end
   end
 
@@ -135,7 +160,7 @@ defmodule Backend.Engagement.BotPostGenerator do
     "#{base} #{persona_context}"
   end
 
-  defp build_prompt(bot_user, post_type) do
+  defp build_prompt(bot_user, post_type, mentionable_users, should_mention) do
     type_instruction = post_type_instruction(post_type)
     persona = bot_user.persona_type
 
@@ -148,6 +173,19 @@ defmodule Backend.Engagement.BotPostGenerator do
         _ -> "2-3 sentences"
       end
 
+    mention_instruction =
+      if should_mention and length(mentionable_users) > 0 do
+        username = Enum.random(mentionable_users)
+        case post_type do
+          :question ->
+            "- Tag @#{username} for their opinion (e.g., \"@#{username} what do you think about...\" or \"curious what @#{username} would say\")\n"
+          _ ->
+            "- Naturally mention @#{username} somewhere in the post\n"
+        end
+      else
+        ""
+      end
+
     """
     Write a #{type_instruction}
 
@@ -158,7 +196,7 @@ defmodule Backend.Engagement.BotPostGenerator do
     - Don't use hashtags
     - Don't be overly promotional or generic
     - Vary your tone naturally
-
+    #{mention_instruction}
     Write only the post text, nothing else.
     """
   end
@@ -208,8 +246,8 @@ defmodule Backend.Engagement.BotPostGenerator do
   defp extract_content_text(%{title: title, description: desc}), do: "#{title}\n\n#{desc}"
   defp extract_content_text(_), do: ""
 
-  defp fallback_quote do
-    quotes = [
+  defp fallback_quote(mentionable_users, should_mention) do
+    base_quotes = [
       "This is really well done",
       "Interesting approach here",
       "Nice work on this",
@@ -218,7 +256,20 @@ defmodule Backend.Engagement.BotPostGenerator do
       "This is useful",
       "Good stuff"
     ]
-    Enum.random(quotes)
+
+    quote = Enum.random(base_quotes)
+
+    if should_mention and length(mentionable_users) > 0 do
+      username = Enum.random(mentionable_users)
+      Enum.random([
+        "@#{username} #{quote}",
+        "#{quote} @#{username}",
+        "@#{username} this is great",
+        "Nice one @#{username}"
+      ])
+    else
+      quote
+    end
   end
 
   @fallback_posts %{
@@ -273,12 +324,47 @@ defmodule Backend.Engagement.BotPostGenerator do
     ]
   }
 
-  defp generate_fallback_post(bot_user, post_type) do
+  defp generate_fallback_post(bot_user, post_type, mentionable_users, should_mention) do
     posts = Map.get(@fallback_posts, post_type, @fallback_posts.update)
+    base_content = Enum.random(posts)
+
+    content =
+      if should_mention and length(mentionable_users) > 0 do
+        username = Enum.random(mentionable_users)
+        add_mention_to_post(base_content, username, post_type)
+      else
+        base_content
+      end
+
     %{
-      content: Enum.random(posts),
+      content: content,
       user_id: bot_user.user_id
     }
+  end
+
+  # Add a mention to a fallback post in a natural way
+  defp add_mention_to_post(content, username, post_type) do
+    case post_type do
+      :question ->
+        # Questions often tag someone for their opinion
+        Enum.random([
+          "@#{username} #{content}",
+          "#{content} What do you think @#{username}?",
+          "Hey @#{username}, #{String.downcase(String.first(content))}#{String.slice(content, 1..-1//1)}"
+        ])
+
+      :tip ->
+        Enum.random([
+          "#{content} cc @#{username}",
+          "@#{username} might find this useful: #{content}"
+        ])
+
+      _ ->
+        Enum.random([
+          "#{content} @#{username}",
+          "@#{username} #{content}"
+        ])
+    end
   end
 
   defp fast_model do
