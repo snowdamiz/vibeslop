@@ -23,6 +23,8 @@ import {
   Sun,
   Briefcase,
   Shield,
+  LogIn,
+  UserPlus,
 } from 'lucide-react'
 import { OnvibeLogo } from '@/components/icons/OnvibeLogo'
 import { useAuth } from '@/context/AuthContext'
@@ -104,45 +106,53 @@ export function LeftSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 mt-2 space-y-1 overflow-y-auto min-h-0 flex flex-col items-center xl:items-stretch">
-        {navItems.map((item) => {
-          const isActive = location.pathname === item.path
-          const badge = getBadgeCount(item.badgeKey)
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              className={cn(
-                'group flex items-center justify-center xl:justify-start gap-4',
-                'w-11 h-11 xl:w-full xl:h-auto xl:px-3 xl:py-3',
-                'rounded-full xl:rounded-xl flex-shrink-0',
-                isActive
-                  ? 'bg-primary/10 text-foreground'
-                  : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-              )}
-            >
-              <div className="relative flex items-center justify-center w-6 h-6">
-                <item.icon
-                  className={cn(
-                    'w-[22px] h-[22px]',
-                    isActive && 'text-primary'
-                  )}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                {badge && (
-                  <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-semibold">
-                    {badge > 99 ? '99+' : badge}
-                  </span>
+        {navItems
+          .filter((item) => {
+            // Unauthenticated users only see Home and Gigs
+            if (!isAuthenticated) {
+              return item.path === '/' || item.path === '/gigs'
+            }
+            return true
+          })
+          .map((item) => {
+            const isActive = location.pathname === item.path
+            const badge = getBadgeCount(item.badgeKey)
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={cn(
+                  'group flex items-center justify-center xl:justify-start gap-4',
+                  'w-11 h-11 xl:w-full xl:h-auto xl:px-3 xl:py-3',
+                  'rounded-full xl:rounded-xl flex-shrink-0',
+                  isActive
+                    ? 'bg-primary/10 text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
                 )}
-              </div>
-              <span className={cn(
-                'text-[15px] hidden xl:block',
-                isActive ? 'font-semibold' : 'font-medium'
-              )}>
-                {item.label}
-              </span>
-            </Link>
-          )
-        })}
+              >
+                <div className="relative flex items-center justify-center w-6 h-6">
+                  <item.icon
+                    className={cn(
+                      'w-[22px] h-[22px]',
+                      isActive && 'text-primary'
+                    )}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                  {badge && (
+                    <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-semibold">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                </div>
+                <span className={cn(
+                  'text-[15px] hidden xl:block',
+                  isActive ? 'font-semibold' : 'font-medium'
+                )}>
+                  {item.label}
+                </span>
+              </Link>
+            )
+          })}
 
         {/* Admin Link */}
         {user?.is_admin && (
@@ -206,17 +216,46 @@ export function LeftSidebar() {
           </Link>
         )}
 
-        {/* Post Button */}
-        <div className="pt-4 flex justify-center xl:justify-start">
-          <Button
-            className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
-            size="lg"
-            onClick={openCompose}
-          >
-            <PenSquare className="w-5 h-5 xl:mr-2" />
-            <span className="hidden xl:inline">Post</span>
-          </Button>
-        </div>
+        {/* Post Button - only for authenticated users */}
+        {isAuthenticated && (
+          <div className="pt-4 flex justify-center xl:justify-start">
+            <Button
+              className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
+              size="lg"
+              onClick={openCompose}
+            >
+              <PenSquare className="w-5 h-5 xl:mr-2" />
+              <span className="hidden xl:inline">Post</span>
+            </Button>
+          </div>
+        )}
+
+        {/* Sign In / Create Account for unauthenticated users */}
+        {!isAuthenticated && (
+          <div className="pt-4 space-y-2 flex flex-col items-center xl:items-stretch">
+            <Button
+              className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] shadow-sm flex-shrink-0"
+              size="lg"
+              asChild
+            >
+              <Link to="/signin">
+                <LogIn className="w-5 h-5 xl:mr-2" />
+                <span className="hidden xl:inline">Sign In</span>
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-11 h-11 xl:w-full xl:h-auto xl:py-3 rounded-full xl:rounded-lg font-semibold text-[15px] flex-shrink-0"
+              size="lg"
+              asChild
+            >
+              <Link to="/signup">
+                <UserPlus className="w-5 h-5 xl:mr-2" />
+                <span className="hidden xl:inline">Create Account</span>
+              </Link>
+            </Button>
+          </div>
+        )}
       </nav>
 
       {/* User Menu */}

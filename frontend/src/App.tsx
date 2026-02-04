@@ -1,11 +1,11 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
-import { Header, Footer, AppShell } from '@/components/layout'
-import { Landing, Home, ProjectDetail, PostDetail, BotPostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail, Admin, AdminUsers, AdminCatalog, AdminReports, AdminBots } from '@/pages'
+import { AppShell } from '@/components/layout'
+import { Home, ProjectDetail, PostDetail, BotPostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail, Admin, AdminUsers, AdminCatalog, AdminReports, AdminBots } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
 
 function App() {
   const location = useLocation()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isLoading } = useAuth()
 
   // Show loading spinner while checking auth status
   if (isLoading) {
@@ -20,7 +20,6 @@ function App() {
   }
 
   const isAuthPage = location.pathname === '/signin' || location.pathname === '/signup' || location.pathname === '/auth/callback' || location.pathname === '/onboarding'
-  const isLandingPage = location.pathname === '/' && !isAuthenticated
 
   // Auth pages (sign in/up/callback/onboarding) - centered layout, no chrome
   if (isAuthPage) {
@@ -32,19 +31,6 @@ function App() {
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="/onboarding" element={<Onboarding />} />
         </Routes>
-      </div>
-    )
-  }
-
-  // Landing page for logged-out users - marketing layout with header/footer
-  if (isLandingPage) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main>
-          <Landing />
-        </main>
-        <Footer />
       </div>
     )
   }

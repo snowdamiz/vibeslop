@@ -15,7 +15,7 @@
     content="The portfolio platform for vibe coders. Showcase your AI-assisted projects and connect with the community." />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="/og-image.png" />
-  <meta property="og:url" content="https://onvibe.dev" />
+  <meta property="og:url" content="https://landing.onvibe.dev" />
   <meta property="og:site_name" content="Onvibe" />
 
   <!-- Twitter Card -->
@@ -25,28 +25,17 @@
   <meta name="twitter:image" content="/og-image.png" />
 
   <!-- Canonical -->
-  <link rel="canonical" href="https://onvibe.dev" />
+  <link rel="canonical" href="https://landing.onvibe.dev" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <title>Onvibe – Where AI-native builders show their work</title>
+  <script type="module" crossorigin src="/assets/index-D34_KcoE.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Bq0Lq3qB.css">
 </head>
 
 <body>
   <script>
-    (function () {
-      // One-time redirect to landing page for first-time visitors
-      var hasVisited = localStorage.getItem('onvibe_has_visited');
-      var isRoot = window.location.pathname === '/';
-      var isProduction = window.location.hostname === 'onvibe.dev';
-      var hasToken = localStorage.getItem('onvibe_token');
-
-      if (!hasVisited && isRoot && isProduction && !hasToken) {
-        localStorage.setItem('onvibe_has_visited', 'true');
-        window.location.replace('https://landing.onvibe.dev');
-        return;
-      }
-    })();
     (function () {
       const theme = localStorage.getItem('onvibe_theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -56,7 +45,6 @@
     })();
   </script>
   <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
 </body>
 
 </html>
