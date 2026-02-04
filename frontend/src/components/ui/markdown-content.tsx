@@ -1,3 +1,4 @@
+import { memo, useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { cn } from '@/lib/utils'
 
@@ -7,10 +8,11 @@ interface MarkdownContentProps {
   hideFirstHeading?: boolean
 }
 
-export function MarkdownContent({ content, className, hideFirstHeading }: MarkdownContentProps) {
-  // Optionally remove the first heading from the content
-  let processedContent = content
-  if (hideFirstHeading) {
+export const MarkdownContent = memo(function MarkdownContent({ content, className, hideFirstHeading }: MarkdownContentProps) {
+  // Memoize the processed content to avoid recomputation on every render
+  const processedContent = useMemo(() => {
+    if (!hideFirstHeading) return content
+
     // Remove the first line if it starts with # or ##
     const lines = content.split('\n')
     const firstNonEmptyIndex = lines.findIndex(line => line.trim().length > 0)
@@ -19,10 +21,11 @@ export function MarkdownContent({ content, className, hideFirstHeading }: Markdo
       if (firstLine.startsWith('#')) {
         // Remove the first heading line
         lines.splice(firstNonEmptyIndex, 1)
-        processedContent = lines.join('\n').trim()
+        return lines.join('\n').trim()
       }
     }
-  }
+    return content
+  }, [content, hideFirstHeading])
 
   return (
     <div className={cn('prose prose-sm dark:prose-invert max-w-none', className)}>
@@ -99,4 +102,4 @@ export function MarkdownContent({ content, className, hideFirstHeading }: Markdo
       </ReactMarkdown>
     </div>
   )
-}
+})

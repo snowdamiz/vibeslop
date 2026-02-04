@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -34,6 +34,32 @@ import { QuotedPostPreview } from './QuotedPostPreview'
 import type { FeedItem, ProjectPost, StatusUpdate } from './types'
 import { isProjectPost, isStatusUpdate } from './types'
 
+// Moved outside component to avoid recreation on each render
+const formatTimeAgo = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  const diffInHours = Math.floor(diffInMinutes / 60)
+  const diffInDays = Math.floor(diffInHours / 24)
+
+  if (diffInSeconds < 60) return 'now'
+  if (diffInMinutes < 60) return `${diffInMinutes}m`
+  if (diffInHours < 24) return `${diffInHours}h`
+  if (diffInDays < 7) return `${diffInDays}d`
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+const formatCount = (count: number) => {
+  if (count >= 1000000) {
+    return `${(count / 1000000).toFixed(1)}M`
+  }
+  if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}K`
+  }
+  return count.toString()
+}
+
 interface PostProps {
   item: FeedItem
   showBorder?: boolean
@@ -43,7 +69,7 @@ interface PostProps {
   trackRef?: (element: HTMLElement | null) => void
 }
 
-export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote, trackRef }: PostProps) {
+export const Post = memo(function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote, trackRef }: PostProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, isAuthenticated } = useAuth()
@@ -56,18 +82,14 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isReporting, setIsReporting] = useState(false)
 
-  // No need for useEffect to sync state if we use a key on the Post component in the parent
-  // However, if we can't ensure that, we can use this pattern:
-  const [lastItemId, setLastItemId] = useState(item.id)
-
-  if (item.id !== lastItemId) {
+  // Sync state when item changes (moved from render to useEffect)
+  useEffect(() => {
     setIsLiked(item.liked ?? false)
     setIsBookmarked(item.bookmarked ?? false)
     setIsReposted(item.reposted ?? false)
     setLikeCount(item.likes)
     setRepostCount(item.reposts)
-    setLastItemId(item.id)
-  }
+  }, [item.id, item.liked, item.bookmarked, item.reposted, item.likes, item.reposts])
 
   const isProject = isProjectPost(item)
   // For reposts, use original_id to navigate to the original content
@@ -197,31 +219,6 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
     }
   }
 
-  const formatTimeAgo = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    const diffInMinutes = Math.floor(diffInSeconds / 60)
-    const diffInHours = Math.floor(diffInMinutes / 60)
-    const diffInDays = Math.floor(diffInHours / 24)
-
-    if (diffInSeconds < 60) return 'now'
-    if (diffInMinutes < 60) return `${diffInMinutes}m`
-    if (diffInHours < 24) return `${diffInHours}h`
-    if (diffInDays < 7) return `${diffInDays}d`
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-  }
-
-  const formatCount = (count: number) => {
-    if (count >= 1000000) {
-      return `${(count / 1000000).toFixed(1)}M`
-    }
-    if (count >= 1000) {
-      return `${(count / 1000).toFixed(1)}K`
-    }
-    return count.toString()
-  }
-
   // Get image(s) based on post type
   const getImages = (): string[] => {
     if (isProject) {
@@ -270,7 +267,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
             className="flex-shrink-0"
           >
             <Avatar className="w-10 h-10 hover:opacity-90 transition-opacity">
-              <AvatarImage src={item.author.avatar_url} alt={item.author.name} />
+              <AvatarImage src={item.author.avatar_url} alt={item.author.name} loading="lazy" />
               <AvatarFallback
                 className={cn(
                   'text-white text-sm font-medium',
@@ -398,6 +395,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
                     key={idx}
                     src={img}
                     alt={isProject ? (item as ProjectPost).title : 'Post image'}
+                    loading="lazy"
                     className={cn(
                       'w-full object-cover',
                       images.length === 1 ? 'aspect-[16/9]' : 'aspect-square'
@@ -586,7 +584,7 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
       />
     </article>
   )
-}
+})
 
 // Legacy exports for backwards compatibility during migration
 export type { PostAuthor, ProjectPost as PostProject } from './types'
