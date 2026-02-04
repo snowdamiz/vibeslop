@@ -58,7 +58,8 @@ defmodule BackendWeb.PostController do
 
             _ ->
               # "for-you" algorithmic feed with personalization
-              {ai_tool_ids, tech_stack_ids} = get_user_preferences(current_user_id)
+              # Use already-loaded current_user from conn.assigns to avoid duplicate query
+              {ai_tool_ids, tech_stack_ids} = get_user_preferences(conn.assigns[:current_user])
 
               Feed.for_you_feed(
                 limit: limit,
@@ -84,19 +85,14 @@ defmodule BackendWeb.PostController do
   defp parse_int(_, default), do: default
 
   # Fetches user's preferred AI tools and tech stacks for feed personalization
+  # Optimized: accepts user struct directly to avoid redundant DB query
   defp get_user_preferences(nil), do: {[], []}
 
-  defp get_user_preferences(user_id) do
-    case Backend.Accounts.get_user(user_id) do
-      nil ->
-        {[], []}
-
-      user ->
-        user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
-        ai_ids = Enum.map(user.favorite_ai_tools || [], & &1.id)
-        stack_ids = Enum.map(user.preferred_tech_stacks || [], & &1.id)
-        {ai_ids, stack_ids}
-    end
+  defp get_user_preferences(%Backend.Accounts.User{} = user) do
+    user = Backend.Repo.preload(user, [:favorite_ai_tools, :preferred_tech_stacks])
+    ai_ids = Enum.map(user.favorite_ai_tools || [], & &1.id)
+    stack_ids = Enum.map(user.preferred_tech_stacks || [], & &1.id)
+    {ai_ids, stack_ids}
   end
 
   def show(conn, %{"id" => id}) do
