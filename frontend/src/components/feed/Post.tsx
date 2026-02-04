@@ -450,7 +450,10 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
               <div className="flex items-center gap-1">
                 {/* Reply/Comment */}
                 <button
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(detailPath, { state: { focusComments: true } })
+                  }}
                   className="flex items-center gap-1.5 group"
                 >
                   <div className="p-2 rounded-full group-hover:bg-primary/10 transition-colors">

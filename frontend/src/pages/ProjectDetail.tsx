@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useLocation } from 'react-router-dom'
 import { api } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { Badge } from '@/components/ui/badge'
@@ -290,6 +290,8 @@ const formatDate = (dateString: string) => {
 export function ProjectDetail() {
   const { id } = useParams()
   const { user } = useAuth()
+  const location = useLocation()
+  const focusComments = (location.state as { focusComments?: boolean })?.focusComments ?? false
   const [project, setProject] = useState<NormalizedProject | null>(null)
   const [authorId, setAuthorId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -1221,7 +1223,7 @@ export function ProjectDetail() {
               )}
 
               {/* Tabs */}
-              <Tabs defaultValue="timeline" className="mt-8">
+              <Tabs defaultValue={focusComments ? "comments" : "timeline"} className="mt-8">
                 <TabsList className="mb-6 p-1 bg-muted/50 border border-border">
                   <TabsTrigger value="timeline" className="data-[state=active]:bg-background data-[state=active]:shadow-sm">
                     <Clock className="w-4 h-4 mr-1.5" />
@@ -1309,6 +1311,7 @@ export function ProjectDetail() {
                       onLikeComment={handleLikeComment}
                       onDeleteComment={handleDeleteComment}
                       onReportComment={handleReportComment}
+                      autoFocus={focusComments}
                     />
                   )}
                 </TabsContent>

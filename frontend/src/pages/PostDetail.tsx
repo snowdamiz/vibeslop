@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Link, useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -98,6 +98,8 @@ const mockPostData = {
 export function PostDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+  const focusComments = (location.state as { focusComments?: boolean })?.focusComments ?? false
   const [post, setPost] = useState<typeof mockPostData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -557,6 +559,7 @@ export function PostDetail() {
                 onLikeComment={handleLikeComment}
                 onDeleteComment={handleDeleteComment}
                 onReportComment={handleReportComment}
+                autoFocus={focusComments}
               />
             </div>
           )
