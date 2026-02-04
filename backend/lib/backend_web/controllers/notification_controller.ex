@@ -2,6 +2,8 @@ defmodule BackendWeb.NotificationController do
   use BackendWeb, :controller
 
   alias Backend.Social
+  alias Backend.Repo
+  import Ecto.Query
 
   action_fallback BackendWeb.FallbackController
 
@@ -24,11 +26,51 @@ defmodule BackendWeb.NotificationController do
 
     unread_count = Social.get_unread_count(current_user.id)
 
+    # Batch preload all notification targets to avoid N+1 queries in JSON rendering
+    targets_map = preload_notification_targets(notifications)
+
     if grouped do
-      render(conn, :index_grouped, notifications: notifications, unread_count: unread_count)
+      render(conn, :index_grouped, notifications: notifications, unread_count: unread_count, targets_map: targets_map)
     else
-      render(conn, :index, notifications: notifications, unread_count: unread_count)
+      render(conn, :index, notifications: notifications, unread_count: unread_count, targets_map: targets_map)
     end
+  end
+
+  # Batch preload posts and projects referenced by notifications
+  defp preload_notification_targets(notifications) do
+    # Collect all target references
+    {post_ids, project_ids} =
+      Enum.reduce(notifications, {[], []}, fn notif, {posts, projects} ->
+        case notif.target_type do
+          "Post" -> {[notif.target_id | posts], projects}
+          "Project" -> {posts, [notif.target_id | projects]}
+          _ -> {posts, projects}
+        end
+      end)
+
+    # Batch fetch posts
+    posts =
+      if Enum.empty?(post_ids) do
+        []
+      else
+        from(p in Backend.Content.Post, where: p.id in ^Enum.uniq(post_ids))
+        |> Repo.all()
+      end
+
+    # Batch fetch projects
+    projects =
+      if Enum.empty?(project_ids) do
+        []
+      else
+        from(p in Backend.Content.Project, where: p.id in ^Enum.uniq(project_ids))
+        |> Repo.all()
+      end
+
+    # Build lookup map: {"Post", id} => post, {"Project", id} => project
+    posts_map = Map.new(posts, fn p -> {{"Post", p.id}, p} end)
+    projects_map = Map.new(projects, fn p -> {{"Project", p.id}, p} end)
+
+    Map.merge(posts_map, projects_map)
   end
 
   @doc """
