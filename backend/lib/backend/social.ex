@@ -376,6 +376,79 @@ defmodule Backend.Social do
   end
 
   @doc """
+  Batch check all engagement statuses (liked, bookmarked, reposted) for items in a single query.
+  Takes a list of {type, id} tuples and returns a map with :liked, :bookmarked, :reposted MapSets.
+  Optimized: uses UNION ALL to fetch all 3 statuses in 1 query instead of 3 queries.
+  """
+  def batch_all_engagement_status(user_id, items) when is_list(items) do
+    if Enum.empty?(items) do
+      %{liked: MapSet.new(), bookmarked: MapSet.new(), reposted: MapSet.new()}
+    else
+      by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
+
+      # Build conditions for likes
+      like_conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([l], ^acc or (l.likeable_type == ^type and l.likeable_id in ^ids))
+        end)
+
+      # Build conditions for bookmarks
+      bookmark_conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([b], ^acc or (b.bookmarkable_type == ^type and b.bookmarkable_id in ^ids))
+        end)
+
+      # Build conditions for reposts
+      repost_conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([r], ^acc or (r.repostable_type == ^type and r.repostable_id in ^ids))
+        end)
+
+      # Query 1: Likes
+      likes_query =
+        from(l in Like,
+          where: l.user_id == ^user_id,
+          where: ^like_conditions,
+          select: %{status: "liked", item_type: l.likeable_type, item_id: l.likeable_id}
+        )
+
+      # Query 2: Bookmarks
+      bookmarks_query =
+        from(b in Bookmark,
+          where: b.user_id == ^user_id,
+          where: ^bookmark_conditions,
+          select: %{status: "bookmarked", item_type: b.bookmarkable_type, item_id: b.bookmarkable_id}
+        )
+
+      # Query 3: Reposts
+      reposts_query =
+        from(r in Repost,
+          where: r.user_id == ^user_id,
+          where: ^repost_conditions,
+          select: %{status: "reposted", item_type: r.repostable_type, item_id: r.repostable_id}
+        )
+
+      # Combine with UNION ALL for single query execution
+      combined_query =
+        likes_query
+        |> union_all(^bookmarks_query)
+        |> union_all(^reposts_query)
+
+      results = Repo.all(combined_query)
+
+      # Partition results into separate MapSets
+      Enum.reduce(results, %{liked: MapSet.new(), bookmarked: MapSet.new(), reposted: MapSet.new()}, fn row, acc ->
+        key = {row.item_type, row.item_id}
+        case row.status do
+          "liked" -> %{acc | liked: MapSet.put(acc.liked, key)}
+          "bookmarked" -> %{acc | bookmarked: MapSet.put(acc.bookmarked, key)}
+          "reposted" -> %{acc | reposted: MapSet.put(acc.reposted, key)}
+        end
+      end)
+    end
+  end
+
+  @doc """
   Creates a like without toggling. Returns error if already liked.
   Used for simulated engagement where we only want to create, not toggle.
   """
@@ -516,9 +589,22 @@ defmodule Backend.Social do
   Creates a notification.
   """
   def create_notification(attrs) do
-    %Notification{}
-    |> Notification.changeset(attrs)
-    |> Repo.insert()
+    alias Backend.Social.NotificationCache
+
+    result =
+      %Notification{}
+      |> Notification.changeset(attrs)
+      |> Repo.insert()
+
+    case result do
+      {:ok, notification} ->
+        # Increment cached unread count for the user
+        NotificationCache.increment_unread_count(notification.user_id)
+        {:ok, notification}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -572,8 +658,7 @@ defmodule Backend.Social do
   Types that can be grouped: like, repost, bookmark, quote
   Types that are not grouped: comment, mention, follow, bid_*, gig_*, review_*
 
-  Optimized to use batch queries instead of N+1 per-group queries.
-  Also optimized to limit queries instead of fetching ALL notifications.
+  Optimized with window functions to get groups + top 3 actors in a single query.
   """
   def list_grouped_notifications(user_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 20)
@@ -583,26 +668,37 @@ defmodule Backend.Social do
     groupable_types = ["like", "repost", "bookmark", "quote"]
 
     # Fetch more than needed to account for merging, then trim
-    # This avoids loading ALL notifications into memory
     fetch_limit = (limit + offset) * 2
 
-    # Get grouped notifications for groupable types (with limit)
-    grouped_query =
+    # OPTIMIZED: Single query with window functions to get grouped data + top 3 actors
+    # This replaces the previous 2-query approach (grouped_query + batch_fetch)
+    grouped_with_actors_query =
       from n in Notification,
+        join: actor in assoc(n, :actor),
         where: n.user_id == ^user_id and n.type in ^groupable_types and not is_nil(n.target_id),
-        group_by: [n.type, n.target_type, n.target_id],
+        windows: [
+          group_window: [partition_by: [n.type, n.target_type, n.target_id], order_by: [desc: n.inserted_at]]
+        ],
         select: %{
+          notification_id: n.id,
           type: n.type,
           target_type: n.target_type,
           target_id: n.target_id,
-          count: count(n.id),
-          latest_at: max(n.inserted_at),
-          has_unread: fragment("bool_or(NOT ?)", n.read)
-        },
-        order_by: [desc: max(n.inserted_at)],
-        limit: ^fetch_limit
+          source_id: n.source_id,
+          content_preview: n.content_preview,
+          inserted_at: n.inserted_at,
+          read: n.read,
+          actor_id: actor.id,
+          actor_username: actor.username,
+          actor_display_name: actor.display_name,
+          actor_avatar_url: actor.avatar_url,
+          row_num: row_number() |> over(:group_window),
+          group_count: count(n.id) |> over([partition_by: [n.type, n.target_type, n.target_id]]),
+          latest_at: max(n.inserted_at) |> over([partition_by: [n.type, n.target_type, n.target_id]]),
+          has_unread: fragment("bool_or(NOT ?) OVER (PARTITION BY ?, ?, ?)", n.read, n.type, n.target_type, n.target_id)
+        }
 
-    # Get non-groupable notifications (comments, mentions, follows, etc.) with limit
+    # Get non-groupable notifications query (comments, mentions, follows, etc.)
     non_grouped_query =
       from n in Notification,
         where: n.user_id == ^user_id and n.type not in ^groupable_types,
@@ -610,43 +706,52 @@ defmodule Backend.Social do
         limit: ^fetch_limit,
         preload: [:actor]
 
-    # Run grouped and non-grouped queries in parallel to save ~200-400ms
-    grouped_task = Task.async(fn -> Repo.all(grouped_query) end)
+    # Run both queries in parallel to save ~100-200ms
+    grouped_task = Task.async(fn -> Repo.all(grouped_with_actors_query) end)
     non_grouped_task = Task.async(fn -> Repo.all(non_grouped_query) end)
 
-    grouped_results = Task.await(grouped_task)
+    raw_results = Task.await(grouped_task)
     non_grouped_results = Task.await(non_grouped_task)
 
-    # OPTIMIZATION: Batch fetch all latest notifications and actors for all groups in 2 queries
-    # instead of 2 queries per group (N+1 elimination)
-    {actors_by_group, latest_by_group} =
-      if Enum.empty?(grouped_results) do
-        {%{}, %{}}
-      else
-        batch_fetch_grouped_notification_data(user_id, grouped_results)
-      end
-
-    # Build grouped notifications using pre-fetched data
+    # Process results: group by (type, target_type, target_id), keep only top 3 actors per group
     grouped_with_actors =
-      Enum.map(grouped_results, fn group ->
-        group_key = {group.type, group.target_type, group.target_id}
-        actors = Map.get(actors_by_group, group_key, [])
-        latest_notification = Map.get(latest_by_group, group_key)
+      raw_results
+      |> Enum.group_by(fn r -> {r.type, r.target_type, r.target_id} end)
+      |> Enum.map(fn {_key, rows} ->
+        # First row has the latest notification data (window ordered by inserted_at desc)
+        first = List.first(rows)
+
+        # Get unique actors (top 3), already ordered by recency
+        actors =
+          rows
+          |> Enum.filter(fn r -> r.row_num <= 3 end)
+          |> Enum.uniq_by(fn r -> r.actor_id end)
+          |> Enum.take(3)
+          |> Enum.map(fn r ->
+            %Backend.Accounts.User{
+              id: r.actor_id,
+              username: r.actor_username,
+              display_name: r.actor_display_name,
+              avatar_url: r.actor_avatar_url
+            }
+          end)
 
         %{
-          id: latest_notification && latest_notification.id,
-          type: group.type,
-          target_type: group.target_type,
-          target_id: group.target_id,
-          source_id: latest_notification && latest_notification.source_id,
+          id: first.notification_id,
+          type: first.type,
+          target_type: first.target_type,
+          target_id: first.target_id,
+          source_id: first.source_id,
           actors: actors,
-          actor_count: group.count,
-          content_preview: latest_notification && latest_notification.content_preview,
-          latest_at: group.latest_at,
-          read: !group.has_unread,
+          actor_count: first.group_count,
+          content_preview: first.content_preview,
+          latest_at: first.latest_at,
+          read: !first.has_unread,
           is_grouped: true
         }
       end)
+      |> Enum.sort_by(& &1.latest_at, {:desc, DateTime})
+      |> Enum.take(fetch_limit)
 
     # Convert non-grouped notifications to same format
     non_grouped_formatted =
@@ -676,72 +781,6 @@ defmodule Backend.Social do
     all_notifications
   end
 
-  # Batch fetch actors and latest notifications for all groups
-  # Optimized: uses WHERE IN clause to only fetch relevant notifications
-  defp batch_fetch_grouped_notification_data(user_id, grouped_results) do
-    # Extract unique target_ids for the WHERE clause
-    groupable_types = ["like", "repost", "bookmark", "quote"]
-    target_ids = Enum.map(grouped_results, & &1.target_id) |> Enum.uniq()
-
-    # Only fetch notifications that match our groups (scoped query instead of fetching ALL)
-    all_notifications_query =
-      from n in Notification,
-        join: actor in assoc(n, :actor),
-        where:
-          n.user_id == ^user_id and
-            n.type in ^groupable_types and
-            n.target_id in ^target_ids,
-        select: %{
-          notification: n,
-          actor: actor,
-          type: n.type,
-          target_type: n.target_type,
-          target_id: n.target_id
-        },
-        order_by: [desc: n.inserted_at]
-
-    all_notifications = Repo.all(all_notifications_query)
-
-    # Build lookup set for exact group matching
-    group_keys_set =
-      grouped_results
-      |> Enum.map(fn g -> {g.type, g.target_type, g.target_id} end)
-      |> MapSet.new()
-
-    relevant_notifications =
-      Enum.filter(all_notifications, fn n ->
-        MapSet.member?(group_keys_set, {n.type, n.target_type, n.target_id})
-      end)
-
-    # Group by (type, target_type, target_id) and extract actors (top 3) and latest notification
-    grouped = Enum.group_by(relevant_notifications, fn n -> {n.type, n.target_type, n.target_id} end)
-
-    actors_by_group =
-      grouped
-      |> Enum.map(fn {key, notifications} ->
-        # Notifications are already sorted desc by inserted_at, take unique actors (top 3)
-        actors =
-          notifications
-          |> Enum.map(& &1.actor)
-          |> Enum.uniq_by(& &1.id)
-          |> Enum.take(3)
-
-        {key, actors}
-      end)
-      |> Map.new()
-
-    latest_by_group =
-      grouped
-      |> Enum.map(fn {key, notifications} ->
-        # First notification is the latest (sorted desc)
-        latest = List.first(notifications)
-        {key, latest && latest.notification}
-      end)
-      |> Map.new()
-
-    {actors_by_group, latest_by_group}
-  end
-
   @doc """
   Marks all notifications in a group as read.
   """
@@ -761,20 +800,27 @@ defmodule Backend.Social do
 
   @doc """
   Gets the count of unread notifications for a user.
+  Cached with a 30-second TTL for performance.
   """
   def get_unread_count(user_id) do
-    query =
-      from n in Notification,
-        where: n.user_id == ^user_id and n.read == false,
-        select: count(n.id)
+    alias Backend.Social.NotificationCache
 
-    Repo.one(query)
+    NotificationCache.get_unread_count(user_id, fn ->
+      query =
+        from n in Notification,
+          where: n.user_id == ^user_id and n.read == false,
+          select: count(n.id)
+
+      Repo.one(query)
+    end)
   end
 
   @doc """
   Marks a notification as read.
   """
   def mark_as_read(notification_id, user_id) do
+    alias Backend.Social.NotificationCache
+
     query =
       from n in Notification,
         where: n.id == ^notification_id and n.user_id == ^user_id
@@ -784,9 +830,24 @@ defmodule Backend.Social do
         {:error, :not_found}
 
       notification ->
-        notification
-        |> Notification.changeset(%{read: true})
-        |> Repo.update()
+        # Only decrement if it was previously unread
+        was_unread = !notification.read
+
+        result =
+          notification
+          |> Notification.changeset(%{read: true})
+          |> Repo.update()
+
+        case result do
+          {:ok, updated} ->
+            if was_unread do
+              NotificationCache.decrement_unread_count(user_id)
+            end
+            {:ok, updated}
+
+          error ->
+            error
+        end
     end
   end
 
@@ -794,11 +855,17 @@ defmodule Backend.Social do
   Marks all notifications as read for a user.
   """
   def mark_all_as_read(user_id) do
+    alias Backend.Social.NotificationCache
+
     query =
       from n in Notification,
         where: n.user_id == ^user_id and n.read == false
 
     {count, _} = Repo.update_all(query, set: [read: true])
+
+    # Invalidate the cache since all are now read
+    NotificationCache.invalidate_unread_count(user_id)
+
     {:ok, count}
   end
 

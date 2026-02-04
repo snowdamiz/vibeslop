@@ -350,10 +350,20 @@ defmodule Backend.Content do
 
     results = Repo.all(query)
 
-    # Preload media for each post
+    # Batch preload media for all posts at once (1 query instead of N)
+    post_ids = Enum.map(results, fn r -> r.post.id end)
+
+    posts_with_media =
+      if post_ids != [] do
+        from(p in Post, where: p.id in ^post_ids, preload: [:media])
+        |> Repo.all()
+        |> Map.new(fn p -> {p.id, p} end)
+      else
+        %{}
+      end
+
     Enum.map(results, fn %{post: post} = result ->
-      post = Repo.preload(post, :media)
-      %{result | post: post}
+      %{result | post: Map.get(posts_with_media, post.id, post)}
     end)
   end
 

@@ -13,6 +13,7 @@ defmodule Backend.Content.Post do
     field :reposts_count, :integer, default: 0
     field :bookmarks_count, :integer, default: 0
     field :quotes_count, :integer, default: 0
+    field :engagement_score, :float, default: 0.0
 
     belongs_to :user, Backend.Accounts.User
     belongs_to :linked_project, Backend.Content.Project

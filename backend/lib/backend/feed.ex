@@ -267,46 +267,40 @@ defmodule Backend.Feed do
 
 
   # Combined boost function: applies premium boost, new creator boost, AND fetches follower counts
-  # This reduces 3 DB queries to 2 (user data + follower counts) and 2 iterations to 1
+  # Optimized: single query with LEFT JOIN instead of 2 separate queries
   # Follower counts are stored on items to avoid re-querying in ensure_discovery_slots
   defp apply_combined_boosts(items) when items == [], do: []
 
   defp apply_combined_boosts(items) do
     user_ids = items |> Enum.map(& &1.user.id) |> Enum.uniq()
 
-    # Query 1: Get premium status and account age
+    # Single query: Get premium status, account age, AND follower counts with LEFT JOIN
     user_data =
       from(u in Backend.Accounts.User,
+        left_join: f in Follow, on: f.following_id == u.id,
         where: u.id in ^user_ids,
-        select: {u.id, u.subscription_status, u.inserted_at}
+        group_by: [u.id, u.subscription_status, u.inserted_at],
+        select: {u.id, u.subscription_status, u.inserted_at, count(f.id)}
       )
       |> Repo.all()
-      |> Map.new(fn {id, status, inserted_at} ->
-        {id, %{premium: status in ["active", "trialing"], inserted_at: inserted_at}}
+      |> Map.new(fn {id, status, inserted_at, follower_count} ->
+        {id, %{
+          premium: status in ["active", "trialing"],
+          inserted_at: inserted_at,
+          follower_count: follower_count
+        }}
       end)
-
-    # Query 2: Get follower counts (combined here to avoid separate query in ensure_discovery_slots)
-    follower_counts =
-      from(f in Follow,
-        where: f.following_id in ^user_ids,
-        group_by: f.following_id,
-        select: {f.following_id, count(f.id)}
-      )
-      |> Repo.all()
-      |> Map.new()
 
     now = DateTime.utc_now()
     threshold_seconds = @new_creator_threshold_days * 24 * 60 * 60
 
     # Single iteration applying both boosts and attaching follower count
     Enum.map(items, fn item ->
-      follower_count = Map.get(follower_counts, item.user.id, 0)
-
       case Map.get(user_data, item.user.id) do
         nil ->
-          Map.put(item, :follower_count, follower_count)
+          Map.put(item, :follower_count, 0)
 
-        %{premium: is_premium, inserted_at: inserted_at} ->
+        %{premium: is_premium, inserted_at: inserted_at, follower_count: follower_count} ->
           score = to_float(item.score)
 
           # Apply premium boost
@@ -483,7 +477,7 @@ defmodule Backend.Feed do
   end
 
   # Engagement-only scoring for older posts (no time decay)
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
+  # Uses precomputed engagement_score column for efficiency
   defp build_engagement_only_posts_query(before_cutoff) do
     from(p in Post,
       join: u in assoc(p, :user),
@@ -491,38 +485,14 @@ defmodule Backend.Feed do
       select: %{
         post: p,
         user: u,
-        score:
-          fragment(
-            """
-              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-              COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0
-            """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count
-          )
+        score: p.engagement_score
       },
-      order_by: [
-        desc:
-          fragment(
-            """
-              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-              COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0
-            """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count
-          )
-      ]
+      order_by: [desc: p.engagement_score]
     )
   end
 
   # Engagement-only scoring for older projects (no time decay)
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
+  # Uses precomputed engagement_score column for efficiency
   defp build_engagement_only_projects_query(before_cutoff) do
     from(proj in Project,
       join: u in assoc(proj, :user),
@@ -530,33 +500,9 @@ defmodule Backend.Feed do
       select: %{
         project: proj,
         user: u,
-        score:
-          fragment(
-            """
-              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-              COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0
-            """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count
-          )
+        score: proj.engagement_score
       },
-      order_by: [
-        desc:
-          fragment(
-            """
-              COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-              COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0
-            """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count
-          )
-      ]
+      order_by: [desc: proj.engagement_score]
     )
   end
 
@@ -808,8 +754,8 @@ defmodule Backend.Feed do
   # ============================================================================
 
   # No time cutoff - fetch all posts
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
-  # Added freshness bonus that decays over 4 hours
+  # Uses precomputed engagement_score column + freshness bonus with time decay
+  # engagement_score is updated by DB trigger: likes*1 + comments*10 + reposts*5 + bookmarks*4 + quotes*8
   defp build_scored_posts_query(nil) do
     from(p in Post,
       join: u in assoc(p, :user),
@@ -820,16 +766,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count,
+            p.engagement_score,
             p.inserted_at,
             p.inserted_at
           )
@@ -839,16 +780,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count,
+            p.engagement_score,
             p.inserted_at,
             p.inserted_at
           )
@@ -857,8 +793,7 @@ defmodule Backend.Feed do
   end
 
   # With time cutoff - filter posts within the window
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
-  # Added freshness bonus that decays over 4 hours
+  # Uses precomputed engagement_score column + freshness bonus with time decay
   defp build_scored_posts_query(cutoff) do
     from(p in Post,
       join: u in assoc(p, :user),
@@ -870,16 +805,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count,
+            p.engagement_score,
             p.inserted_at,
             p.inserted_at
           )
@@ -889,16 +819,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            p.likes_count,
-            p.comments_count,
-            p.reposts_count,
-            p.bookmarks_count,
-            p.quotes_count,
+            p.engagement_score,
             p.inserted_at,
             p.inserted_at
           )
@@ -907,8 +832,7 @@ defmodule Backend.Feed do
   end
 
   # No time cutoff - fetch all published projects
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
-  # Added freshness bonus that decays over 4 hours
+  # Uses precomputed engagement_score column + freshness bonus with time decay
   defp build_scored_projects_query(nil) do
     from(proj in Project,
       join: u in assoc(proj, :user),
@@ -920,16 +844,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count,
+            proj.engagement_score,
             proj.published_at,
             proj.published_at
           )
@@ -939,16 +858,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count,
+            proj.engagement_score,
             proj.published_at,
             proj.published_at
           )
@@ -957,8 +871,7 @@ defmodule Backend.Feed do
   end
 
   # With time cutoff - filter projects within the window
-  # Updated weights: likes=1.0, comments=10.0, reposts=5.0, bookmarks=4.0, quotes=8.0
-  # Added freshness bonus that decays over 4 hours
+  # Uses precomputed engagement_score column + freshness bonus with time decay
   defp build_scored_projects_query(cutoff) do
     from(proj in Project,
       join: u in assoc(proj, :user),
@@ -970,16 +883,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count,
+            proj.engagement_score,
             proj.published_at,
             proj.published_at
           )
@@ -989,16 +897,11 @@ defmodule Backend.Feed do
           fragment(
             """
               (
-                COALESCE(?, 0) * 1.0 + COALESCE(?, 0) * 10.0 + COALESCE(?, 0) * 5.0 +
-                COALESCE(?, 0) * 4.0 + COALESCE(?, 0) * 8.0 +
+                COALESCE(?, 0) +
                 GREATEST(0, 10.0 * (1.0 - EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 / 6.0))
               ) / POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            proj.likes_count,
-            proj.comments_count,
-            proj.reposts_count,
-            proj.bookmarks_count,
-            proj.quotes_count,
+            proj.engagement_score,
             proj.published_at,
             proj.published_at
           )
@@ -1007,7 +910,7 @@ defmodule Backend.Feed do
   end
 
   # No time cutoff - fetch all open gigs
-  # Gig scoring: bids_count * 15.0 + views_count * 0.5, with dampening factor
+  # Uses precomputed engagement_score (bids*15 + views*0.5) with dampening factor and time decay
   defp build_scored_gigs_query(nil) do
     from(g in Gig,
       join: u in assoc(g, :user),
@@ -1018,12 +921,10 @@ defmodule Backend.Feed do
         score:
           fragment(
             """
-              (COALESCE(?, 0) * 15.0 + COALESCE(?, 0) * 0.5) *
-              ? /
+              COALESCE(?, 0) * ? /
               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            g.bids_count,
-            g.views_count,
+            g.engagement_score,
             ^@gig_dampening_factor,
             g.inserted_at
           )
@@ -1032,12 +933,10 @@ defmodule Backend.Feed do
         desc:
           fragment(
             """
-              (COALESCE(?, 0) * 15.0 + COALESCE(?, 0) * 0.5) *
-              ? /
+              COALESCE(?, 0) * ? /
               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            g.bids_count,
-            g.views_count,
+            g.engagement_score,
             ^@gig_dampening_factor,
             g.inserted_at
           )
@@ -1046,6 +945,7 @@ defmodule Backend.Feed do
   end
 
   # With time cutoff - filter gigs within the window
+  # Uses precomputed engagement_score with dampening factor and time decay
   defp build_scored_gigs_query(cutoff) do
     from(g in Gig,
       join: u in assoc(g, :user),
@@ -1056,12 +956,10 @@ defmodule Backend.Feed do
         score:
           fragment(
             """
-              (COALESCE(?, 0) * 15.0 + COALESCE(?, 0) * 0.5) *
-              ? /
+              COALESCE(?, 0) * ? /
               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            g.bids_count,
-            g.views_count,
+            g.engagement_score,
             ^@gig_dampening_factor,
             g.inserted_at
           )
@@ -1070,12 +968,10 @@ defmodule Backend.Feed do
         desc:
           fragment(
             """
-              (COALESCE(?, 0) * 15.0 + COALESCE(?, 0) * 0.5) *
-              ? /
+              COALESCE(?, 0) * ? /
               POWER(EXTRACT(EPOCH FROM (NOW() - ?)) / 3600.0 + 2, 1.8)
             """,
-            g.bids_count,
-            g.views_count,
+            g.engagement_score,
             ^@gig_dampening_factor,
             g.inserted_at
           )
@@ -1360,14 +1256,10 @@ defmodule Backend.Feed do
         get_item_type_and_id(item)
       end)
 
-    # Run all 3 engagement status queries in parallel
-    liked_task = Task.async(fn -> Backend.Social.batch_liked_items(user_id, item_keys) end)
-    bookmarked_task = Task.async(fn -> Backend.Social.batch_bookmarked_items(user_id, item_keys) end)
-    reposted_task = Task.async(fn -> Backend.Social.batch_reposted_items(user_id, item_keys) end)
-
-    liked_set = Task.await(liked_task)
-    bookmarked_set = Task.await(bookmarked_task)
-    reposted_set = Task.await(reposted_task)
+    # Single query to get all engagement statuses (liked, bookmarked, reposted)
+    # Optimized: uses UNION ALL instead of 3 parallel queries
+    %{liked: liked_set, bookmarked: bookmarked_set, reposted: reposted_set} =
+      Backend.Social.batch_all_engagement_status(user_id, item_keys)
 
     # Apply engagement status to each item using the pre-fetched sets
     Enum.map(items, fn item ->
