@@ -169,15 +169,39 @@ defmodule Backend.Accounts do
   Updates a user.
   """
   def update_user(%User{} = user, attrs) do
+    attrs = upload_user_images(attrs)
+
     user
     |> User.changeset(attrs)
     |> Repo.update()
+  end
+
+  # Upload base64 avatar and banner to R2
+  defp upload_user_images(attrs) do
+    attrs
+    |> maybe_upload_image("avatar_url", "avatars")
+    |> maybe_upload_image("banner_url", "banners")
+  end
+
+  defp maybe_upload_image(attrs, key, path) do
+    value = Map.get(attrs, key) || Map.get(attrs, String.to_atom(key))
+
+    if value && Backend.MediaStorage.is_data_uri?(value) do
+      case Backend.MediaStorage.upload_base64(value, path: path) do
+        {:ok, url} -> Map.put(attrs, key, url)
+        {:error, _} -> attrs
+      end
+    else
+      attrs
+    end
   end
 
   @doc """
   Completes user onboarding with profile customization.
   """
   def complete_onboarding(%User{} = user, attrs) do
+    attrs = upload_user_images(attrs)
+
     user
     |> User.onboarding_changeset(attrs)
     |> Repo.update()
