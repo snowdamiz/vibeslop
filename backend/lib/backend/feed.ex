@@ -1322,13 +1322,12 @@ defmodule Backend.Feed do
     }
   end
 
+  # Optimized: reads from denormalized counter fields instead of querying DB per item
   defp add_engagement_counts(items) do
     Enum.map(items, fn item ->
-      {item_type, item_id} = get_item_type_and_id(item)
-
       likes_count = get_count_from_item(item, :likes_count)
       comments_count = get_count_from_item(item, :comments_count)
-      reposts_count = Backend.Social.get_reposts_count(item_type, item_id)
+      reposts_count = get_count_from_item(item, :reposts_count)
 
       item
       |> Map.put(:likes_count, likes_count)
@@ -1355,16 +1354,20 @@ defmodule Backend.Feed do
   end
 
   defp add_engagement_status(items, user_id) do
-    # Collect all item type/id pairs for batch lookup (3 queries instead of 3*N)
+    # Collect all item type/id pairs for batch lookup
     item_keys =
       Enum.map(items, fn item ->
         get_item_type_and_id(item)
       end)
 
-    # Batch fetch all engagement statuses
-    liked_set = Backend.Social.batch_liked_items(user_id, item_keys)
-    bookmarked_set = Backend.Social.batch_bookmarked_items(user_id, item_keys)
-    reposted_set = Backend.Social.batch_reposted_items(user_id, item_keys)
+    # Run all 3 engagement status queries in parallel
+    liked_task = Task.async(fn -> Backend.Social.batch_liked_items(user_id, item_keys) end)
+    bookmarked_task = Task.async(fn -> Backend.Social.batch_bookmarked_items(user_id, item_keys) end)
+    reposted_task = Task.async(fn -> Backend.Social.batch_reposted_items(user_id, item_keys) end)
+
+    liked_set = Task.await(liked_task)
+    bookmarked_set = Task.await(bookmarked_task)
+    reposted_set = Task.await(reposted_task)
 
     # Apply engagement status to each item using the pre-fetched sets
     Enum.map(items, fn item ->

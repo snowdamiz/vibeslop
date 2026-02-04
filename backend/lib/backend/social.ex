@@ -298,22 +298,27 @@ defmodule Backend.Social do
   @doc """
   Batch check which items a user has liked.
   Takes a list of {type, id} tuples and returns a MapSet of liked {type, id} tuples.
-  Reduces N queries to 1 query.
+  Optimized: uses single query with OR conditions instead of one query per type.
   """
   def batch_liked_items(user_id, items) when is_list(items) do
     if Enum.empty?(items) do
       MapSet.new()
     else
-      # Group by type for efficient querying
+      # Build OR conditions for all type/id pairs in a single query
       by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
 
-      Enum.flat_map(by_type, fn {type, ids} ->
-        from(l in Like,
-          where: l.user_id == ^user_id and l.likeable_type == ^type and l.likeable_id in ^ids,
-          select: {l.likeable_type, l.likeable_id}
-        )
-        |> Repo.all()
-      end)
+      # Use dynamic query building with OR conditions
+      conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([l], ^acc or (l.likeable_type == ^type and l.likeable_id in ^ids))
+        end)
+
+      from(l in Like,
+        where: l.user_id == ^user_id,
+        where: ^conditions,
+        select: {l.likeable_type, l.likeable_id}
+      )
+      |> Repo.all()
       |> MapSet.new()
     end
   end
@@ -321,7 +326,7 @@ defmodule Backend.Social do
   @doc """
   Batch check which items a user has bookmarked.
   Takes a list of {type, id} tuples and returns a MapSet of bookmarked {type, id} tuples.
-  Reduces N queries to 1 query.
+  Optimized: uses single query with OR conditions instead of one query per type.
   """
   def batch_bookmarked_items(user_id, items) when is_list(items) do
     if Enum.empty?(items) do
@@ -329,13 +334,17 @@ defmodule Backend.Social do
     else
       by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
 
-      Enum.flat_map(by_type, fn {type, ids} ->
-        from(b in Bookmark,
-          where: b.user_id == ^user_id and b.bookmarkable_type == ^type and b.bookmarkable_id in ^ids,
-          select: {b.bookmarkable_type, b.bookmarkable_id}
-        )
-        |> Repo.all()
-      end)
+      conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([b], ^acc or (b.bookmarkable_type == ^type and b.bookmarkable_id in ^ids))
+        end)
+
+      from(b in Bookmark,
+        where: b.user_id == ^user_id,
+        where: ^conditions,
+        select: {b.bookmarkable_type, b.bookmarkable_id}
+      )
+      |> Repo.all()
       |> MapSet.new()
     end
   end
@@ -343,7 +352,7 @@ defmodule Backend.Social do
   @doc """
   Batch check which items a user has reposted.
   Takes a list of {type, id} tuples and returns a MapSet of reposted {type, id} tuples.
-  Reduces N queries to 1 query.
+  Optimized: uses single query with OR conditions instead of one query per type.
   """
   def batch_reposted_items(user_id, items) when is_list(items) do
     if Enum.empty?(items) do
@@ -351,13 +360,17 @@ defmodule Backend.Social do
     else
       by_type = Enum.group_by(items, fn {type, _id} -> type end, fn {_type, id} -> id end)
 
-      Enum.flat_map(by_type, fn {type, ids} ->
-        from(r in Repost,
-          where: r.user_id == ^user_id and r.repostable_type == ^type and r.repostable_id in ^ids,
-          select: {r.repostable_type, r.repostable_id}
-        )
-        |> Repo.all()
-      end)
+      conditions =
+        Enum.reduce(by_type, dynamic(false), fn {type, ids}, acc ->
+          dynamic([r], ^acc or (r.repostable_type == ^type and r.repostable_id in ^ids))
+        end)
+
+      from(r in Repost,
+        where: r.user_id == ^user_id,
+        where: ^conditions,
+        select: {r.repostable_type, r.repostable_id}
+      )
+      |> Repo.all()
       |> MapSet.new()
     end
   end
