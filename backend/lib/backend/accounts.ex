@@ -308,6 +308,30 @@ defmodule Backend.Accounts do
   end
 
   @doc """
+  Creates a system bot user with a generated internal email.
+  """
+  def create_bot_user(attrs) do
+    # Generate unique username if the provided one is taken
+    attrs =
+      if Map.has_key?(attrs, :username) || Map.has_key?(attrs, "username") do
+        username = Map.get(attrs, :username) || Map.get(attrs, "username")
+        unique_username = generate_unique_username(username)
+        Map.put(attrs, :username, unique_username)
+      else
+        attrs
+      end
+
+    # Generate a fake internal email for the bot (required by schema)
+    username = Map.get(attrs, :username) || Map.get(attrs, "username") || "bot_#{:rand.uniform(999_999)}"
+    bot_email = "#{username}@bot.internal"
+    attrs = Map.put(attrs, :email, bot_email)
+
+    %User{}
+    |> User.bot_changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
   Updates a user's preferred technologies (AI tools and tech stacks).
   """
   def update_preferences(%User{} = user, attrs) do

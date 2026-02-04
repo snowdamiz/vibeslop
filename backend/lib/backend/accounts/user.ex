@@ -125,4 +125,30 @@ defmodule Backend.Accounts.User do
     |> cast(attrs, [:developer_score, :developer_score_updated_at, :github_stats])
     |> validate_number(:developer_score, greater_than_or_equal_to: 0)
   end
+
+  @doc """
+  Changeset for creating a system bot user with internal email.
+  """
+  def bot_changeset(user, attrs) do
+    user
+    |> cast(attrs, [
+      :email,
+      :username,
+      :display_name,
+      :bio,
+      :location,
+      :avatar_url,
+      :banner_url,
+      :is_system_bot,
+      :has_onboarded
+    ])
+    |> validate_required([:email, :username, :display_name])
+    |> validate_length(:username, min: 2, max: 30)
+    |> validate_format(:username, ~r/^[a-z0-9_]+$/,
+      message: "can only contain lowercase letters, numbers, and underscores"
+    )
+    |> unique_constraint(:username)
+    |> unique_constraint(:email)
+    |> put_change(:is_system_bot, true)
+  end
 end

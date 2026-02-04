@@ -2,6 +2,7 @@ defmodule BackendWeb.AdminController do
   use BackendWeb, :controller
   import Ecto.Query
   alias Backend.Accounts
+  alias Backend.Engagement
 
   plug :require_admin
 
@@ -364,5 +365,479 @@ defmodule BackendWeb.AdminController do
       {:error, reason} ->
         {:error, "HTTP request failed: #{inspect(reason)}"}
     end
+  end
+
+  # =============================================================================
+  # Simulated Engagement Management
+  # =============================================================================
+
+  def get_engagement_settings(conn, _params) do
+    settings = Engagement.get_setting_value("simulated_engagement", %{})
+
+    json(conn, %{
+      data: %{
+        enabled: Map.get(settings, "enabled", false),
+        intensity: Map.get(settings, "intensity", "medium"),
+        bot_projects_enabled: Map.get(settings, "bot_projects_enabled", false),
+        bot_project_frequency: Map.get(settings, "bot_project_frequency", 2),
+        bot_posts_enabled: Map.get(settings, "bot_posts_enabled", false),
+        bot_post_frequency: Map.get(settings, "bot_post_frequency", 5)
+      }
+    })
+  end
+
+  def update_engagement_settings(conn, params) do
+    enabled = Map.get(params, "enabled")
+    intensity = Map.get(params, "intensity")
+    bot_projects_enabled = Map.get(params, "bot_projects_enabled")
+    bot_project_frequency = Map.get(params, "bot_project_frequency")
+    bot_posts_enabled = Map.get(params, "bot_posts_enabled")
+    bot_post_frequency = Map.get(params, "bot_post_frequency")
+
+    attrs =
+      %{}
+      |> maybe_put("enabled", enabled)
+      |> maybe_put("intensity", intensity)
+      |> maybe_put("bot_projects_enabled", bot_projects_enabled)
+      |> maybe_put("bot_project_frequency", bot_project_frequency)
+      |> maybe_put("bot_posts_enabled", bot_posts_enabled)
+      |> maybe_put("bot_post_frequency", bot_post_frequency)
+
+    case Engagement.update_engagement_settings(attrs) do
+      {:ok, setting} ->
+        json(conn, %{
+          data: %{
+            enabled: Map.get(setting.value, "enabled", false),
+            intensity: Map.get(setting.value, "intensity", "medium"),
+            bot_projects_enabled: Map.get(setting.value, "bot_projects_enabled", false),
+            bot_project_frequency: Map.get(setting.value, "bot_project_frequency", 2),
+            bot_posts_enabled: Map.get(setting.value, "bot_posts_enabled", false),
+            bot_post_frequency: Map.get(setting.value, "bot_post_frequency", 5)
+          }
+        })
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def list_engagement_bots(conn, params) do
+    limit = Map.get(params, "limit", "50") |> String.to_integer()
+    offset = Map.get(params, "offset", "0") |> String.to_integer()
+
+    bots = Engagement.list_bot_users(limit: limit, offset: offset)
+    total = Engagement.count_bot_users()
+
+    json(conn, %{
+      data: Enum.map(bots, &bot_user_to_json/1),
+      meta: %{total: total, limit: limit, offset: offset}
+    })
+  end
+
+  def create_engagement_bot(conn, params) do
+    opts =
+      []
+      |> maybe_add_opt(:persona_type, params["persona_type"])
+      |> maybe_add_opt(:username, params["username"])
+      |> maybe_add_opt(:display_name, params["display_name"])
+
+    case Engagement.generate_bot_user(opts) do
+      {:ok, bot_user} ->
+        conn
+        |> put_status(:created)
+        |> json(%{data: bot_user_to_json(bot_user)})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "creation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def update_engagement_bot(conn, %{"id" => id} = params) do
+    case Engagement.get_bot_user(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Bot user not found"})
+
+      bot_user ->
+        attrs =
+          %{}
+          |> maybe_put(:persona_type, params["persona_type"])
+          |> maybe_put(:activity_level, params["activity_level"])
+          |> maybe_put(:daily_engagement_limit, params["daily_engagement_limit"])
+          |> maybe_put(:preferred_hours, params["preferred_hours"])
+          |> maybe_put(:active_days, params["active_days"])
+          |> maybe_put(:is_active, params["is_active"])
+
+        case Engagement.update_bot_user(bot_user, attrs) do
+          {:ok, updated} ->
+            updated = Backend.Repo.preload(updated, :user)
+            json(conn, %{data: bot_user_to_json(updated)})
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+        end
+    end
+  end
+
+  def delete_engagement_bot(conn, %{"id" => id}) do
+    case Engagement.get_bot_user(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Bot user not found"})
+
+      bot_user ->
+        case Engagement.delete_bot_user(bot_user, true) do
+          {:ok, _} ->
+            send_resp(conn, :no_content, "")
+
+          {:error, _} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: "delete_failed", message: "Failed to delete bot user"})
+        end
+    end
+  end
+
+  def toggle_engagement_bot(conn, %{"id" => id}) do
+    case Engagement.get_bot_user(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Bot user not found"})
+
+      bot_user ->
+        case Engagement.toggle_bot_user_active(bot_user) do
+          {:ok, updated} ->
+            updated = Backend.Repo.preload(updated, :user)
+            json(conn, %{data: bot_user_to_json(updated)})
+
+          {:error, changeset} ->
+            conn
+            |> put_status(:unprocessable_entity)
+            |> json(%{error: "validation_failed", errors: format_errors(changeset)})
+        end
+    end
+  end
+
+  def engagement_stats(conn, _params) do
+    today_stats = Engagement.get_today_stats()
+    status_counts = Engagement.count_engagement_logs_by_status()
+    active_bots = Engagement.count_bot_users(active_only: true)
+    total_bots = Engagement.count_bot_users()
+
+    json(conn, %{
+      data: %{
+        executed_today: today_stats.executed_today,
+        pending: today_stats.pending,
+        by_type: today_stats.by_type,
+        status_counts: status_counts,
+        active_bots: active_bots,
+        total_bots: total_bots
+      }
+    })
+  end
+
+  def list_engagement_logs(conn, params) do
+    limit = Map.get(params, "limit", "50") |> String.to_integer()
+    offset = Map.get(params, "offset", "0") |> String.to_integer()
+    status = Map.get(params, "status")
+    engagement_type = Map.get(params, "engagement_type")
+
+    logs =
+      Engagement.list_engagement_logs(
+        limit: limit,
+        offset: offset,
+        status: status,
+        engagement_type: engagement_type
+      )
+
+    json(conn, %{
+      data: Enum.map(logs, &engagement_log_to_json/1),
+      meta: %{limit: limit, offset: offset}
+    })
+  end
+
+  def list_curated_content(conn, params) do
+    limit = Map.get(params, "limit", "50") |> String.to_integer()
+    offset = Map.get(params, "offset", "0") |> String.to_integer()
+    active_only = Map.get(params, "active_only", "true") == "true"
+
+    curated = Engagement.list_curated_content(limit: limit, offset: offset, active_only: active_only)
+
+    json(conn, %{
+      data: Enum.map(curated, &curated_content_to_json/1),
+      meta: %{limit: limit, offset: offset}
+    })
+  end
+
+  def add_curated_content(conn, params) do
+    user = conn.assigns[:current_user]
+
+    attrs = %{
+      content_type: params["content_type"],
+      content_id: params["content_id"],
+      priority: params["priority"] || 3,
+      engagement_multiplier: params["engagement_multiplier"] || 1.5,
+      added_by_id: user.id,
+      expires_at: parse_datetime(params["expires_at"]),
+      is_active: true
+    }
+
+    case Engagement.create_curated_content(attrs) do
+      {:ok, curated} ->
+        curated = Backend.Repo.preload(curated, :added_by)
+
+        conn
+        |> put_status(:created)
+        |> json(%{data: curated_content_to_json(curated)})
+
+      {:error, changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "creation_failed", errors: format_errors(changeset)})
+    end
+  end
+
+  def remove_curated_content(conn, %{"id" => id}) do
+    case Engagement.get_curated_content_by_id(id) do
+      nil ->
+        conn
+        |> put_status(:not_found)
+        |> json(%{error: "not_found", message: "Curated content not found"})
+
+      curated ->
+        case Engagement.delete_curated_content(curated) do
+          {:ok, _} ->
+            send_resp(conn, :no_content, "")
+
+          {:error, _} ->
+            conn
+            |> put_status(:internal_server_error)
+            |> json(%{error: "delete_failed", message: "Failed to delete curated content"})
+        end
+    end
+  end
+
+  defp bot_user_to_json(bot_user) do
+    %{
+      id: bot_user.id,
+      persona_type: bot_user.persona_type,
+      activity_level: bot_user.activity_level,
+      preferred_hours: bot_user.preferred_hours,
+      active_days: bot_user.active_days,
+      engagement_style: bot_user.engagement_style,
+      daily_engagement_limit: bot_user.daily_engagement_limit,
+      engagements_today: bot_user.engagements_today,
+      total_engagements: bot_user.total_engagements,
+      last_engaged_at: bot_user.last_engaged_at,
+      is_active: bot_user.is_active,
+      inserted_at: bot_user.inserted_at,
+      user: %{
+        id: bot_user.user.id,
+        username: bot_user.user.username,
+        display_name: bot_user.user.display_name,
+        avatar_url: bot_user.user.avatar_url
+      }
+    }
+  end
+
+  defp engagement_log_to_json(log) do
+    %{
+      id: log.id,
+      engagement_type: log.engagement_type,
+      target_type: log.target_type,
+      target_id: log.target_id,
+      scheduled_for: log.scheduled_for,
+      executed_at: log.executed_at,
+      status: log.status,
+      metadata: log.metadata,
+      inserted_at: log.inserted_at,
+      bot_user: if(log.bot_user, do: %{
+        id: log.bot_user.id,
+        persona_type: log.bot_user.persona_type,
+        user: if(log.bot_user.user, do: %{
+          username: log.bot_user.user.username,
+          display_name: log.bot_user.user.display_name,
+          avatar_url: log.bot_user.user.avatar_url
+        })
+      })
+    }
+  end
+
+  defp curated_content_to_json(curated) do
+    %{
+      id: curated.id,
+      content_type: curated.content_type,
+      content_id: curated.content_id,
+      priority: curated.priority,
+      engagement_multiplier: curated.engagement_multiplier,
+      expires_at: curated.expires_at,
+      is_active: curated.is_active,
+      inserted_at: curated.inserted_at,
+      added_by: if(curated.added_by, do: %{
+        id: curated.added_by.id,
+        username: curated.added_by.username,
+        display_name: curated.added_by.display_name
+      })
+    }
+  end
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_add_opt(opts, _key, nil), do: opts
+  defp maybe_add_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp parse_datetime(nil), do: nil
+  defp parse_datetime(datetime_string) when is_binary(datetime_string) do
+    case DateTime.from_iso8601(datetime_string) do
+      {:ok, datetime, _} -> datetime
+      _ -> nil
+    end
+  end
+  defp parse_datetime(_), do: nil
+
+  # =============================================================================
+  # Engagement Trigger Endpoints (for immediate testing)
+  # =============================================================================
+
+  @doc """
+  Manually trigger a content scan to schedule engagement for any new content.
+  """
+  def trigger_content_scan(conn, _params) do
+    alias Backend.Engagement.Workers.NewContentWatcherWorker
+
+    case NewContentWatcherWorker.trigger_scan() do
+      {:ok, job} ->
+        json(conn, %{success: true, message: "Content scan triggered", job_id: job.id})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "trigger_failed", message: inspect(reason)})
+    end
+  end
+
+  @doc """
+  Manually trigger bot post creation.
+  """
+  def trigger_bot_post(conn, params) do
+    alias Backend.Engagement.Workers.BotPostWorker
+
+    bot_user_id = Map.get(params, "bot_user_id")
+
+    case BotPostWorker.trigger_post(bot_user_id) do
+      {:ok, job} ->
+        json(conn, %{success: true, message: "Bot post triggered", job_id: job.id})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "trigger_failed", message: inspect(reason)})
+    end
+  end
+
+  @doc """
+  Manually trigger bot project creation.
+  """
+  def trigger_bot_project(conn, params) do
+    alias Backend.Engagement.Workers.BotProjectWorker
+
+    bot_user_id = Map.get(params, "bot_user_id")
+
+    case BotProjectWorker.trigger_project(bot_user_id) do
+      {:ok, job} ->
+        json(conn, %{success: true, message: "Bot project triggered", job_id: job.id})
+
+      {:error, reason} ->
+        conn
+        |> put_status(:internal_server_error)
+        |> json(%{error: "trigger_failed", message: inspect(reason)})
+    end
+  end
+
+  @doc """
+  Trigger engagement for existing content (backfill).
+  Schedules engagement for recent posts/projects that haven't been engaged with yet.
+  """
+  def trigger_engagement_backfill(conn, params) do
+    alias Backend.Content.{Post, Project}
+    alias Backend.Engagement.Workers.EngagementSchedulerWorker
+
+    hours_back = Map.get(params, "hours_back", "24") |> String.to_integer()
+    limit = Map.get(params, "limit", "10") |> String.to_integer()
+    since = DateTime.utc_now() |> DateTime.add(-hours_back, :hour)
+
+    # Find recent posts without scheduled engagement
+    posts_query =
+      from(p in Post,
+        join: u in assoc(p, :user),
+        where: p.inserted_at > ^since,
+        where: u.is_system_bot == false,
+        order_by: [desc: p.inserted_at],
+        limit: ^limit,
+        select: %{id: p.id, user_id: p.user_id, inserted_at: p.inserted_at}
+      )
+
+    posts = Backend.Repo.all(posts_query)
+
+    # Find recent projects without scheduled engagement
+    projects_query =
+      from(p in Project,
+        join: u in assoc(p, :user),
+        where: p.inserted_at > ^since,
+        where: u.is_system_bot == false,
+        order_by: [desc: p.inserted_at],
+        limit: ^limit,
+        select: %{id: p.id, user_id: p.user_id, inserted_at: p.inserted_at}
+      )
+
+    projects = Backend.Repo.all(projects_query)
+
+    # Schedule engagement for each
+    scheduled_posts =
+      Enum.map(posts, fn post ->
+        EngagementSchedulerWorker.new(%{
+          "content_type" => "Post",
+          "content_id" => post.id,
+          "author_id" => post.user_id,
+          "created_at" => DateTime.to_iso8601(post.inserted_at),
+          "multiplier" => 1.0
+        })
+        |> Oban.insert()
+      end)
+      |> Enum.filter(&match?({:ok, _}, &1))
+      |> length()
+
+    scheduled_projects =
+      Enum.map(projects, fn project ->
+        EngagementSchedulerWorker.new(%{
+          "content_type" => "Project",
+          "content_id" => project.id,
+          "author_id" => project.user_id,
+          "created_at" => DateTime.to_iso8601(project.inserted_at),
+          "multiplier" => 1.0
+        })
+        |> Oban.insert()
+      end)
+      |> Enum.filter(&match?({:ok, _}, &1))
+      |> length()
+
+    json(conn, %{
+      success: true,
+      message: "Engagement backfill triggered",
+      scheduled_posts: scheduled_posts,
+      scheduled_projects: scheduled_projects,
+      found_posts: length(posts),
+      found_projects: length(projects)
+    })
   end
 end

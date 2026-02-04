@@ -60,10 +60,20 @@ config :backend, Oban,
        # Run developer score calculation daily at 3 AM UTC
        {"0 3 * * *", Backend.Workers.DeveloperScoreWorker},
        # Run weekly trending projects post every Monday at 12 PM UTC
-       {"0 12 * * 1", Backend.Bot.Workers.WeeklyTrendingWorker}
+       {"0 12 * * 1", Backend.Bot.Workers.WeeklyTrendingWorker},
+       # Simulated engagement: Watch for new content every 3 minutes
+       {"*/3 * * * *", Backend.Engagement.Workers.NewContentWatcherWorker},
+       # Simulated engagement: Reset daily engagement counters at midnight UTC
+       {"0 0 * * *", Backend.Engagement.Workers.DailyResetWorker},
+       # Simulated engagement: Create bot projects periodically (every 6 hours)
+       {"0 */6 * * *", Backend.Engagement.Workers.BotProjectWorker},
+       # Simulated engagement: Create bot text posts periodically (every 2 hours)
+       {"0 */2 * * *", Backend.Engagement.Workers.BotPostWorker},
+       # Simulated engagement: Bots view/scroll through feed every 30 minutes
+       {"*/30 * * * *", Backend.Engagement.Workers.BotViewWorker}
      ]}
   ],
-  queues: [default: 10, developer_scores: 2]
+  queues: [default: 10, developer_scores: 2, engagement: 5]
 
 # Configure Stripe
 config :stripity_stripe,

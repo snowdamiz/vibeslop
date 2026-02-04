@@ -1,6 +1,6 @@
 import { Routes, Route, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout'
-import { Home, ProjectDetail, PostDetail, BotPostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail, Admin, AdminUsers, AdminCatalog, AdminReports, AdminBots } from '@/pages'
+import { Home, ProjectDetail, PostDetail, BotPostDetail, UserProfile, SignIn, SignUp, Notifications, Messages, AuthCallback, Bookmarks, Onboarding, Settings, Search, Gigs, GigDetail, Admin, AdminUsers, AdminCatalog, AdminReports, AdminBots, AdminEngagement } from '@/pages'
 import { useAuth } from '@/context/AuthContext'
 
 function App() {
@@ -55,6 +55,7 @@ function App() {
         <Route path="/admin/reports" element={<AdminReports />} />
         <Route path="/admin/catalog/:type" element={<AdminCatalog />} />
         <Route path="/admin/bots" element={<AdminBots />} />
+        <Route path="/admin/engagement" element={<AdminEngagement />} />
         <Route path="/settings" element={<Settings />} />
       </Routes>
     </AppShell>

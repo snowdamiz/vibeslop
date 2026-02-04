@@ -153,6 +153,26 @@ defmodule BackendWeb.Router do
     get "/bot/posts", AdminController, :list_bot_posts
     post "/bot/trigger-trending", AdminController, :trigger_trending_post
     delete "/bot/posts/:id", AdminController, :delete_bot_post
+
+    # Simulated engagement management
+    get "/engagement/settings", AdminController, :get_engagement_settings
+    put "/engagement/settings", AdminController, :update_engagement_settings
+    get "/engagement/bots", AdminController, :list_engagement_bots
+    post "/engagement/bots", AdminController, :create_engagement_bot
+    put "/engagement/bots/:id", AdminController, :update_engagement_bot
+    delete "/engagement/bots/:id", AdminController, :delete_engagement_bot
+    post "/engagement/bots/:id/toggle", AdminController, :toggle_engagement_bot
+    get "/engagement/stats", AdminController, :engagement_stats
+    get "/engagement/logs", AdminController, :list_engagement_logs
+    get "/engagement/curated", AdminController, :list_curated_content
+    post "/engagement/curated", AdminController, :add_curated_content
+    delete "/engagement/curated/:id", AdminController, :remove_curated_content
+
+    # Engagement trigger endpoints (for immediate testing)
+    post "/engagement/trigger/content-scan", AdminController, :trigger_content_scan
+    post "/engagement/trigger/bot-post", AdminController, :trigger_bot_post
+    post "/engagement/trigger/bot-project", AdminController, :trigger_bot_project
+    post "/engagement/trigger/backfill", AdminController, :trigger_engagement_backfill
   end
 
   # Public API routes with optional auth

@@ -248,6 +248,83 @@ export interface AdminBotPostsResponse {
   }
 }
 
+// Simulated Engagement Types
+export interface EngagementSettings {
+  enabled: boolean
+  intensity: 'low' | 'medium' | 'high'
+  bot_projects_enabled: boolean
+  bot_project_frequency: number
+  bot_posts_enabled: boolean
+  bot_post_frequency: number
+}
+
+export interface EngagementBot {
+  id: string
+  persona_type: 'enthusiast' | 'casual' | 'supportive' | 'lurker'
+  activity_level: 'high' | 'medium' | 'low'
+  preferred_hours: number[]
+  active_days: number[]
+  engagement_style: Record<string, number>
+  daily_engagement_limit: number
+  engagements_today: number
+  total_engagements: number
+  last_engaged_at: string | null
+  is_active: boolean
+  inserted_at: string
+  user: {
+    id: string
+    username: string
+    display_name: string
+    avatar_url?: string
+  }
+}
+
+export interface EngagementStats {
+  executed_today: number
+  pending: number
+  by_type: Record<string, number>
+  status_counts: Record<string, number>
+  active_bots: number
+  total_bots: number
+}
+
+export interface EngagementLog {
+  id: string
+  engagement_type: 'like' | 'repost' | 'comment' | 'follow'
+  target_type: string
+  target_id: string
+  scheduled_for: string
+  executed_at: string | null
+  status: 'pending' | 'scheduled' | 'executed' | 'failed' | 'skipped'
+  metadata: Record<string, unknown>
+  inserted_at: string
+  bot_user: {
+    id: string
+    persona_type: string
+    user?: {
+      username: string
+      display_name: string
+      avatar_url?: string
+    }
+  } | null
+}
+
+export interface CuratedContent {
+  id: string
+  content_type: 'Post' | 'Project'
+  content_id: string
+  priority: number
+  engagement_multiplier: number
+  expires_at: string | null
+  is_active: boolean
+  inserted_at: string
+  added_by?: {
+    id: string
+    username: string
+    display_name: string
+  }
+}
+
 interface ApiError {
   error: string
   message: string
@@ -1079,6 +1156,125 @@ class ApiClient {
 
   async createPortalSession(params?: { return_url?: string }): Promise<PortalResponse> {
     return this.post('/billing/portal', params || {})
+  }
+
+  // ============================================================================
+  // Simulated Engagement
+  // ============================================================================
+
+  async getEngagementSettings(): Promise<{ data: EngagementSettings }> {
+    return this.get('/admin/engagement/settings')
+  }
+
+  async updateEngagementSettings(data: {
+    enabled?: boolean
+    intensity?: string
+    bot_projects_enabled?: boolean
+    bot_project_frequency?: number
+    bot_posts_enabled?: boolean
+    bot_post_frequency?: number
+  }): Promise<{ data: EngagementSettings }> {
+    return this.put('/admin/engagement/settings', data)
+  }
+
+  async getEngagementBots(params?: { limit?: number; offset?: number }): Promise<{
+    data: EngagementBot[]
+    meta: { total: number; limit: number; offset: number }
+  }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    return this.get(`/admin/engagement/bots?${queryParams}`)
+  }
+
+  async createEngagementBot(data?: { persona_type?: string; username?: string; display_name?: string }): Promise<{ data: EngagementBot }> {
+    return this.post('/admin/engagement/bots', data || {})
+  }
+
+  async updateEngagementBot(id: string, data: {
+    persona_type?: string
+    activity_level?: string
+    daily_engagement_limit?: number
+    preferred_hours?: number[]
+    active_days?: number[]
+    is_active?: boolean
+  }): Promise<{ data: EngagementBot }> {
+    return this.put(`/admin/engagement/bots/${id}`, data)
+  }
+
+  async deleteEngagementBot(id: string): Promise<void> {
+    return this.delete(`/admin/engagement/bots/${id}`)
+  }
+
+  async toggleEngagementBot(id: string): Promise<{ data: EngagementBot }> {
+    return this.post(`/admin/engagement/bots/${id}/toggle`)
+  }
+
+  async getEngagementStats(): Promise<{ data: EngagementStats }> {
+    return this.get('/admin/engagement/stats')
+  }
+
+  async getEngagementLogs(params?: {
+    limit?: number
+    offset?: number
+    status?: string
+    engagement_type?: string
+  }): Promise<{ data: EngagementLog[]; meta: { limit: number; offset: number } }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.status) queryParams.append('status', params.status)
+    if (params?.engagement_type) queryParams.append('engagement_type', params.engagement_type)
+    return this.get(`/admin/engagement/logs?${queryParams}`)
+  }
+
+  async getCuratedContent(params?: { limit?: number; offset?: number; active_only?: boolean }): Promise<{
+    data: CuratedContent[]
+    meta: { limit: number; offset: number }
+  }> {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    if (params?.active_only !== undefined) queryParams.append('active_only', params.active_only.toString())
+    return this.get(`/admin/engagement/curated?${queryParams}`)
+  }
+
+  async addCuratedContent(data: {
+    content_type: string
+    content_id: string
+    priority?: number
+    engagement_multiplier?: number
+    expires_at?: string
+  }): Promise<{ data: CuratedContent }> {
+    return this.post('/admin/engagement/curated', data)
+  }
+
+  async removeCuratedContent(id: string): Promise<void> {
+    return this.delete(`/admin/engagement/curated/${id}`)
+  }
+
+  // Engagement trigger endpoints (for immediate testing)
+  async triggerContentScan(): Promise<{ success: boolean; message: string; job_id: number }> {
+    return this.post('/admin/engagement/trigger/content-scan')
+  }
+
+  async triggerBotPost(botUserId?: string): Promise<{ success: boolean; message: string; job_id: number }> {
+    return this.post('/admin/engagement/trigger/bot-post', botUserId ? { bot_user_id: botUserId } : {})
+  }
+
+  async triggerBotProject(botUserId?: string): Promise<{ success: boolean; message: string; job_id: number }> {
+    return this.post('/admin/engagement/trigger/bot-project', botUserId ? { bot_user_id: botUserId } : {})
+  }
+
+  async triggerEngagementBackfill(params?: { hours_back?: number; limit?: number }): Promise<{
+    success: boolean
+    message: string
+    scheduled_posts: number
+    scheduled_projects: number
+    found_posts: number
+    found_projects: number
+  }> {
+    return this.post('/admin/engagement/trigger/backfill', params || {})
   }
 }
 
