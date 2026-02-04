@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,6 +16,7 @@ interface CommentsSectionProps {
   onLikeComment?: (commentId: string) => void
   onDeleteComment?: (commentId: string) => void
   onReportComment?: (commentId: string) => void
+  autoFocus?: boolean
 }
 
 type SortOption = 'newest' | 'oldest' | 'top'
@@ -26,12 +27,26 @@ export function CommentsSection({
   onLikeComment,
   onDeleteComment,
   onReportComment,
+  autoFocus = false,
 }: CommentsSectionProps) {
   const { user } = useAuth()
   const [comments, setComments] = useState<CommentType[]>(initialComments)
   const [newComment, setNewComment] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [isFocused, setIsFocused] = useState(false)
+  const commentInputRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Handle autoFocus - scroll to and focus the comment input
+  useEffect(() => {
+    if (autoFocus && commentInputRef.current) {
+      // Small delay to ensure the component is fully rendered
+      setTimeout(() => {
+        containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        commentInputRef.current?.focus()
+      }, 100)
+    }
+  }, [autoFocus])
 
   const MAX_CHARS = 500
 
@@ -162,7 +177,7 @@ export function CommentsSection({
   return (
     <div className="space-y-4 mb-4">
       {/* Main comment input */}
-      <Card className={cn(
+      <Card ref={containerRef} className={cn(
         "border-border transition-all !py-0 !gap-0",
         isFocused && "ring-2 ring-primary/20 border-primary/50"
       )}>
@@ -176,6 +191,7 @@ export function CommentsSection({
             </Avatar>
             <div className="flex-1">
               <MentionInput
+                ref={commentInputRef}
                 value={newComment}
                 onChange={setNewComment}
                 onFocus={() => setIsFocused(true)}
