@@ -206,7 +206,10 @@ export function Post({ item, showBorder = true, onDelete, onUnbookmark, onQuote,
     if (isProject) {
       return (item as ProjectPost).image ? [(item as ProjectPost).image!] : []
     }
-    return item.media || []
+    if (isStatusUpdate(item)) {
+      return item.media || []
+    }
+    return []
   }
 
   const images = getImages()

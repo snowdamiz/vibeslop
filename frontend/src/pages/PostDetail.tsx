@@ -125,7 +125,7 @@ export function PostDetail() {
         const postData = response.data as typeof mockPostData & { impressions?: number; type?: string }
 
         // Redirect bot posts to dedicated page
-        if (postData.type === 'bot_post') {
+        if ((postData as { type?: string }).type === 'bot_post') {
           navigate(`/bot-post/${id}`, { replace: true })
           return
         }
